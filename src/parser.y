@@ -976,9 +976,8 @@
 
   			|	Exp DOT ID                  
           { 
-            Type *type;
             if ($1->type->toString() == "$Error") {
-              type = predefinedTypes["$Error"];
+              $$ = new NodeDot($1, $3, predefinedTypes["$Error"]);
             } 
             
             else if ($1->type->category != "Primitive") {
@@ -986,7 +985,7 @@
                 "'\e[1;3m" + $1->type->toString() + 
                 "\e[0m' type can't be accessed."
               );
-              type = predefinedTypes["$Error"];
+              $$ = new NodeDot($1, $3, predefinedTypes["$Error"]);
             } 
             
             else {
@@ -997,7 +996,7 @@
                   "'\e[1;3m" + $1->type->toString() + 
                   "\e[0m' type can't be accessed."
                 );
-                type = predefinedTypes["$Error"];
+                $$ = new NodeDot($1, $3, predefinedTypes["$Error"]);
               } 
               
               else {
@@ -1010,16 +1009,15 @@
                     "\e[0m' has no member '\e[1;3m" + 
                     $3 + "\e[0m'."
                   );
-                  type = predefinedTypes["$Error"];
+                  $$ = new NodeDot($1, $3, predefinedTypes["$Error"]);
                 } 
 
                 else {
-                  type = field->type;
+                  $$ = new NodeDot($1, $3, field->type);
+                  $$->addr = $1->addr + "[" + to_string(field->offset) + "]";
                 }
               }
-            }
-
-            $$ = new NodeDot($1, $3, type); 
+            } 
           }
 
   			|	ID                          
@@ -1038,7 +1036,13 @@
             else {
               VarEntry *ve = (VarEntry*) e;
               $$ = new NodeID($1, ve->type); 
-              $$->addr = ve->addr;
+
+              if (table.ret_type == "") {
+                $$->addr = ve->addr;
+              }
+              else {
+                $$->addr = "base[" + to_string(ve->offset) + "]";
+              }
             }
           }
 
@@ -1430,7 +1434,7 @@
                     s, 
                     "Structure", 
                     def_s,
-                    table.offsets.back()
+                    ((NodeUnionFields*) $3)->max_width
                   );
                   table.insert(e);
                 }
@@ -1440,7 +1444,7 @@
               }
             ;
 
-  UnionId   : UNION IdDef                                   
+  UnionId   : UNION IdDef   
               { 
                 table.newScope(); 
                 $$ = $2; 
@@ -1455,7 +1459,7 @@
                 } 
 
                 else {
-                  $$ = new NodeUnionFields(NULL, $1, $2); 
+                  $$ = new NodeUnionFields(NULL, $1, $2, $1->width); 
                   int s = table.currentScope();
                   Entry *e = new VarEntry(
                     $2, 
@@ -1465,18 +1469,19 @@
                     table.offsets.back()
                   );
                   table.insert(e);
-                  table.offsets.back() += $1->width;
                 }
               }
 
-  					| UnionBody Type IdDef SEMICOLON                
+  					| UnionBody Type IdDef SEMICOLON 
               { 
                 if ($1 == NULL || $3 == "" || $2->toString() == "$Error") {
                   $$ = NULL;
                 } 
 
                 else {
-                  $$ = new NodeUnionFields($1, $2, $3); 
+                  int max_width = ((NodeUnionFields*) $1)->max_width;
+                  max_width = max_width > $2->width ? max_width : $2->width;
+                  $$ = new NodeUnionFields($1, $2, $3, max_width); 
                   int s = table.currentScope();
                   Entry *e = new VarEntry(
                     $3, 
@@ -1486,7 +1491,6 @@
                     table.offsets.back()
                   );
                   table.insert(e);
-                  table.offsets.back() += $2->width; 
                 }
               }
             ;
@@ -1515,7 +1519,7 @@
               }
             ;   
 
-  RegId     : REGISTER IdDef                            
+  RegId     : REGISTER IdDef 
               { 
                 table.newScope(); 
                 $$ = $2; 
@@ -1685,7 +1689,14 @@
               { 
                 int s = table.currentScope();
                 Type *t = predefinedTypes["Float"];
-                Entry *e = new VarEntry($1, s, "Var", t, table.offsets.back());
+                Entry *e = new VarEntry(
+                  $1, 
+                  s, 
+                  "Var", 
+                  t, 
+                  table.offsets.back(),
+                  tac->newTemp()
+                );
                 table.insert(e); 
                 table.offsets.back() += predefinedTypes["Float"]->width;
               }
@@ -1720,6 +1731,7 @@
                 }
 
                 table.ret_type = "";
+                table.offsets.pop_back();
               }
             ; 
 
@@ -1846,11 +1858,16 @@
                 }
                 
                 table.newScope();
+                table.offsets.push_back(0);
               }
             ;    
 
-  RoutArgs  : /* lambda */                                  { $$ = new NodeRoutArgs(NULL, NULL); }
-            | MandArgs                                      
+  RoutArgs  : /* lambda */ 
+              { 
+                $$ = new NodeRoutArgs(NULL, NULL); 
+              }
+
+            | MandArgs  
               { 
                 if ($1 == NULL) {
                   $$ = NULL;

@@ -848,10 +848,11 @@
 
 
 /* ======================= STRUCTURE DEF NODES ======================= */
-  NodeUnionFields::NodeUnionFields(Node *head, Type *type, string id) {
+  NodeUnionFields::NodeUnionFields(Node *head, Type *type, string id, int max_width) {
     this->head = head;
     this->type = type;
     this->id = id;
+    this->max_width = max_width;
   }
 
   NodeRegFields::NodeRegFields(Node *head, Type *type, string id, Node *rvalue) {

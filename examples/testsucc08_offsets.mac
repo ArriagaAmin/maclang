@@ -19,7 +19,7 @@ register a10 {
 let a10[a00 * 6 * 45 - a00] a11;
 
 union a15 {
-    Bool a12;
+    Bool[69] a12;
     Char a13;
     Int a14;
 }
@@ -27,4 +27,10 @@ union a15 {
 while True do 
     let Int[a00 * a11[0].a08 % 1] a16;
     let a15 a17;
+    let Int a18;
 done
+
+def a19(Int a20) { 
+    let Bool[3] a21;
+    let Float a22;
+}

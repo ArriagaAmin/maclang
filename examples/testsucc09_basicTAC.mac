@@ -1,2 +1,17 @@
 let Int i = 10 + (42 - -69) % 3;
 i * 0 ** 10 / 4;
+
+register R {
+    String[10] s;
+    Int x;
+}
+
+union U {
+    Char b;
+    Int[69] a;
+    Int c;
+}
+
+let R r;
+let U u;
+r.x = u.c + 0;

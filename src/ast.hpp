@@ -490,7 +490,8 @@ class Node {
       string id;
 
     public:
-      NodeUnionFields(Node *head, Type *type, string id);
+      int max_width;
+      NodeUnionFields(Node *head, Type *type, string id, int max_width);
   };
 
   /* Representation of  -> RegisterBody VarDefBody; */
