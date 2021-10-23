@@ -328,6 +328,7 @@
 
                   else {
                     $$ = new NodeAssign($1, $3); 
+                    tac->gen("assign", $1->addr, $3->addr);
                   }
                 }
               ;
@@ -349,23 +350,26 @@
                       } 
 
                       else {
-                        if (vardef.second != NULL) {
-                          $$ = new NodeAssignList(
-                            $$, 
-                            new NodeAssign(new NodeID(vardef.first, $2), vardef.second)
-                          );
-                        }
-
                         int s = table.currentScope();
+                        string addr = tac->newTemp();
                         Entry *e = new VarEntry(
                           vardef.first, 
                           s, 
                           "Var", 
                           $2, 
-                          table.offsets.back()
+                          table.offsets.back(),
+                          addr
                         );
                         table.insert(e);
                         table.offsets.back() += $2->width;
+
+                        if (vardef.second != NULL) {
+                          $$ = new NodeAssignList(
+                            $$, 
+                            new NodeAssign(new NodeID(vardef.first, $2), vardef.second)
+                          );
+                          tac->gen("assign", addr, vardef.second->addr);
+                        }
                       }
                     }
                   }
@@ -1034,6 +1038,7 @@
             else {
               VarEntry *ve = (VarEntry*) e;
               $$ = new NodeID($1, ve->type); 
+              $$->addr = ve->addr;
             }
           }
 
@@ -1079,6 +1084,9 @@
               else {
                 $$ = new NodeAssign($2, $4); 
                 $$->type = $4->type;
+                $$->addr = tac->newTemp();
+                tac->gen("assign", $2->addr, $4->addr);
+                tac->gen("assign", $$->addr, $4->addr);
               }
             }
 
@@ -1673,7 +1681,7 @@
               }
             ;
 
-  IdFor     : IdDef                                     
+  IdFor     : IdDef  
               { 
                 int s = table.currentScope();
                 Type *t = predefinedTypes["Float"];

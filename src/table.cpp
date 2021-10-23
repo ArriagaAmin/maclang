@@ -203,12 +203,20 @@ void PrimitiveEntry::print(void) {
   cout << "\e[1;31m)\e[0m";
 }
 
-VarEntry::VarEntry(string id, int scope, string category, Type *type, int offset) {
+VarEntry::VarEntry(
+    string id, 
+    int scope, 
+    string category, 
+    Type *type, 
+    int offset, 
+    string addr
+  ) {
   this->id = id;
   this->type = type;
   this->scope = scope;
   this->category = category;
   this->offset = offset;
+  this->addr = addr;
 }
 
 /*

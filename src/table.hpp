@@ -90,8 +90,17 @@ class VarEntry : public Entry {
   public:
     // Variable type
     Type *type;
+    // Nombre temporal para el TAC
+    string addr;
   
-    VarEntry(string id, int scope, string category, Type *type, int offset);
+    VarEntry(
+      string id, 
+      int scope, 
+      string category, 
+      Type *type, 
+      int offset, 
+      string addr=""
+    );
 
     // Prints the variable information
     void print(void);
