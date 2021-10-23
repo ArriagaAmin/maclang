@@ -1,31 +1,31 @@
 #include <vector>
 #include <tuple>
 #include <string>
-#include "ast.hpp"
+#include <iostream>
 
 using namespace std;
+
+class Quad
+{
+public:
+    Quad(string instr, string result="", string arg1="", string arg2="");
+    void print();
+
+    string instr;
+    string result;
+    string arg1;
+    string arg2;
+};
 
 class TAC
 {
 private:
     vector<Quad> instructions;
-    vector<string> temporals;
-    int currentTemporalNumber = 1;
+    unsigned long long currentTemporalNumber = 0;
 public:
     TAC() { }
     string newTemp();
-    void gen(string currentOp, string currentArg1 = "", string currentArg2 = "");
+    string gen(string instr, string result="", string arg1="", string arg2="");
     void print();
 };
 
-class Quad
-{
-public:
-    Quad(string op, string arg1, string arg2, string result);
-    void print();
-
-    string op;
-    string arg1;
-    string arg2;
-    string result;
-};

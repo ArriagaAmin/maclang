@@ -75,6 +75,7 @@ class SymbolsTable {
     void printScopeStack(void);
 };
 
+
 class PrimitiveEntry : public Entry {
   public:
     PrimitiveEntry(string id);
@@ -83,6 +84,7 @@ class PrimitiveEntry : public Entry {
 
     void print(void);
 };
+
 
 class VarEntry : public Entry {
   public:
@@ -95,6 +97,7 @@ class VarEntry : public Entry {
     void print(void);
 };
 
+
 class StructureEntry : public Entry {
   public:
     // scope where the entry was defined.
@@ -106,6 +109,7 @@ class StructureEntry : public Entry {
     // Prints the structure information
     void print(void);
 };
+
 
 class FunctionEntry : public Entry {
   public:
@@ -122,6 +126,7 @@ class FunctionEntry : public Entry {
     // Prints the function information
     void print(void);
 };
+
 
 class FunctionDeclarationEntry : public FunctionEntry {
   public:

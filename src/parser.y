@@ -6,6 +6,7 @@
   #include <set>
 
   #include "table.hpp"
+  #include "tac.hpp"
 
   using namespace std;
 
@@ -28,6 +29,9 @@
 
   // Leblanc-Cook's Symbols Table
   SymbolsTable table;
+
+  // TAC 
+  TAC *tac = new TAC;
 
   // Prints error;
   void yyerror(string s);
@@ -281,7 +285,7 @@
 /* ======================= VARIABLES DEFINITION ====================== */
   VarInst     : VarDef              { $$ = $1; }
 
-              | FORGET Exp                  
+              | FORGET Exp 
                 { 
                   if ($2->type->toString() == "$Error") {
                     $$ = new NodeError();
@@ -300,7 +304,7 @@
                   }
                 }
 
-              | Exp ASSIGNMENT Exp        
+              | Exp ASSIGNMENT Exp 
                 { 
                   string ltype = $1->type->toString();
                   string rtype = $3->type->toString();
@@ -327,7 +331,7 @@
                   }
                 }
               ;
-  VarDef      : LET Type VarDefList         
+  VarDef      : LET Type VarDefList
                 { 
                   string type = $2->toString();
                   $$ = NULL;
@@ -367,7 +371,7 @@
                   }
                 } 
               ;
-  VarDefList  : IdDef OptAssign             
+  VarDefList  : IdDef OptAssign 
                 {
                   $$ = new vector<pair<string, ExpressionNode*>>;
                   if ($1 != "" && ($2 == NULL || $2->type->toString() != "$Error")) {
@@ -383,7 +387,7 @@
                   } 
                 }
               ;   
-  IdDef       : ID                          
+  IdDef       : ID 
                 {
                   if (! table.verifyInsert($1)) {
                     addError((string) "Redefinition of '\e[1;3m" + $1 + "\e[0m'.");
@@ -475,6 +479,7 @@
               "==", 
               predefinedTypes["Bool"]
             );
+
             $$ = new NodeBinaryOperator($1, $2, $3, type); 
           }
 
@@ -653,10 +658,11 @@
               ">=", 
               predefinedTypes["Bool"]
             );
+
             $$ = new NodeBinaryOperator($1, $2, $3, type); 
           }
 
-        | Exp PLUS Exp                
+        | Exp PLUS Exp 
           { 
             set<string> types = {"Int", "Float"};
             set<pair<string, string>> tuples = {
@@ -686,10 +692,14 @@
               "+", 
               return_type
             );
+
             $$ = new NodeBinaryOperator($1, $2, $3, type); 
+            $$->addr = tac->newTemp();
+            tac->gen("add", $$->addr, $1->addr, $3->addr);
+
           }
 
-        | Exp MINUS Exp               
+        | Exp MINUS Exp 
           { 
             set<string> types = {"Int", "Float"};
             set<pair<string, string>> tuples = {
@@ -720,10 +730,13 @@
               "-", 
               return_type
             );
+
             $$ = new NodeBinaryOperator($1, $2, $3, type); 
+            $$->addr = tac->newTemp();
+            tac->gen("sub", $$->addr, $1->addr, $3->addr);
           }
 
-        | Exp ASTERISK Exp            
+        | Exp ASTERISK Exp 
           { 
             set<string> types = {"Int", "Float"};
             set<pair<string, string>> tuples = {
@@ -751,10 +764,13 @@
               "*", 
               return_type
             );
+
             $$ = new NodeBinaryOperator($1, $2, $3, type); 
+            $$->addr = tac->newTemp();
+            tac->gen("mul", $$->addr, $1->addr, $3->addr);
           }
 
-        | Exp DIV Exp                 
+        | Exp DIV Exp 
           { 
             set<string> types = {"Int", "Float"};
             set<pair<string, string>> tuples = {
@@ -776,7 +792,10 @@
               "/", 
               predefinedTypes["Float"]
             );
-            $$ = new NodeBinaryOperator($1, $2, $3, type); 
+            $$ = new NodeBinaryOperator($1, $2, $3, type);
+
+            $$->addr = tac->newTemp();
+            tac->gen("div", $$->addr, $1->addr, $3->addr);
           }
 
         | Exp MODULE Exp              
@@ -808,10 +827,13 @@
               "%", 
               return_type
             );
+
             $$ = new NodeBinaryOperator($1, $2, $3, type); 
+            $$->addr = tac->newTemp();
+            tac->gen("rem", $$->addr, $1->addr, $3->addr);
           }
 
-        | MINUS Exp                   
+        | MINUS Exp  
           { 
             Type *return_type;
             if ($2->type->toString() == "Int") {
@@ -821,10 +843,14 @@
             }
 
             Type *type = verifyUnaryOpType({"Int", "Float"}, $2->type, "-", return_type);
+
             $$ = new NodeUnaryOperator($1, $2, type); 
+
+            $$->addr = tac->newTemp();
+            tac->gen("sub", $$->addr, "zero", $2->addr);
           }
 
-        | PLUS Exp                    
+        | PLUS Exp 
           { 
             Type *return_type;
             if ($2->type->toString() == "Int") {
@@ -837,13 +863,11 @@
             $$ = new NodeUnaryOperator($1, $2, type); 
           }
 
-        | Exp POWER Exp               
+        | Exp POWER Exp 
           { 
             set<string> types = {"Int", "Float"};
             set<pair<string, string>> tuples = {
               {"Int", "Int"},
-              {"Float", "Float"},
-              {"Int", "Float"},
               {"Float", "Int"}
             };
 
@@ -852,7 +876,7 @@
 
             Type *return_type;
 
-            if ((t1->toString() == "Float") || (t2->toString() == "Float")) {
+            if ((t1->toString() == "Float")) {
               return_type = predefinedTypes["Float"];
             } 
             else {
@@ -868,7 +892,30 @@
               "**", 
               return_type
             );
+
             $$ = new NodeBinaryOperator($1, $2, $3, type); 
+            $$->addr = tac->newTemp();
+
+            // Generamos el codigo para la exponencial.
+            // Inicializamos el resultado en 1
+            tac->gen("assign", $$->addr, "1");
+
+            // Creamos una etiqueta para el loop
+            string loop_name = "loop_" + tac->newTemp();
+            tac->gen(loop_name + ":");
+
+            // Verificamos si el exponente es menor o igual a 0, en ese caso salimos del
+            // bucle
+            tac->gen("leq", "test", $3->addr, "zero");
+            tac->gen("gotoif", loop_name + "_end", "test");
+
+            // Siguiente iteracion
+            tac->gen("mul", $$->addr, $$->addr, $1->addr);
+            tac->gen("sub", $3->addr, $3->addr, "1");
+            tac->gen("goto", loop_name);
+
+            // Final del ciclo
+            tac->gen(loop_name + "_end:");
           }
 
         | Exp OPEN_BRACKET Exp CLOSE_BRACKET              
@@ -1040,9 +1087,22 @@
         | Array                       { $$ = $1; }
         | TRUE                        { $$ = new NodeBOOL(true); }
         | FALSE                       { $$ = new NodeBOOL(false); }
-        | CHAR                        { $$ = new NodeCHAR($1); }
-        | INT                         { $$ = new NodeINT($1); }
-        | FLOAT                       { $$ = new NodeFLOAT($1); }
+        | CHAR
+          { 
+            $$ = new NodeCHAR($1); 
+          }
+        | INT
+          { 
+            $$ = new NodeINT($1); 
+            $$->addr = tac->newTemp();
+            tac->gen("assign", $$->addr, to_string($1));
+          }
+        | FLOAT 
+          { 
+            $$ = new NodeFLOAT($1); 
+            $$->addr = tac->newTemp();
+            tac->gen("assign", $$->addr, to_string($1));
+          }
         | STRING                      { $$ = new NodeSTRING($1); }
         ;
 
@@ -2069,6 +2129,7 @@ int main(int argc, char **argv)
   bool bSymbolsOpt = false;
   bool bTreeOpt = false;
   bool bRepOpt = false;
+  bool bTACOpt = false;
 
   // Verify all arguments has been passed
   if (argc < 3 || argc > 4) {
@@ -2076,16 +2137,21 @@ int main(int argc, char **argv)
       "\t\e[1mmaclang\e[0m lex \e[4mFILE\e[0m\n"
       "\t\e[1mmaclang\e[0m parse -t \e[4mFILE\e[0m\n"
       "\t\e[1mmaclang\e[0m parse -c \e[4mFILE\e[0m\n"
-      "\t\e[1mmaclang\e[0m symbols \e[4mFILE\e[0m\n";
+      "\t\e[1mmaclang\e[0m symbols \e[4mFILE\e[0m\n"
+      "\t\e[1mmaclang\e[0m tac \e[4mFILE\e[0m\n";
     return 1;
   } 
   
   // Check if provided method is valid
-  if (strcmp(argv[1], "lex") && strcmp(argv[1], "parse") && strcmp(argv[1], "symbols")) {
+  if (
+    strcmp(argv[1], "lex") && strcmp(argv[1], "parse") && strcmp(argv[1], "symbols") &&
+    strcmp(argv[1], "tac")
+    ) {
     cout << "Invalid action: " << argv[1] << endl;
     return 1;
-
-  } else if (strcmp(argv[1], "parse") == 0) {
+  } 
+  
+  else if (strcmp(argv[1], "parse") == 0) {
     // Parsing.
 
     bParseOpt = true;
@@ -2105,10 +2171,16 @@ int main(int argc, char **argv)
     bLexOpt = true;
     filename = argv[2];
 
-  } else {
+  } else if (strcmp(argv[1], "symbols") == 0) {
     // Sumbols table 
 
     bSymbolsOpt = true;
+    filename = argv[2];
+
+  } else if (strcmp(argv[1], "tac") == 0) {
+    // TAC
+
+    bTACOpt = true;
     filename = argv[2];
   }
   
@@ -2184,9 +2256,14 @@ int main(int argc, char **argv)
       } else {
         ast->print();
       }
-    } else {
+
+    } else if (bSymbolsOpt) {
       table.printTable();
+
+    } else if (bTACOpt) {
+      tac->print();
     }
+
   } else {
     // print all errors
     printQueue(errors);

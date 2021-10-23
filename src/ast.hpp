@@ -12,6 +12,9 @@ using namespace std;
 */
 class Node {
   public:
+    string addr;
+    string code;
+
     Node(void) {};
     // Print a node representation.
     virtual void print(void) {};

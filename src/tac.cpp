@@ -3,19 +3,15 @@
 string TAC::newTemp()
 {
     string temp = "T" + to_string(currentTemporalNumber);
-    temporals.push_back(temp);
     currentTemporalNumber++;
     return temp;
 }
 
-void TAC::gen(
-    string currentOp,
-    string currentArg1, 
-    string currentArg2 )
+string TAC::gen(string instr, string result, string arg1, string arg2)
 {
-    string temp = newTemp();
-    Quad newInstruction(currentOp, currentArg1, currentArg2, temp);
+    Quad newInstruction(instr, result, arg1, arg2);
     instructions.push_back(newInstruction);
+    return instr + " " + result + " " + arg1 + " " + arg2;
 }
 
 void TAC::print()
@@ -26,15 +22,15 @@ void TAC::print()
     }
 }
 
-Quad::Quad(string op, string arg1, string arg2, string result)
+Quad::Quad(string instr, string result, string arg1, string arg2)
 {
-    this->op = op;
+    this->instr = instr;
+    this->result = result;
     this->arg1 = arg1;
     this->arg2 = arg2;
-    this->result = result;
 }
 
 void Quad::print()
 {
-    cout << result << " := " << arg1 << " " << op << " " << arg2 << endl;
+    cout << instr << " " << result << " " << arg1 << " " << arg2 << endl;
 }
