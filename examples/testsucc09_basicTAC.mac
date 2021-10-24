@@ -1,1 +1,17 @@
-let Bool b = 0 < 100 || (10 > 200 && (10 != 0));
+let Bool b;
+
+if True then 
+    0;
+elsif False then 
+    1;
+elsif b then 
+    2;
+elsif b || False then 
+    3;
+else
+    4;
+done
+
+while b do 
+    0;
+done

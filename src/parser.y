@@ -135,7 +135,7 @@
 %define parse.lac full
 
 %union 
-{	
+{  
   int    integer;
   float  flot;
   bool   boolean;
@@ -234,7 +234,7 @@
 
 %type <ast>           I Inst Action VarInst VarDef UnionDef UnionBody 
 %type <ast>           RegBody Conditional OptElsif Elsifs OptElse Def RegDef
-%type <ast>           LoopWhile LoopFor RoutDef Actions RoutSign RoutDec
+%type <ast>           LoopWhile LoopFor RoutDef Actions RoutSign RoutDec N
 %type <expr>          Exp FuncCall Array ArrExp ArrElems
 %type <expr>          OptAssign Cond OptStep
 %type <routArgs>      RoutArgs
@@ -257,7 +257,7 @@
             { 
               $$ = new NodeS($1); 
               ast = $$; 
-              // tac->backpatch($1->nextlist, tac->instructions.size());
+              tac->backpatch($1->nextlist, tac->instructions.size());
             }
           ;
   M       : /* lambda */        { $$ = tac->instructions.size(); }
@@ -278,17 +278,17 @@
             }
           ;
   Inst    : Action              { $$ = $1; }
-  				| Def                 { $$ = $1; }
+          | Def                 { $$ = $1; }
           ;
   Action  : Exp SEMICOLON       { $$ = $1; }
           | VarInst SEMICOLON   { $$ = $1; }
-  				| Conditional         { $$ = $1; }
-  				| LoopWhile           { $$ = $1; }
-  				| LoopFor             { $$ = $1; }
+          | Conditional         { $$ = $1; }
+          | LoopWhile           { $$ = $1; }
+          | LoopFor             { $$ = $1; }
           ;
   Def     : UnionDef            { $$ = $1; }
-  				| RegDef              { $$ = $1; }
-  				| RoutDef             { $$ = $1; }
+          | RegDef              { $$ = $1; }
+          | RoutDef             { $$ = $1; }
           | RoutDec SEMICOLON   { $$ = $1; }
           ;
 
@@ -339,7 +339,16 @@
 
                   else {
                     $$ = new NodeAssign($1, $3); 
-                    tac->gen("assign " + $1->addr + " " + $3->addr);
+
+                    if (rtype != "Bool") {
+                      tac->gen("assign " + $1->addr + " " + $3->addr);
+                    }
+                    else {
+                      tac->backpatch($3->truelist, tac->instructions.size());
+                      tac->backpatch($3->falselist, tac->instructions.size() + 1);
+                      tac->gen("assign " + $1->addr + " 1");
+                      tac->gen("assign " + $1->addr + " 0");
+                    }
                   }
                 }
               ;
@@ -380,7 +389,15 @@
                             new NodeAssign(new NodeID(vardef.first, $2), vardef.second)
                           );
 
-                          tac->gen("assign " + addr + " " + vardef.second->addr);
+                          if (rtype != "Bool") {
+                            tac->gen("assign " + addr + " " + vardef.second->addr);
+                          }
+                          else {
+                            tac->backpatch(vardef.second->truelist, tac->instructions.size());
+                            tac->backpatch(vardef.second->falselist, tac->instructions.size() + 1);
+                            tac->gen("assign " + addr + " 1");
+                            tac->gen("assign " + addr + " 0");
+                          }
                         }
                       }
 
@@ -420,12 +437,12 @@
                   }
                 }
   OptAssign   : /* lambda */                { $$ = NULL; }
-  						| ASSIGNMENT Exp              { $$ = $2; }
+              | ASSIGNMENT Exp              { $$ = $2; }
               ;
 
 
 /* ======================= TYPES ===================================== */
-  Type	: Type OPEN_BRACKET Exp CLOSE_BRACKET 
+  Type  : Type OPEN_BRACKET Exp CLOSE_BRACKET 
           { 
             if ($1->toString() != "$Error" && $3->type->toString() == "Int") {
               $$ = new ArrayType($1, $3);
@@ -434,7 +451,7 @@
             }
           }
 
-  			| POINTER Type 	                      
+        | POINTER Type                         
           { 
             if ($2->toString() != "$Error") {
               $$ = new PointerType($2); 
@@ -464,7 +481,7 @@
 
         | OPEN_PAR Type CLOSE_PAR             { $$ = $2; }
         | T_UNIT                              { $$ = predefinedTypes["Unit"]; }
-  			| T_BOOL                              { $$ = predefinedTypes["Bool"]; }
+        | T_BOOL                              { $$ = predefinedTypes["Bool"]; }
         | T_CHAR                              { $$ = predefinedTypes["Char"]; }
         | T_INT                               { $$ = predefinedTypes["Int"]; }
         | T_FLOAT                             { $$ = predefinedTypes["Float"]; }
@@ -562,12 +579,7 @@
             $$ = new NodeBinaryOperator($1, $2, $4, type); 
 
             tac->backpatch($1->falselist, $3);
-            $1->truelist.insert( 
-              $1->truelist.end(), 
-              $4->truelist.begin(), 
-              $4->truelist.end() 
-            );
-            $$->truelist = $1->truelist;
+            $$->truelist = merge<unsigned long long>($1->truelist, $4->truelist);
             $$->falselist = $4->falselist;
           }
 
@@ -591,12 +603,7 @@
             $$ = new NodeBinaryOperator($1, $2, $4, type); 
 
             tac->backpatch($1->truelist, $3);
-            $1->falselist.insert( 
-              $1->falselist.end(), 
-              $4->falselist.begin(), 
-              $4->falselist.end() 
-            );
-            $$->falselist = $1->falselist;
+            $$->falselist = merge<unsigned long long>($1->falselist, $4->falselist);
             $$->truelist = $4->truelist;
           }
 
@@ -993,7 +1000,7 @@
             tac->gen(loop_name + "_end:");
           }
 
-        | Exp OPEN_BRACKET Exp CLOSE_BRACKET              
+        | Exp OPEN_BRACKET Exp CLOSE_BRACKET 
           { 
             string ltype = $1->type->toString();
             string itype = $3->type->toString();
@@ -1025,7 +1032,7 @@
             }
           }
 
-  			|	POINTER Exp                 
+        |  POINTER Exp                 
           { 
             if ($2->type->toString() == "$Error") {
               $$ = new NodePointer($2, predefinedTypes["$Error"]);
@@ -1045,7 +1052,7 @@
             }
           }
 
-  			|	Exp DOT ID                  
+        |  Exp DOT ID                  
           { 
             if ($1->type->toString() == "$Error") {
               $$ = new NodeDot($1, $3, predefinedTypes["$Error"]);
@@ -1091,7 +1098,7 @@
             } 
           }
 
-  			|	ID                          
+        | ID 
           { 
             Entry *e;
             if ((e = table.lookup($1)) == NULL) {
@@ -1114,10 +1121,17 @@
               else {
                 $$->addr = "base[" + to_string(ve->offset) + "]";
               }
+
+              if (ve->type->toString() == "Bool") {
+                $$->truelist = {tac->instructions.size()};
+                tac->gen("goif " + $$->addr + " _");
+                $$->falselist = {tac->instructions.size()};
+                tac->gen("goto _");
+              }
             }
           }
 
-        | NEW Type                    
+        | NEW Type  
           { 
             if ($2->toString() != "$Error") {
               $$ = new NodeNew($2); 
@@ -1159,9 +1173,23 @@
               else {
                 $$ = new NodeAssign($2, $4); 
                 $$->type = $4->type;
-                $$->addr = tac->newTemp();
-                tac->gen("assign " + $2->addr + " " + $4->addr);
-                tac->gen("assign " + $$->addr + " " + $4->addr);
+
+                if (rtype != "Bool") {
+                  $$->addr = tac->newTemp();
+                  tac->gen("assign " + $2->addr + " " + $4->addr);
+                  tac->gen("assign " + $$->addr + " " + $4->addr);
+                }
+                else {
+                  tac->backpatch($4->truelist, tac->instructions.size());
+                  tac->gen("assign " + $2->addr + " 1");
+                  $$->truelist = {tac->instructions.size()};
+                  tac->gen("goto _");
+
+                  tac->backpatch($4->falselist, tac->instructions.size());
+                  tac->gen("assign " + $2->addr + " 0");
+                  $$->falselist = {tac->instructions.size()};
+                  tac->gen("goto _");
+                }
               }
             }
 
@@ -1249,8 +1277,8 @@
               }
             ;
 
-  ArrElems	: /* lambda */                        { $$ = NULL; }
-  					| ArrElems Exp COMMA                  
+  ArrElems  : /* lambda */                        { $$ = NULL; }
+            | ArrElems Exp COMMA                  
               { 
                 Type *type;
                 string type1 = $1 == NULL ? "" : $1->type->toString();
@@ -1533,7 +1561,7 @@
               }
             ;  
 
-  UnionBody	: Type IdDef SEMICOLON                          
+  UnionBody  : Type IdDef SEMICOLON                          
               { 
                 if ($2 == "" || $1->toString() == "$Error") {
                   $$ = NULL;
@@ -1553,7 +1581,7 @@
                 }
               }
 
-  					| UnionBody Type IdDef SEMICOLON 
+            | UnionBody Type IdDef SEMICOLON 
               { 
                 if ($1 == NULL || $3 == "" || $2->toString() == "$Error") {
                   $$ = NULL;
@@ -1608,7 +1636,7 @@
               }
             ; 
 
-  RegBody	  : Type IdDef OptAssign SEMICOLON            
+  RegBody    : Type IdDef OptAssign SEMICOLON            
               { 
                 bool cond = $2 == "" || $1->toString() == "$Error" ||
                   ($3 != NULL && $3->type->toString() == "$Error");
@@ -1640,7 +1668,7 @@
                 }
               }
 
-  				  |	RegBody Type IdDef OptAssign SEMICOLON    
+            |  RegBody Type IdDef OptAssign SEMICOLON    
               { 
                 if ($3 == "" || $2->toString() == "$Error") {
                   $$ = NULL;
@@ -1676,12 +1704,42 @@
 
 
 /* ======================= CONDITIONALS ============================== */
-  Conditional : If Cond THEN I OptElsif OptElse DONE  
+  Conditional : If Cond THEN M I N M OptElsif M OptElse DONE  
                 { 
-                  $$ = new NodeConditional($2, $4, $5, $6);
+                  $$ = new NodeConditional($2, $5, $8, $10);
                   table.exitScope(); 
+
+                  tac->backpatch($2->truelist, $4);
+                  tac->backpatch($2->falselist, $7);
+
+                  vector<unsigned long long> t;
+                  t = merge<unsigned long long>($5->nextlist, $6->nextlist);
+
+                  if ($8 != NULL && $10 != NULL) {
+                    t = merge<unsigned long long>(t, $8->truelist);
+                    t = merge<unsigned long long>(t, $10->nextlist);
+                    tac->backpatch($8->falselist, $9);
+                  }
+                  
+                  else if ($8 != NULL) {
+                    t = merge<unsigned long long>(t, $8->truelist);
+                    t = merge<unsigned long long>(t, $8->falselist);
+                  }
+
+                  else if ($10 != NULL) {
+                    t = merge<unsigned long long>(t, $10->nextlist);
+                  }
+
+                  $$->nextlist = t;
                 }
               ;
+
+  N           : /* lambda */
+                {
+                  $$ = new Node(); 
+                  $$->nextlist = {tac->instructions.size()};
+                  tac->gen("goto _");
+                }
 
   Cond        : Exp                                   
                 {
@@ -1698,19 +1756,39 @@
   If          : IF                              { table.newScope(); }
               ;
   OptElsif    : /* lambda */                    { $$ = NULL; }
-  						| Elsifs                          { $$ = $1; }
+              | Elsifs                          { $$ = $1; }
               ;
-  Elsifs      : Elsif Cond THEN I               { $$ = new NodeElsif(NULL, $2, $4); }
-  						| Elsifs Elsif Cond THEN I        { $$ = new NodeElsif($1, $3, $5); }
+  Elsifs      : Elsif Cond THEN M I N
+                { 
+                  $$ = new NodeElsif(NULL, $2, $5); 
+                  tac->backpatch($2->truelist, $4);
+                  $$->truelist = merge<unsigned long long>($5->nextlist, $6->nextlist);
+                  $$->falselist = $2->falselist;
+                }
+
+              | Elsifs M Elsif Cond THEN M I N
+                { 
+                  $$ = new NodeElsif($1, $4, $7); 
+                  tac->backpatch($1->falselist, $2);
+                  tac->backpatch($4->truelist, $6);
+                  $$->truelist = merge<unsigned long long>($1->truelist, $7->nextlist);
+                  $$->truelist = merge<unsigned long long>($$->truelist, $8->nextlist);
+                  $$->falselist = $4->falselist;
+                }
               ;
-  Elsif       : ELSIF                                 
+
+  Elsif       : ELSIF 
                 { 
                   table.exitScope();
                   table.newScope(); 
                 }
               ;
   OptElse     : /* lambda */                    { $$ = NULL; }
-  						| Else I                          { $$ = new NodeElse($2); }
+              | Else I
+                { 
+                  $$ = new NodeElse($2); 
+                  $$->nextlist = $2->nextlist;
+                }
               ;
   Else        : ELSE                             
                 { 
@@ -1721,10 +1799,15 @@
 
 
 /* ======================= LOOPS ===================================== */
-  LoopWhile : While Cond DO I DONE                      
+  LoopWhile : While M Cond M DO I DONE                      
               { 
-                $$ = new NodeWhile($2, $4); 
+                $$ = new NodeWhile($3, $6); 
                 table.exitScope();
+
+                tac->backpatch($6->nextlist, $2);
+                tac->backpatch($3->truelist, $4);
+                $$->nextlist = $3->falselist;
+                tac->gen("goto " + to_string($2));
               }
             ; 
 
@@ -1787,7 +1870,7 @@
             ;
 
   OptStep   : /* lambda */                              { $$ = NULL; }
-  				  | SEMICOLON Exp                             { $$ = $2; }
+            | SEMICOLON Exp                             { $$ = $2; }
             ;
 
 
@@ -2125,13 +2208,13 @@
 
             ;
   OptRef    : /* lambda */                { $$ = false; }
-  					| AT                          { $$ = true; }
+            | AT                          { $$ = true; }
             ; 
   OptReturn : /* lambda */                { $$ = predefinedTypes["Unit"]; }
-  				  | RIGHT_ARROW Type            { $$ = $2; }
+            | RIGHT_ARROW Type            { $$ = $2; }
             ; 
   Actions   : /* lambda */                { $$ = NULL; }
-  				  | Actions Action                                
+            | Actions Action                                
               { 
                 if ($1 == NULL && $2 == NULL) {
                   $$ = NULL;

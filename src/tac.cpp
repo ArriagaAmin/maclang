@@ -14,12 +14,7 @@ string TAC::newLabel()
     return temp;
 }
 
-void TAC::gen(string instr) 
-{
-    this->instructions.push_back(instr);
-}
-
-string TAC::replace(string text, string to_find, string to_replace) 
+string TAC::replaceAll(string text, string to_find, string to_replace) 
 {
     std::string::size_type n = 0;
     while ( (n = text.find(to_find, n)) != std::string::npos ) {
@@ -29,10 +24,15 @@ string TAC::replace(string text, string to_find, string to_replace)
     return text;
 }
 
+void TAC::gen(string instr) 
+{
+    this->instructions.push_back(instr);
+}
+
 void TAC::backpatch(vector<unsigned long long> ps, unsigned long long l) {
     string instr = to_string(l);
     for (unsigned long long i : ps) {
-        this->instructions[i] = this->replace(this->instructions[i], "_", instr);
+        this->instructions[i] = replaceAll(this->instructions[i], "_", instr);
     }
 }
 
