@@ -1,4 +1,5 @@
 let Bool b;
+let Bool x = b;
 
 if True then 
     0;

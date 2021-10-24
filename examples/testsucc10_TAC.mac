@@ -1,0 +1,6 @@
+let Bool T0, T1, T2;
+
+def F(Int a, Bool b, Int c) => Bool {
+}
+
+let Bool A = ! T0 && (F(b = False || T0 , a=1, c=2) || T1 && T2);

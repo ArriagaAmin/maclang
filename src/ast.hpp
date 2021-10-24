@@ -431,8 +431,8 @@ class Node {
       Node* named;
 
     public:
-      vector<string> positionalArgs;
-      map<string, string> namedArgs;
+      vector<ExpressionNode*> positionalArgs;
+      map<string, ExpressionNode*> namedArgs;
       set<string> keywords;
 
       NodeFunctionCallArgs(Node* positional, Node* named);
@@ -451,7 +451,7 @@ class Node {
       Node *rvalue;
 
     public:
-      vector<string> currentArgs;
+      vector<ExpressionNode*> currentArgs;
 
       NodeFunctionCallPositionalArgs(Node *head, Node *rvalue);
 
@@ -470,7 +470,7 @@ class Node {
       Node *rvalue;
 
     public:
-      map<string, string> currentArgs;
+      map<string, ExpressionNode*> currentArgs;
       set<string> keywords;
 
       NodeFunctionCallNamedArgs(Node *head, string id, Node *rvalue);

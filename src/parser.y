@@ -345,8 +345,9 @@
                     }
                     else {
                       tac->backpatch($3->truelist, tac->instructions.size());
-                      tac->backpatch($3->falselist, tac->instructions.size() + 1);
                       tac->gen("assign " + $1->addr + " 1");
+                      tac->gen("goto " + to_string(tac->instructions.size() + 2));
+                      tac->backpatch($3->falselist, tac->instructions.size());
                       tac->gen("assign " + $1->addr + " 0");
                     }
                   }
@@ -394,8 +395,10 @@
                           }
                           else {
                             tac->backpatch(vardef.second->truelist, tac->instructions.size());
-                            tac->backpatch(vardef.second->falselist, tac->instructions.size() + 1);
                             tac->gen("assign " + addr + " 1");
+                            tac->gen("goto " + to_string(tac->instructions.size() + 2));
+
+                            tac->backpatch(vardef.second->falselist, tac->instructions.size());
                             tac->gen("assign " + addr + " 0");
                           }
                         }
@@ -1093,6 +1096,13 @@
                 else {
                   $$ = new NodeDot($1, $3, field->type);
                   $$->addr = $1->addr + "[" + to_string(field->offset) + "]";
+
+                  if (field->type->toString() == "Bool") {
+                    $$->truelist = {tac->instructions.size()};
+                    tac->gen("goif " + $$->addr + " _");
+                    $$->falselist = {tac->instructions.size()};
+                    tac->gen("goto _");
+                  }
                 }
               }
             } 
@@ -1340,16 +1350,19 @@
                         else {
                           FunctionEntry *fe = (FunctionEntry*) e;
                           bool correctTypes = true, allMand = true;
+                          string type_str;
 
                           int numPositional = $3->positionalArgs.size(), i = 0;
 
                           for (tuple<string, string, bool, bool> arg : fe->args) {
                             if (i < numPositional) {
-                              if (get<1>(arg) != $3->positionalArgs[i]) {
+                              type_str = $3->positionalArgs[i]->type->toString();
+
+                              if (get<1>(arg) != type_str) {
                                 addError(
                                   (string) "Argument '\e[1;3m" + get<0>(arg) + 
                                   "\e[0m' " + "must be '\e[1;3m" + get<1>(arg) + 
-                                  "\e[0m' but '\e[1;3m" +$3->positionalArgs[i] + 
+                                  "\e[0m' but '\e[1;3m" + type_str + 
                                   "\e[0m' found."
                                 );
                                 correctTypes = false;
@@ -1362,19 +1375,29 @@
                                 );
                                 correctTypes = false;
                               }
+
+                              if (correctTypes) {
+                                tac->gen("param " + $3->positionalArgs[i]->addr);
+                              }
                             } 
                             
                             else if ($3->keywords.count(get<0>(arg))) {
-                              if (get<1>(arg) != $3->namedArgs[get<0>(arg)]) {
+                              type_str = $3->namedArgs[get<0>(arg)]->type->toString();
+
+                              if (get<1>(arg) != type_str) {
                                 addError(
                                   (string) "Argument '\e[1;3m" + get<0>(arg) + 
                                   "\e[0m' " + "must be '\e[1;3m" + get<1>(arg) + 
-                                  "\e[0m' but '\e[1;3m" + $3->namedArgs[get<0>(arg)] + 
+                                  "\e[0m' but '\e[1;3m" + type_str + 
                                   "\e[0m' found."
                                 );
                                 correctTypes = false;
                               }
                               $3->keywords.erase(get<0>(arg));
+
+                              if (correctTypes) {
+                                tac->gen("param " + $3->namedArgs[get<0>(arg)]->addr);
+                              }
                             } 
                             
                             else if (get<3>(arg) && allMand) {
@@ -1405,9 +1428,21 @@
                         if (type == NULL) {
                           FunctionEntry *fe = (FunctionEntry*) e;
                           type = fe->return_type;
+                          $$ = new NodeFunctionCall($1, $3, false, type); 
+                          $$->addr = tac->newTemp();
+                          tac->gen("call " + $$->addr + " " + to_string(fe->args.size()));
+
+                          if (type->toString() == "Bool") {
+                            $$->truelist = {tac->instructions.size()};
+                            tac->gen("goif " + $$->addr + " _");
+                            $$->falselist = {tac->instructions.size()};
+                            tac->gen("goto _");
+                          }
+                        } 
+                        else {
+                          $$ = new NodeFunctionCall($1, $3, false, type); 
                         }
 
-                        $$ = new NodeFunctionCall($1, $3, false, type); 
                       }
                     }
                   ;
@@ -1462,7 +1497,7 @@
                     }
                   ;
 
-  PositionalArgs  : Exp                                         
+  PositionalArgs  : Exp 
                     { 
                       if ($1->type->toString() == "$Error") {
                         $$ = NULL;
@@ -1470,11 +1505,22 @@
 
                       else {
                         $$ = new NodeFunctionCallPositionalArgs(NULL, $1);
-                        $$->currentArgs.push_back($1->type->toString());  
+
+                        if ($1->type->toString() == "Bool") {
+                          $1->addr = tac->newTemp();
+
+                          tac->backpatch($1->truelist, tac->instructions.size());
+                          tac->gen("assign " + $1->addr + " 1");
+                          tac->gen("goto " + to_string(tac->instructions.size() + 2));
+                          tac->backpatch($1->falselist, tac->instructions.size());
+                          tac->gen("assign " + $1->addr + " 0");
+                        }
+
+                        $$->currentArgs.push_back($1);  
                       }
                     }
 
-                  | PositionalArgs COMMA Exp                    
+                  | PositionalArgs COMMA Exp 
                     { 
                       if ($3->type->toString() == "$Error" || $1 == NULL) {
                         $$ = NULL;
@@ -1485,7 +1531,18 @@
 
                         $$->currentArgs = $1->currentArgs;
                         $1->currentArgs.clear();
-                        $$->currentArgs.push_back($3->type->toString());
+
+                        if ($3->type->toString() == "Bool") {
+                          $3->addr = tac->newTemp();
+
+                          tac->backpatch($3->truelist, tac->instructions.size());
+                          tac->gen("assign " + $3->addr + " 1");
+                          tac->gen("goto " + to_string(tac->instructions.size() + 2));
+                          tac->backpatch($3->falselist, tac->instructions.size());
+                          tac->gen("assign " + $3->addr + " 0");
+                        }
+
+                        $$->currentArgs.push_back($3);
                       }
                     }
                   ;
@@ -1498,7 +1555,18 @@
 
                       else {
                         $$ = new NodeFunctionCallNamedArgs(NULL, $1, $3);
-                        $$->currentArgs[$1] = $3->type->toString(); 
+
+                        if ($3->type->toString() == "Bool") {
+                          $3->addr = tac->newTemp();
+
+                          tac->backpatch($3->truelist, tac->instructions.size());
+                          tac->gen("assign " + $3->addr + " 1");
+                          tac->gen("goto " + to_string(tac->instructions.size() + 2));
+                          tac->backpatch($3->falselist, tac->instructions.size());
+                          tac->gen("assign " + $3->addr + " 0");
+                        }
+
+                        $$->currentArgs[$1] = $3; 
                         $$->keywords.insert($1);
                       }
                     }
@@ -1519,7 +1587,18 @@
                       
                       else {
                         $$->currentArgs = $1->currentArgs;
-                        $$->currentArgs[$3] = $5->type->toString();
+
+                        if ($5->type->toString() == "Bool") {
+                          $5->addr = tac->newTemp();
+
+                          tac->backpatch($5->truelist, tac->instructions.size());
+                          tac->gen("assign " + $5->addr + " 1");
+                          tac->gen("goto " + to_string(tac->instructions.size() + 2));
+                          tac->backpatch($5->falselist, tac->instructions.size());
+                          tac->gen("assign " + $5->addr + " 0");
+                        }
+
+                        $$->currentArgs[$3] = $5;
                         $1->currentArgs.clear();
 
                         $$->keywords = $1->keywords;
@@ -1814,7 +1893,7 @@
   While     : WHILE                { table.newScope(); }
             ;
 
-  LoopFor   : For OPEN_PAR IdFor SEMICOLON Exp SEMICOLON Exp OptStep CLOSE_PAR DO I DONE           
+  LoopFor   : For OPEN_PAR IdFor SEMICOLON Exp SEMICOLON Exp OptStep CLOSE_PAR DO I DONE 
               { 
                 string type1 = $5->type->toString();
                 string type2 = $7->type->toString();
