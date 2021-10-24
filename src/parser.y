@@ -248,21 +248,32 @@
 %type <nS>            S
 %type <varList>       VarDefList
 %type <scopeid>       RoutId
+%type <integer>       M
 
 %%
 
 /* ======================= GLOBAL RULES ============================== */
-  S       : I                   { $$ = new NodeS($1); ast = $$;  }
-          ;
-  I       : /* lambda */        { $$ = NULL; }
-          | I Inst              
+  S       : I 
             { 
-              if ($1 == NULL && $2 == NULL) {
+              $$ = new NodeS($1); 
+              ast = $$; 
+              // tac->backpatch($1->nextlist, tac->instructions.size());
+            }
+          ;
+  M       : /* lambda */        { $$ = tac->instructions.size(); }
+  I       : /* lambda */        { $$ = NULL; }
+          | I M Inst 
+            { 
+              if ($1 == NULL && $3 == NULL) {
                 $$ = NULL;
-              } else if ($2 == NULL) {
+              } else if ($3 == NULL) {
                 $$ = $1;
               } else {
-                $$ = new NodeI($1, $2); 
+                $$ = new NodeI($1, $3); 
+                if ($1 != NULL) {
+                  tac->backpatch($1->nextlist, $2);
+                }
+                $$->nextlist = $3->nextlist;
               }
             }
           ;
@@ -328,7 +339,7 @@
 
                   else {
                     $$ = new NodeAssign($1, $3); 
-                    tac->gen("assign", $1->addr, $3->addr);
+                    tac->gen("assign " + $1->addr + " " + $3->addr);
                   }
                 }
               ;
@@ -368,9 +379,15 @@
                             $$, 
                             new NodeAssign(new NodeID(vardef.first, $2), vardef.second)
                           );
-                          tac->gen("assign", addr, vardef.second->addr);
+
+                          tac->gen("assign " + addr + " " + vardef.second->addr);
                         }
                       }
+
+                      if ($$ != NULL) {
+                        $$->nextlist = {};
+                      }
+
                     }
                   }
                 } 
@@ -483,11 +500,16 @@
               "==", 
               predefinedTypes["Bool"]
             );
-
             $$ = new NodeBinaryOperator($1, $2, $3, type); 
+
+            tac->gen("eq test " + $1->addr + " " + $3->addr);
+            $$->truelist = {tac->instructions.size()};
+            $$->falselist = {tac->instructions.size() + 1};
+            tac->gen("goif test _");
+            tac->gen("goto _");
           }
 
-        | Exp NOT_EQUIV Exp           
+        | Exp NOT_EQUIV Exp 
           { 
             set<string> types = {"Bool", "Char", "Int", "Float"};
             set<pair<string, string>> tuples = {
@@ -512,15 +534,21 @@
               predefinedTypes["Bool"]
             );                                      
             $$ = new NodeBinaryOperator($1, $2, $3, type); 
+
+            tac->gen("neq test " + $1->addr + " " + $3->addr);
+            $$->truelist = {tac->instructions.size()};
+            $$->falselist = {tac->instructions.size() + 1};
+            tac->gen("goif test _");
+            tac->gen("goto _");
           }
 
-        | Exp OR Exp                  
+        | Exp OR M Exp 
           { 
             set<string> types = {"Bool"};
             set<pair<string, string>> tuples = { {"Bool", "Bool"} };
 
             Type *t1 = $1->type;
-            Type *t2 = $3->type;
+            Type *t2 = $4->type;
 
             Type *type = verifyBinayOpType(
               tuples, 
@@ -531,16 +559,25 @@
               "||", 
               predefinedTypes["Bool"]
             );
-            $$ = new NodeBinaryOperator($1, $2, $3, type); 
+            $$ = new NodeBinaryOperator($1, $2, $4, type); 
+
+            tac->backpatch($1->falselist, $3);
+            $1->truelist.insert( 
+              $1->truelist.end(), 
+              $4->truelist.begin(), 
+              $4->truelist.end() 
+            );
+            $$->truelist = $1->truelist;
+            $$->falselist = $4->falselist;
           }
 
-        | Exp AND Exp                 
+        | Exp AND M Exp 
           { 
             set<string> types = {"Bool"};
             set<pair<string, string>> tuples = { {"Bool", "Bool"} };
 
             Type *t1 = $1->type;
-            Type *t2 = $3->type;
+            Type *t2 = $4->type;
 
             Type *type = verifyBinayOpType(
               tuples, 
@@ -551,7 +588,16 @@
               "&&", 
               predefinedTypes["Bool"]
             );
-            $$ = new NodeBinaryOperator($1, $2, $3, type); 
+            $$ = new NodeBinaryOperator($1, $2, $4, type); 
+
+            tac->backpatch($1->truelist, $3);
+            $1->falselist.insert( 
+              $1->falselist.end(), 
+              $4->falselist.begin(), 
+              $4->falselist.end() 
+            );
+            $$->falselist = $1->falselist;
+            $$->truelist = $4->truelist;
           }
 
         | NOT Exp                     
@@ -563,6 +609,8 @@
               predefinedTypes["Bool"]
             );
             $$ = new NodeUnaryOperator($1, $2, type); 
+            $$->truelist = $2->falselist;
+            $$->falselist = $2->truelist;
           }
 
         | Exp LESS_THAN Exp           
@@ -588,6 +636,12 @@
               predefinedTypes["Bool"]
             );
             $$ = new NodeBinaryOperator($1, $2, $3, type); 
+
+            tac->gen("lt test " + $1->addr + " " + $3->addr);
+            $$->truelist = {tac->instructions.size()};
+            $$->falselist = {tac->instructions.size() + 1};
+            tac->gen("goif test _");
+            tac->gen("goto _");
           }
 
         | Exp LESS_EQUAL_THAN Exp     
@@ -613,6 +667,12 @@
               predefinedTypes["Bool"]
             );
             $$ = new NodeBinaryOperator($1, $2, $3, type); 
+
+            tac->gen("leq test " + $1->addr + " " + $3->addr);
+            $$->truelist = {tac->instructions.size()};
+            $$->falselist = {tac->instructions.size() + 1};
+            tac->gen("goif test _");
+            tac->gen("goto _");
           }
 
         | Exp GREATER_THAN Exp        
@@ -637,7 +697,13 @@
               ">", 
               predefinedTypes["Bool"]
             );
-            $$ = new NodeBinaryOperator($1, $2, $3, type); 
+            $$ = new NodeBinaryOperator($1, $2, $3, type);
+
+            tac->gen("gt test " + $1->addr + " " + $3->addr);
+            $$->truelist = {tac->instructions.size()};
+            $$->falselist = {tac->instructions.size() + 1};
+            tac->gen("goif test _");
+            tac->gen("goto _"); 
           }
 
         | Exp GREATER_EQUAL_THAN Exp  
@@ -664,6 +730,12 @@
             );
 
             $$ = new NodeBinaryOperator($1, $2, $3, type); 
+
+            tac->gen("geq test " + $1->addr + " " + $3->addr);
+            $$->truelist = {tac->instructions.size()};
+            $$->falselist = {tac->instructions.size() + 1};
+            tac->gen("goif test _");
+            tac->gen("goto _");
           }
 
         | Exp PLUS Exp 
@@ -699,8 +771,7 @@
 
             $$ = new NodeBinaryOperator($1, $2, $3, type); 
             $$->addr = tac->newTemp();
-            tac->gen("add", $$->addr, $1->addr, $3->addr);
-
+            tac->gen("add " + $$->addr + " " + $1->addr + " " + $3->addr);
           }
 
         | Exp MINUS Exp 
@@ -737,7 +808,7 @@
 
             $$ = new NodeBinaryOperator($1, $2, $3, type); 
             $$->addr = tac->newTemp();
-            tac->gen("sub", $$->addr, $1->addr, $3->addr);
+            tac->gen("sub " + $$->addr + " " + $1->addr + " " + $3->addr);
           }
 
         | Exp ASTERISK Exp 
@@ -771,7 +842,7 @@
 
             $$ = new NodeBinaryOperator($1, $2, $3, type); 
             $$->addr = tac->newTemp();
-            tac->gen("mul", $$->addr, $1->addr, $3->addr);
+            tac->gen("mul " + $$->addr + " " + $1->addr + " " + $3->addr);
           }
 
         | Exp DIV Exp 
@@ -799,7 +870,7 @@
             $$ = new NodeBinaryOperator($1, $2, $3, type);
 
             $$->addr = tac->newTemp();
-            tac->gen("div", $$->addr, $1->addr, $3->addr);
+            tac->gen("div " + $$->addr + " " + $1->addr + " " + $3->addr);
           }
 
         | Exp MODULE Exp              
@@ -834,7 +905,7 @@
 
             $$ = new NodeBinaryOperator($1, $2, $3, type); 
             $$->addr = tac->newTemp();
-            tac->gen("rem", $$->addr, $1->addr, $3->addr);
+            tac->gen("rem " + $$->addr + " " + $1->addr + " " + $3->addr);
           }
 
         | MINUS Exp  
@@ -851,7 +922,7 @@
             $$ = new NodeUnaryOperator($1, $2, type); 
 
             $$->addr = tac->newTemp();
-            tac->gen("sub", $$->addr, "zero", $2->addr);
+            tac->gen("sub " + $$->addr + " zero " + $2->addr);
           }
 
         | PLUS Exp 
@@ -902,7 +973,7 @@
 
             // Generamos el codigo para la exponencial.
             // Inicializamos el resultado en 1
-            tac->gen("assign", $$->addr, "1");
+            tac->gen("assign " + $$->addr + " 1");
 
             // Creamos una etiqueta para el loop
             string loop_name = "loop_" + tac->newTemp();
@@ -910,13 +981,13 @@
 
             // Verificamos si el exponente es menor o igual a 0, en ese caso salimos del
             // bucle
-            tac->gen("leq", "test", $3->addr, "zero");
-            tac->gen("gotoif", loop_name + "_end", "test");
+            tac->gen("leq test " + $3->addr + " zero");
+            tac->gen("goif " + loop_name + "_end test");
 
             // Siguiente iteracion
-            tac->gen("mul", $$->addr, $$->addr, $1->addr);
-            tac->gen("sub", $3->addr, $3->addr, "1");
-            tac->gen("goto", loop_name);
+            tac->gen("mul " + $$->addr + " " + $$->addr + " " + $1->addr);
+            tac->gen("sub " + $3->addr + " " + $3->addr + " 1");
+            tac->gen("goto " + loop_name);
 
             // Final del ciclo
             tac->gen(loop_name + "_end:");
@@ -1089,16 +1160,26 @@
                 $$ = new NodeAssign($2, $4); 
                 $$->type = $4->type;
                 $$->addr = tac->newTemp();
-                tac->gen("assign", $2->addr, $4->addr);
-                tac->gen("assign", $$->addr, $4->addr);
+                tac->gen("assign " + $2->addr + " " + $4->addr);
+                tac->gen("assign " + $$->addr + " " + $4->addr);
               }
             }
 
         | OPEN_PAR Exp CLOSE_PAR      { $$ = $2; }
         | FuncCall                    { $$ = $1; }
         | Array                       { $$ = $1; }
-        | TRUE                        { $$ = new NodeBOOL(true); }
-        | FALSE                       { $$ = new NodeBOOL(false); }
+        | TRUE 
+          { 
+            $$ = new NodeBOOL(true); 
+            $$->truelist = {tac->instructions.size()};
+            tac->gen("goto _");
+          }
+        | FALSE
+          { 
+            $$ = new NodeBOOL(false);
+            $$->falselist = {tac->instructions.size()};
+            tac->gen("goto _");
+          }
         | CHAR
           { 
             $$ = new NodeCHAR($1); 
@@ -1107,13 +1188,13 @@
           { 
             $$ = new NodeINT($1); 
             $$->addr = tac->newTemp();
-            tac->gen("assign", $$->addr, to_string($1));
+            tac->gen("assign " + $$->addr + " " + to_string($1));
           }
         | FLOAT 
           { 
             $$ = new NodeFLOAT($1); 
             $$->addr = tac->newTemp();
-            tac->gen("assign", $$->addr, to_string($1));
+            tac->gen("assign " + $$->addr + " " + to_string($1));
           }
         | STRING                      { $$ = new NodeSTRING($1); }
         ;

@@ -5,27 +5,21 @@
 
 using namespace std;
 
-class Quad
-{
-public:
-    Quad(string instr, string result="", string arg1="", string arg2="");
-    void print();
-
-    string instr;
-    string result;
-    string arg1;
-    string arg2;
-};
-
 class TAC
 {
 private:
-    vector<Quad> instructions;
-    unsigned long long currentTemporalNumber = 0;
+    unsigned long long tempVarNumber = 0;
+    unsigned long long tempLabelNumber = 0;
+
 public:
+    vector<string> instructions;
+    
     TAC() { }
     string newTemp();
-    string gen(string instr, string result="", string arg1="", string arg2="");
-    void print();
+    string newLabel();
+    void gen(string instr);
+    string replace(string text, string to_find, string to_replace);
+    void backpatch(vector<unsigned long long> ps, unsigned long long l);
+    void print(void);
 };
 

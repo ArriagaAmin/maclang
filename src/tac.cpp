@@ -2,35 +2,49 @@
 
 string TAC::newTemp()
 {
-    string temp = "T" + to_string(currentTemporalNumber);
-    currentTemporalNumber++;
+    string temp = "T" + to_string(tempVarNumber);
+    tempVarNumber++;
     return temp;
 }
 
-string TAC::gen(string instr, string result, string arg1, string arg2)
+string TAC::newLabel()
 {
-    Quad newInstruction(instr, result, arg1, arg2);
-    instructions.push_back(newInstruction);
-    return instr + " " + result + " " + arg1 + " " + arg2;
+    string temp = "Label" + to_string(tempLabelNumber);
+    tempLabelNumber++;
+    return temp;
 }
 
-void TAC::print()
+void TAC::gen(string instr) 
 {
-    for (Quad instruction : instructions)
-    {
-        instruction.print();
+    this->instructions.push_back(instr);
+}
+
+string TAC::replace(string text, string to_find, string to_replace) 
+{
+    std::string::size_type n = 0;
+    while ( (n = text.find(to_find, n)) != std::string::npos ) {
+        text.replace(n, to_find.size(), to_replace);
+        n += to_replace.size();
+    }
+    return text;
+}
+
+void TAC::backpatch(vector<unsigned long long> ps, unsigned long long l) {
+    string instr = to_string(l);
+    for (unsigned long long i : ps) {
+        this->instructions[i] = this->replace(this->instructions[i], "_", instr);
     }
 }
 
-Quad::Quad(string instr, string result, string arg1, string arg2)
-{
-    this->instr = instr;
-    this->result = result;
-    this->arg1 = arg1;
-    this->arg2 = arg2;
-}
+void TAC::print(void) {
+    unsigned long long index = 0;
+    unsigned len = to_string(this->instructions.size()).size();
 
-void Quad::print()
-{
-    cout << instr << " " << result << " " << arg1 << " " << arg2 << endl;
+    for (string instr : this->instructions) {
+        printf("%.*llu", len, index, ' ');
+        cout << "│ " << instr << "\n";
+        index++;
+    }
+    printf("%.*llu", len, index, ' ');
+    cout << "│ " << "\n";
 }

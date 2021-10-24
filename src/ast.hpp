@@ -13,7 +13,9 @@ using namespace std;
 class Node {
   public:
     string addr;
-    string code;
+    vector<unsigned long long> truelist;
+    vector<unsigned long long> falselist;
+    vector<unsigned long long> nextlist;
 
     Node(void) {};
     // Print a node representation.
