@@ -101,11 +101,31 @@ class VarEntry : public Entry {
       int offset, 
       string addr=""
     );
+    VarEntry(void) {};
 
     // Prints the variable information
     void print(void);
 };
 
+class VarArrayEntry : public VarEntry {
+  public:
+    // Access constant for quick retrival of elements
+    unsigned low;
+    unsigned high;
+    int baseConstant;
+  
+    VarArrayEntry(
+        string id, 
+        int scope, 
+        string category, 
+        ArrayType *type, 
+        int offset,
+        string addr=""
+    );
+
+    // Prints the variable information
+    void print(void);
+};
 
 class StructureEntry : public Entry {
   public:

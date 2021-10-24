@@ -338,10 +338,16 @@
                   } 
 
                   else {
-                    $$ = new NodeAssign($1, $3); 
+                    $$ = new NodeAssign($1, $3);
 
                     if (rtype != "Bool") {
-                      tac->gen("assign " + $1->addr + " " + $3->addr);
+                      // Handling arrays
+                      if(ltype.find("[]") != string::npos)
+                      {
+                        tac->gen("assign base["+ $1->addr + "] " + $3->addr);
+                      }
+                      else
+                        tac->gen("assign " + $1->addr + " " + $3->addr);
                     }
                     else {
                       tac->backpatch($3->truelist, tac->instructions.size());
@@ -373,14 +379,29 @@
                       else {
                         int s = table.currentScope();
                         string addr = tac->newTemp();
-                        Entry *e = new VarEntry(
-                          vardef.first, 
-                          s, 
-                          "Var", 
-                          $2, 
-                          table.offsets.back(),
-                          addr
-                        );
+                        int offset = table.offsets.back();
+                        Entry *e;
+                        if(type.find("[]") == string::npos) {
+                          e = new VarEntry(
+                            vardef.first, 
+                            s, 
+                            "Var", 
+                            $2, 
+                            offset,
+                            addr
+                          );
+                        }
+                        else{
+                          ArrayType *current = (ArrayType*) $2;
+                          e = new VarArrayEntry(
+                            vardef.first, 
+                            s, 
+                            "Var", 
+                            current, 
+                            offset,
+                            addr
+                          );
+                        }
                         table.insert(e);
                         table.offsets.back() += $2->width;
 
@@ -391,7 +412,12 @@
                           );
 
                           if (rtype != "Bool") {
-                            tac->gen("assign " + addr + " " + vardef.second->addr);
+                            if(type.find("[]") != string::npos)
+                            {
+                              tac->gen("assign " + to_string(offset)+ "["+ addr + "] " + vardef.second->addr);
+                            }
+                            else
+                              tac->gen("assign " + addr + " " + vardef.second->addr);
                           }
                           else {
                             tac->backpatch(vardef.second->truelist, tac->instructions.size());
@@ -1031,7 +1057,19 @@
             
             else {
               Type *type = ((ArrayType*) $1->type)->type;
-              $$ = new NodeArrayAccess($1, $3, type); 
+              $$ = new NodeArrayAccess($1, $3, type);
+              if(type->toString().find("[]") != string::npos)
+              {
+                $$->addr = tac->newTemp();
+                tac->gen("assign " + $$->addr + " " + $3->addr + "*" + to_string(type->width));
+              }
+              else
+              {
+                string t = tac->newTemp();
+                $$->addr = tac->newTemp();
+                tac->gen("assign " + t + " " + $3->addr + "*" + to_string(type->width));
+                tac->gen("assign " + $$->addr + " " + $1->addr + "+" + t);
+              } 
             }
           }
 
@@ -1242,8 +1280,8 @@
   Array     : OPEN_BRACKET ArrExp CLOSE_BRACKET   
               { 
                 if ($2->type->toString() != "$Error") {
-                  int size = size = ((NodeArrayElems*) $2)->current_size;
-                  $$ = new NodeArray($2, new ArrayType($2->type, new NodeINT(size))); 
+                  int size = ((NodeArrayElems*) $2)->current_size;
+                  $$ = new NodeArray($2, new ArrayType($2->type, new NodeINT(size)));
                 } 
 
                 else {

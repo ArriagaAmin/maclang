@@ -87,6 +87,8 @@ class Node {
 
       void print(void);
 
+      int getSize();
+
       string toString(void);
 
       void printTree(vector<bool> *identation);

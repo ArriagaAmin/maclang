@@ -114,6 +114,12 @@
     identation->pop_back();
   }
 
+  int ArrayType::getSize()
+  {
+    // We don't know size if is not a literal so placeholder
+    return size->is_lit ? ((NodeINT*) size)->value : 999;
+  }
+
 
 /* ======================= BASIC NODES =============================== */
   NodeAssign::NodeAssign(Node *lvalue, Node *rvalue) {
