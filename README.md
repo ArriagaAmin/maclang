@@ -35,6 +35,41 @@ have the following values:
   * `symbols`: Prints the representation of the symbols table. In case there's 
     redeclarations of variables, it will print those redeclarations.
 
+## TAC 
+
+Asignacion
+  * `assign ADDR X` 
+
+Saltos
+  * `goto LABEL`
+  * `goif LABEL X`
+
+Comparacion
+  * `eq  ADDR X Y`
+  * `neq ADDR X Y`
+  * `lt  ADDR X Y`
+  * `leq ADDR X Y`
+  * `gt  ADDR X Y`
+  * `geq ADDR X Y`
+
+Aritmetica
+  * `add  ADDR X Y`
+  * `sub  ADDR X Y`
+  * `mult ADDR X Y`
+  * `div  ADDR X Y`
+  * `mod  ADDR X Y`
+
+Memoria
+  * `new ADDR X`
+  * `deref ADDR X`
+  * `free ADDR`
+
+Funciones
+  * `param ADDR`
+  * `call  ADDR X`
+  * `return X`
+
+
 ## Developers
 * Amin Arriaga *(16-10072)*
 * Manuel Faria *(15-10463)*

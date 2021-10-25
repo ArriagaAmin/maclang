@@ -79,11 +79,12 @@ class Node {
   class ArrayType : public Type {
     protected:
       ExpressionNode *size;
+      bool pointer;
 
     public: 
       Type *type;
 
-      ArrayType(Type *type, ExpressionNode *size);
+      ArrayType(Type *type, ExpressionNode *size, bool pointer=false);
 
       void print(void);
 
@@ -388,14 +389,12 @@ class Node {
 
   /* Representation of  ->  RValue , ArrElems. */
   class NodeArrayElems : public ExpressionNode {
-    protected:
-      Node *rvalue;
-      Node *head;
-
     public:
+      NodeArrayElems *head;
+      Node *rvalue;
       int current_size;
 
-      NodeArrayElems(Node *rvalue, Type *type, Node *head, int current_size);
+      NodeArrayElems(NodeArrayElems *head, Type *type, Node *rvalue, int current_size);
 
       void print(void);
 
@@ -581,14 +580,30 @@ class Node {
   /* Representation of for blocks. */
   class NodeFor : public Node {
     protected:
-      string iter;
-      Node *begin;
-      Node *end;
-      Node *step;
+      Node *sign;
       Node *body;
 
     public:
-      NodeFor(string iter, Node *begin, Node *end, Node *step, Node *body);
+      NodeFor(Node *sign, Node *body);
+
+      void print(void);
+
+      string toString(void);
+
+      void printTree(vector<bool> *identation);
+  };
+
+  class NodeForSign : public Node {
+    protected:
+      string iter;
+      Node *begin;
+      Node *end;
+
+    public:
+      string label;
+      Node *step;
+
+      NodeForSign(string iter, Node *begin, Node *end, Node *step);
 
       void print(void);
 

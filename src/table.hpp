@@ -4,8 +4,6 @@
 #include <iostream>
 #include "ast.hpp"
 
-#define WORD_SIZE 4
-
 using namespace std;
 
 /*

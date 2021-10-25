@@ -12,7 +12,7 @@
   map<string, int> primitiveWidths = {
     {"Unit",    1},
     {"Bool",    1},
-    {"Char",    8},   // Unicode use 8 bits
+    {"Char",    4},   // UTF-8 use 4 bytes
     {"Int",     8},
     {"Float",   8},
     {"Pointer", 8},
@@ -74,17 +74,20 @@
   }
 
 
-  ArrayType::ArrayType(Type *type, ExpressionNode *size) {
+  ArrayType::ArrayType(Type *type, ExpressionNode *size, bool pointer) {
     this->type = type;
     this->size = size;
     string t_size = type->toString();
+
     // Si size es un literal, podemos calcular directamente el desplazamiento.
-    if (size->is_lit) {
+    if (size->is_lit && ! pointer) {
       this->width = type->width * ((NodeINT*) size)->value;
+      this->pointer = false;
     }
     // En caso contrario, se tomara como un puntero.
     else {
       this->width = primitiveWidths["Pointer"];
+      this->pointer = true;
     }
     this->category = "Array";
   }
@@ -92,11 +95,12 @@
     cout << "(";
     this->type->print();
     cout << ")[";
-    this->size->print();
+    if (! this->pointer) this->size->print();
     cout << "]";
   }
   string ArrayType::toString(void) {
-    return "(" + this->type->toString() + ")[]";
+    string size = this->pointer ? "" : to_string( ((NodeINT*) this->size)->value );
+    return "(" + this->type->toString() + ")[" + size + "]";
   }
   void ArrayType::printTree(vector<bool> *identation) {
     cout << "\e[1;34mType Array\e[0m\n";
@@ -322,7 +326,7 @@
 
   NodeSTRING::NodeSTRING(string value) {
     this->value = value;
-    this->type = new PointerType(predefinedTypes["Char"]);
+    this->type = new ArrayType(predefinedTypes["Char"], new NodeINT(value.size()), true);
     this->is_lvalue = false;
     this->is_lit = false;
   }
@@ -600,7 +604,12 @@
   }
 
 
-  NodeArrayElems::NodeArrayElems(Node *head, Type *type, Node *rvalue, int current_size) {
+  NodeArrayElems::NodeArrayElems(
+    NodeArrayElems *head, 
+    Type *type, 
+    Node *rvalue, 
+    int current_size
+  ) {
     this->head = head;
     this->rvalue = rvalue;
     this->type = type;
@@ -1079,35 +1088,21 @@
   }
 
 
-  NodeFor::NodeFor(string iter, Node *begin, Node *end, Node *step, Node *body) {
-    this->iter = iter;
-    this->begin = begin;
-    this->end = end;
-    this->step = step;
+  NodeFor::NodeFor(Node *sign, Node *body) {
+    this->sign = sign;
     this->body = body;
   }
   void NodeFor::print(void) {
-    cout << "for (" << this->iter << "; ";
-    this->begin->print();
-    cout << "; ";
-    this->end->print();
-    if (this->step != NULL) {
-      cout << "; ";
-      this->step->print();
-    }
-    cout <<") do\n";
+    this->sign->print();
+    cout <<"do\n";
     if (this->body != NULL) {
       this->body->print();
     }
     cout << "done\n";
   }
   string NodeFor::toString(void) {
-    string result = "for (" + this->iter + "; " + this->begin->toString() + "; " 
-                    + this->end->toString();
-    if (this->step != NULL) {
-      result += "; " + this->step->toString();
-    }
-    result += ") do ";
+    string result = this->sign->toString();
+    result += "do ";
     if (this->body != NULL) {
       result += this->body->toString();
     }
@@ -1116,6 +1111,52 @@
   void NodeFor::printTree(vector<bool> *identation) {
     cout << "\e[1;34mFor\e[0m\n";
 
+    printIdentation(identation);
+    identation->push_back(true);
+    cout << "├── \e[1;34mFor Sign: \e[0m";
+    this->sign->printTree(identation);
+    identation->pop_back();
+
+    if (this->body != NULL) {
+      printIdentation(identation);
+      identation->push_back(false);
+      cout << "└── \e[1;34mBody: \e[0m";
+      this->body->printTree(identation);
+      identation->pop_back();
+    } else {
+      printIdentation(identation);
+      cout << "└── \e[1;34mBody: \e[0mNULL\n";
+    }
+  }
+
+  NodeForSign::NodeForSign(string iter, Node *begin, Node *end, Node *step) {
+    this->iter = iter;
+    this->begin = begin;
+    this->end = end;
+    this->step = step;
+  }
+  void NodeForSign::print(void) {
+    cout << "for (" << this->iter << "; ";
+    this->begin->print();
+    cout << "; ";
+    this->end->print();
+    if (this->step != NULL) {
+      cout << "; ";
+      this->step->print();
+    }
+    cout <<")";
+  }
+  string NodeForSign::toString(void) {
+    string result = "for (" + this->iter + "; " + this->begin->toString() + "; " 
+                    + this->end->toString();
+    if (this->step != NULL) {
+      result += "; " + this->step->toString();
+    }
+    result += ")";
+
+    return result;
+  }
+  void NodeForSign::printTree(vector<bool> *identation) {
     printIdentation(identation);
     cout << "├── ITERATOR: " << this->iter << "\n";
 
@@ -1141,18 +1182,6 @@
       printIdentation(identation);
       cout << "├── \e[1;34mStep: \e[0mNULL\n";
     }
-
-    if (this->body != NULL) {
-      printIdentation(identation);
-      identation->push_back(false);
-      cout << "└── \e[1;34mBody: \e[0m";
-      this->body->printTree(identation);
-      identation->pop_back();
-    } else {
-      printIdentation(identation);
-      cout << "└── \e[1;34mBody: \e[0mNULL\n";
-    }
-
   }
 
 

@@ -10,6 +10,7 @@ class TAC
 private:
     unsigned long long tempVarNumber = 0;
     unsigned long long tempLabelNumber = 0;
+    vector<pair<string, unsigned long long>> address;
 
 public:
     vector<string> instructions;
@@ -17,6 +18,7 @@ public:
     TAC() { }
     string newTemp();
     string newLabel();
+    string newAddr(unsigned long long bytes);
     string replaceAll(string text, string to_find, string to_replace);
     void gen(string instr);
     void backpatch(vector<unsigned long long> ps, unsigned long long l);

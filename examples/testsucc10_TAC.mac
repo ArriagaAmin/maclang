@@ -1,6 +1,23 @@
 let Bool T0, T1, T2;
 
-def F(Int a, Bool b, Int c) => Bool {
-}
+def F(Int a, Bool b, Int c) => Bool { }
 
 let Bool A = ! T0 && (F(b = False || T0 , a=1, c=2) || T1 && T2);
+
+let Bool[2][2] K = [[True, False], [False, A || T2]];
+
+register R {
+	Int[100] A;
+}
+
+let R q, w, e, r;
+
+"ABCDEFGH";
+
+1.1;
+
+for (i; 2.3; 100; 0.01) do
+	i = 0.0;
+	let Bool b;
+	b;
+done

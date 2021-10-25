@@ -147,6 +147,8 @@
   ExpressionNode *expr;
   NodeRoutArgDef *routArgsDef;
   NodeRoutArgs *routArgs;
+  NodeArrayElems *arrayElems;
+  NodeForSign *forSign;
   NodeFunctionCallArgs *fcArgs;
   NodeFunctionCallPositionalArgs *fcpArgs;
   NodeFunctionCallNamedArgs *fcnArgs;
@@ -234,9 +236,11 @@
 
 %type <ast>           I Inst Action VarInst VarDef UnionDef UnionBody 
 %type <ast>           RegBody Conditional OptElsif Elsifs OptElse Def RegDef
-%type <ast>           LoopWhile LoopFor RoutDef Actions RoutSign RoutDec N
-%type <expr>          Exp FuncCall Array ArrExp ArrElems
+%type <ast>           LoopWhile LoopFor RoutDef Actions RoutSign RoutDec N 
+%type <expr>          Exp FuncCall Array
 %type <expr>          OptAssign Cond OptStep
+%type <arrayElems>    ArrExp ArrElems
+%type <forSign>       ForSign
 %type <routArgs>      RoutArgs
 %type <routArgsDef>   OptArgs MandArgs
 %type <fcArgs>        ArgsExp
@@ -244,7 +248,7 @@
 %type <fcnArgs>       NamedArgs
 %type <t>             Type OptReturn
 %type <boolean>       OptRef
-%type <str>           IdDef IdFor UnionId RegId DecId
+%type <str>           IdDef UnionId RegId DecId
 %type <nS>            S
 %type <varList>       VarDefList
 %type <scopeid>       RoutId
@@ -280,7 +284,14 @@
   Inst    : Action              { $$ = $1; }
           | Def                 { $$ = $1; }
           ;
-  Action  : Exp SEMICOLON       { $$ = $1; }
+  Action  : Exp SEMICOLON 
+            { 
+              $$ = $1;
+              if ($1->type->toString() == "Bool") {
+                tac->backpatch($1->truelist, tac->instructions.size());
+                tac->backpatch($1->falselist, tac->instructions.size());
+              } 
+            }
           | VarInst SEMICOLON   { $$ = $1; }
           | Conditional         { $$ = $1; }
           | LoopWhile           { $$ = $1; }
@@ -372,7 +383,17 @@
 
                       else {
                         int s = table.currentScope();
-                        string addr = tac->newTemp();
+                        string addr;
+
+                        // Si no es un tipo primario, reservamos memoria.
+                        if (! predefinedTypes.count($2->toString())) {
+                          addr = tac->newAddr($2->width);
+                        }
+                        // En caso contrario, usamos un temporal comun.
+                        else {
+                          addr = tac->newTemp();
+                        }
+                        
                         Entry *e = new VarEntry(
                           vardef.first, 
                           s, 
@@ -454,7 +475,7 @@
             }
           }
 
-        | POINTER Type                         
+        | POINTER Type 
           { 
             if ($2->toString() != "$Error") {
               $$ = new PointerType($2); 
@@ -463,7 +484,7 @@
             }
           }
 
-        | ID                                  
+        | ID 
           {
             Entry *e;
             if ((e = table.lookup($1)) == NULL) {
@@ -490,13 +511,13 @@
         | T_FLOAT                             { $$ = predefinedTypes["Float"]; }
         | T_STRING                            
           { 
-            $$ = new PointerType(predefinedTypes["Char"]); 
+            $$ = new ArrayType(predefinedTypes["Char"], new NodeINT(8), true); 
           }
         ;
 
 
 /* ======================= EXPRESSIONS =============================== */
-  Exp   : Exp EQUIV Exp               
+  Exp   : Exp EQUIV Exp 
           { 
             set<string> types = {"Bool", "Char", "Int", "Float"};
             set<pair<string, string>> tuples = {
@@ -610,7 +631,7 @@
             $$->truelist = $4->truelist;
           }
 
-        | NOT Exp                     
+        | NOT Exp 
           { 
             Type *type = verifyUnaryOpType(
               {"Bool"}, 
@@ -623,7 +644,7 @@
             $$->falselist = $2->truelist;
           }
 
-        | Exp LESS_THAN Exp           
+        | Exp LESS_THAN Exp 
           { 
             set<string> types = {"Int", "Float"};
             set<pair<string, string>> tuples = {
@@ -654,7 +675,7 @@
             tac->gen("goto _");
           }
 
-        | Exp LESS_EQUAL_THAN Exp     
+        | Exp LESS_EQUAL_THAN Exp 
           { 
             set<string> types = {"Int", "Float"};
             set<pair<string, string>> tuples = {
@@ -685,7 +706,7 @@
             tac->gen("goto _");
           }
 
-        | Exp GREATER_THAN Exp        
+        | Exp GREATER_THAN Exp 
           { 
             set<string> types = {"Int", "Float"};
             set<pair<string, string>> tuples = {
@@ -852,7 +873,7 @@
 
             $$ = new NodeBinaryOperator($1, $2, $3, type); 
             $$->addr = tac->newTemp();
-            tac->gen("mul " + $$->addr + " " + $1->addr + " " + $3->addr);
+            tac->gen("mult " + $$->addr + " " + $1->addr + " " + $3->addr);
           }
 
         | Exp DIV Exp 
@@ -883,7 +904,7 @@
             tac->gen("div " + $$->addr + " " + $1->addr + " " + $3->addr);
           }
 
-        | Exp MODULE Exp              
+        | Exp MODULE Exp 
           { 
             set<string> types = {"Int", "Float"};
             set<pair<string, string>> tuples = {
@@ -915,7 +936,7 @@
 
             $$ = new NodeBinaryOperator($1, $2, $3, type); 
             $$->addr = tac->newTemp();
-            tac->gen("rem " + $$->addr + " " + $1->addr + " " + $3->addr);
+            tac->gen("mod " + $$->addr + " " + $1->addr + " " + $3->addr);
           }
 
         | MINUS Exp  
@@ -932,7 +953,7 @@
             $$ = new NodeUnaryOperator($1, $2, type); 
 
             $$->addr = tac->newTemp();
-            tac->gen("sub " + $$->addr + " zero " + $2->addr);
+            tac->gen("sub " + $$->addr + " 0 " + $2->addr);
           }
 
         | PLUS Exp 
@@ -986,16 +1007,16 @@
             tac->gen("assign " + $$->addr + " 1");
 
             // Creamos una etiqueta para el loop
-            string loop_name = "loop_" + tac->newTemp();
+            string loop_name = tac->newLabel();
             tac->gen(loop_name + ":");
 
             // Verificamos si el exponente es menor o igual a 0, en ese caso salimos del
             // bucle
-            tac->gen("leq test " + $3->addr + " zero");
+            tac->gen("leq test " + $3->addr + " 0");
             tac->gen("goif " + loop_name + "_end test");
 
             // Siguiente iteracion
-            tac->gen("mul " + $$->addr + " " + $$->addr + " " + $1->addr);
+            tac->gen("mult " + $$->addr + " " + $$->addr + " " + $1->addr);
             tac->gen("sub " + $3->addr + " " + $3->addr + " 1");
             tac->gen("goto " + loop_name);
 
@@ -1035,7 +1056,7 @@
             }
           }
 
-        |  POINTER Exp                 
+        | POINTER Exp  
           { 
             if ($2->type->toString() == "$Error") {
               $$ = new NodePointer($2, predefinedTypes["$Error"]);
@@ -1052,10 +1073,12 @@
             else {
               Type *type = ((PointerType*) $2->type)->type;
               $$ = new NodePointer($2, type); 
+              $$->addr = tac->newTemp();
+              tac->gen("deref " + $$->addr + " " + $2->addr);
             }
           }
 
-        |  Exp DOT ID                  
+        | Exp DOT ID 
           { 
             if ($1->type->toString() == "$Error") {
               $$ = new NodeDot($1, $3, predefinedTypes["$Error"]);
@@ -1145,6 +1168,8 @@
           { 
             if ($2->toString() != "$Error") {
               $$ = new NodeNew($2); 
+              $$->addr = tac->newTemp();
+              tac->gen("new " + $$->addr + " " + to_string($2->width));
             }
 
             else {
@@ -1204,37 +1229,63 @@
             }
 
         | OPEN_PAR Exp CLOSE_PAR      { $$ = $2; }
+
         | FuncCall                    { $$ = $1; }
+
         | Array                       { $$ = $1; }
+
         | TRUE 
           { 
             $$ = new NodeBOOL(true); 
             $$->truelist = {tac->instructions.size()};
             tac->gen("goto _");
           }
+
         | FALSE
           { 
             $$ = new NodeBOOL(false);
             $$->falselist = {tac->instructions.size()};
             tac->gen("goto _");
           }
+
         | CHAR
           { 
-            $$ = new NodeCHAR($1); 
+            $$ = new NodeCHAR($1);
+            $$->addr = tac->newTemp();
+            tac->gen("assign " + $$->addr + " '" + $1 + "'"); 
           }
+
         | INT
           { 
             $$ = new NodeINT($1); 
             $$->addr = tac->newTemp();
             tac->gen("assign " + $$->addr + " " + to_string($1));
           }
+
         | FLOAT 
           { 
             $$ = new NodeFLOAT($1); 
             $$->addr = tac->newTemp();
             tac->gen("assign " + $$->addr + " " + to_string($1));
           }
-        | STRING                      { $$ = new NodeSTRING($1); }
+
+        | STRING 
+          { 
+            $$ = new NodeSTRING($1); 
+            $$->addr = tac->newTemp();
+            int n = strlen($1);
+            tac->gen("new " + $$->addr + " " + to_string(4 * (n - 1)));
+
+            // Almacenamos cada caracter
+            unsigned i = 0;
+            for (int j = 1; j < n-1; j++) {
+              tac->gen(
+                "assign " + $$->addr + "[" + to_string(i) + "] '" + $1[j] + "'"
+              );
+              i += predefinedTypes["Char"]->width;
+            }
+            tac->gen("assign " + $$->addr + "[" + to_string(i) + "] '\\0'");
+          }
         ;
 
 
@@ -1242,8 +1293,19 @@
   Array     : OPEN_BRACKET ArrExp CLOSE_BRACKET   
               { 
                 if ($2->type->toString() != "$Error") {
-                  int size = size = ((NodeArrayElems*) $2)->current_size;
+                  int size = ((NodeArrayElems*) $2)->current_size;
                   $$ = new NodeArray($2, new ArrayType($2->type, new NodeINT(size))); 
+                  $$->addr = tac->newAddr(size * $2->type->width);
+                  NodeArrayElems *exp = $2;
+
+                  while (--size >= 0) {
+                    tac->gen(
+                      "assign " + $$->addr + "[" + 
+                      to_string(size * $2->type->width) + "] " + exp->rvalue->addr
+                    );
+                    exp = exp->head;
+                  }
+
                 } 
 
                 else {
@@ -1281,8 +1343,19 @@
 
                 else {
                   type = $2->type;
-                  size = ((NodeArrayElems*) $1)->current_size + 1;
+                  size = $1->current_size + 1;
                 }
+
+                if (type->toString() != "$Error" && $2->type->toString() == "Bool") {
+                  $2->addr = tac->newTemp();
+
+                  tac->backpatch($2->truelist, tac->instructions.size());
+                  tac->gen("assign " + $2->addr + " 1");
+                  tac->gen("goto " + to_string(tac->instructions.size() + 2));
+                  tac->backpatch($2->falselist, tac->instructions.size());
+                  tac->gen("assign " + $2->addr + " 0");
+                }
+
                 $$ = new NodeArrayElems($1, type, $2, size);
               }
             ;
@@ -1317,7 +1390,17 @@
 
                 else {
                   type = $2->type;
-                  size = ((NodeArrayElems*) $2)->current_size + 1;
+                  size = $1->current_size + 1;
+                }
+
+                if (type->toString() != "$Error" && $2->type->toString() == "Bool") {
+                  $2->addr = tac->newTemp();
+
+                  tac->backpatch($2->truelist, tac->instructions.size());
+                  tac->gen("assign " + $2->addr + " 1");
+                  tac->gen("goto " + to_string(tac->instructions.size() + 2));
+                  tac->backpatch($2->falselist, tac->instructions.size());
+                  tac->gen("assign " + $2->addr + " 0");
                 }
 
                 $$ = new NodeArrayElems($1, type, $2, size);
@@ -1893,11 +1976,42 @@
   While     : WHILE                { table.newScope(); }
             ;
 
-  LoopFor   : For OPEN_PAR IdFor SEMICOLON Exp SEMICOLON Exp OptStep CLOSE_PAR DO I DONE 
+  LoopFor   : ForSign DO I DONE 
+              {
+                $$ = new NodeFor($1, $3);
+
+                tac->backpatch($3->nextlist, tac->instructions.size());
+
+                if ($1->step != NULL) {
+                  tac->gen("add " + $1->addr + " " + $1->addr + " " + $1->step->addr);
+                }
+                else {
+                  tac->gen("add " + $1->addr + " " + $1->addr + " 1");
+                }
+
+                tac->gen("goto " + $1->label);
+                tac->gen($1->label + "_end:");
+                table.exitScope();
+              }
+
+  ForSign   : For OPEN_PAR IdDef SEMICOLON Exp SEMICOLON Exp OptStep CLOSE_PAR 
               { 
                 string type1 = $5->type->toString();
                 string type2 = $7->type->toString();
                 string type3 = $8 == NULL ? "" : $8->type->toString();
+
+                int s = table.currentScope();
+                Type *t = predefinedTypes["Float"];
+                VarEntry *e = new VarEntry(
+                  $3, 
+                  s, 
+                  "Var", 
+                  t, 
+                  table.offsets.back(),
+                  tac->newTemp()
+                );
+                table.insert(e); 
+                table.offsets.back() += predefinedTypes["Float"]->width;
 
                 if (type1 != "$Error" && type1 != "Float" && type1 != "Int") {
                   addError(
@@ -1923,25 +2037,18 @@
                   );
                 }
 
-                $$ = new NodeFor($3, $5, $7, $8, $11);
-                table.exitScope();
-              }
-            ;
+                $$ = new NodeForSign($3, $5, $7, $8);
+                $$->addr = tac->newTemp();
+                $$->label = tac->newLabel();
 
-  IdFor     : IdDef  
-              { 
-                int s = table.currentScope();
-                Type *t = predefinedTypes["Float"];
-                Entry *e = new VarEntry(
-                  $1, 
-                  s, 
-                  "Var", 
-                  t, 
-                  table.offsets.back(),
-                  tac->newTemp()
-                );
-                table.insert(e); 
-                table.offsets.back() += predefinedTypes["Float"]->width;
+                tac->gen("assign " + $$->addr + " " + $5->addr);
+                tac->gen($$->label + ":");
+
+                // Verificacion de iteracion del for
+                tac->gen("geq test " + $$->addr + " " + $7->addr);
+                tac->gen("goif " + $$->label + "_end test");
+                
+                tac->gen("assign " + e->addr + " " + $$->addr);
               }
             ;
 
