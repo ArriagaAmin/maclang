@@ -387,9 +387,12 @@
 
                     if (rtype != "Bool") {
                       // Handling arrays
-                      if(ltype.find("[]") != string::npos)
+                      if(ltype.find("]") != string::npos)
                       {
-                        tac->gen("assign base["+ $1->addr + "] " + $3->addr);
+                        NodeID* lvalue = (NodeID*) $1;
+                        Entry* e = table.lookup(lvalue->getId());
+                        VarArrayEntry *ve = (VarArrayEntry*) e;
+                        tac->gen("assign " + to_string(ve->offset) + "["+ $1->addr + "] " + $3->addr);
                       }
                       else
                         tac->gen("assign " + $1->addr + " " + $3->addr);
@@ -1115,7 +1118,7 @@
             else {
               Type *type = ((ArrayType*) $1->type)->type;
               $$ = new NodeArrayAccess($1, $3, type);
-              if(type->toString().find("[]") != string::npos)
+              if(type->toString().find("]") == string::npos)
               {
                 $$->addr = tac->newTemp();
                 tac->gen("assign " + $$->addr + " " + $3->addr + "*" + to_string(type->width));
@@ -3039,7 +3042,7 @@ void freeVarArray(Type *t, string final_addr) {
       tac->gen("mult " + size_addr + " " + size_addr + " " + arrayStack.top()->size->addr);
       arrayStack.pop();
     }
-    
+
     string label = tac->newLabel();
     tac->gen("@label " + label);
     tac->gen("sub " + size_addr + " " + size_addr + " " + to_string(t->width));

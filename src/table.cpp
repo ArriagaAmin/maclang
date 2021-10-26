@@ -256,10 +256,8 @@ VarArrayEntry::VarArrayEntry(
   this->addr = addr;
   this->low = 0;
   this->high = type->getSize();
-
-  Type *elementsType = type->type; 
-  // For now is just thinking is onedimesional
-  //this->baseConstant = offset - (this->low * type->type->width);
+  // This is just the offset because the low is 0
+  this->baseConstant = offset;
 }
 
 void VarArrayEntry::print(void) {

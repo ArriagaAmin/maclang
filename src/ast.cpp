@@ -437,6 +437,11 @@
     cout << "ID: " << this->id << "\n";
   }
 
+  string NodeID::getId()
+  {
+    return id;
+  }
+
 
   NodeDot::NodeDot(Node *structure, string id, Type *type) {
     this->structure = structure;
