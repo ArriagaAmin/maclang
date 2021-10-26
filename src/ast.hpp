@@ -47,10 +47,9 @@ class Node {
 
   /* Class for defined types. */
   class PrimitiveType : public Type {
-    protected:
+    public:
       string id;
 
-    public:
       PrimitiveType(string id);
 
       void print(void);
@@ -77,11 +76,9 @@ class Node {
   /* Representation of  -> Type [ Exp ]. */
   class ExpressionNode;
   class ArrayType : public Type {
-    protected:
-      ExpressionNode *size;
-      bool pointer;
-
     public: 
+      bool pointer;
+      ExpressionNode *size;
       Type *type;
 
       ArrayType(Type *type, ExpressionNode *size, bool pointer=false);

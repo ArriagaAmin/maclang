@@ -40,6 +40,9 @@ class SymbolsTable {
     // Return type in a function definition.
     string ret_type;
     vector<int> offsets;
+    // Diccionario:  Scope -> Entries  que se usara para conseguir las entradas de una
+    // estructura
+    map<int, vector<Entry*>> scopeEntries;
 
     SymbolsTable(void);
 
@@ -97,7 +100,8 @@ class VarEntry : public Entry {
       string category, 
       Type *type, 
       int offset, 
-      string addr=""
+      string addr="",
+      SymbolsTable *st=NULL
     );
     VarEntry(void) {};
 

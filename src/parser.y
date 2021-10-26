@@ -4,6 +4,7 @@
   #include <string>
   #include <cstring>
   #include <set>
+  #include <stack>
 
   #include "table.hpp"
   #include "tac.hpp"
@@ -28,10 +29,20 @@
   extern map<string, Type*> predefinedTypes;
 
   // Leblanc-Cook's Symbols Table
-  SymbolsTable table;
+  SymbolsTable *table = new SymbolsTable;
 
   // TAC 
   TAC *tac = new TAC;
+
+  // Funciones para reservar memoria para tipos compuestos 
+  void allocConstArray(Type *t, string final_addr);
+  void allocVarArray(Type *t, string final_addr);
+  void allocStruct(Type *t, string final_addr);
+
+  // Funciones para liberar memoria para tipos compuestos 
+  void freeConstArray(Type *t, string final_addr);
+  void freeVarArray(Type *t, string final_addr);
+  void freeStruct(Type *t, string final_addr);
 
   // Prints error;
   void yyerror(string s);
@@ -261,7 +272,10 @@
             { 
               $$ = new NodeS($1); 
               ast = $$; 
-              tac->backpatch($1->nextlist, tac->instructions.size());
+
+              if ($1 != NULL) {
+                tac->backpatch($1->nextlist, tac->instructions.size());
+              }
             }
           ;
   M       : /* lambda */        { $$ = tac->instructions.size(); }
@@ -323,6 +337,26 @@
 
                   else {
                     $$ = new NodeForget($2);
+                    Type *t = ((PointerType*) ($2->type))->type;
+                    string type = t->toString();
+                    string addr = $2->addr;
+                    
+                    // Si el tipo es un arreglo de longitud constante
+                    if (type.back() == ']' && ((ArrayType*) t)->size->is_lit) {
+                      freeConstArray(t, addr);
+                    }
+
+                    // En cambio si es un arreglo de longitud variable
+                    else if (type.back() == ']') {
+                      freeVarArray(t, addr);
+                    }
+
+                    // En cambio si es una estructura
+                    else if (! predefinedTypes.count(type) && type[0] != '^') {
+                      freeStruct(t, addr);
+                    }
+
+                    tac->gen("free " + addr);
                   }
                 }
 
@@ -362,10 +396,10 @@
                     }
                     else {
                       tac->backpatch($3->truelist, tac->instructions.size());
-                      tac->gen("assign " + $1->addr + " 1");
+                      tac->gen("assign " + $1->addr + " True");
                       tac->gen("goto " + to_string(tac->instructions.size() + 2));
                       tac->backpatch($3->falselist, tac->instructions.size());
-                      tac->gen("assign " + $1->addr + " 0");
+                      tac->gen("assign " + $1->addr + " False");
                     }
                   }
                 }
@@ -388,21 +422,35 @@
                       } 
 
                       else {
-                        int s = table.currentScope();
+                        int s = table->currentScope();
                         string addr;
 
-                        // Si no es un tipo primario, reservamos memoria.
-                        if (! predefinedTypes.count($2->toString())) {
+                        // Si el tipo es un arreglo de longitud constante
+                        if (type.back() == ']' && ((ArrayType*) $2)->size->is_lit) {
                           addr = tac->newAddr($2->width);
+                          allocConstArray($2, addr);
                         }
+
+                        // En cambio si es un arreglo de longitud variable
+                        else if (type.back() == ']') {
+                          addr = tac->newTemp();
+                          allocVarArray($2, addr);
+                        }
+
+                        // En cambio si es una estructura
+                        else if (! predefinedTypes.count(type) && type[0] != '^') {
+                          addr = tac->newAddr($2->width);
+                          allocStruct($2, addr);
+                        }
+
                         // En caso contrario, usamos un temporal comun.
                         else {
                           addr = tac->newTemp();
                         }
 
-                        int offset = table.offsets.back();
+                        int offset = table->offsets.back();
                         Entry *e;
-                        if(type.find("[]") == string::npos) {
+                        if(type.back() == ']') {
                           e = new VarEntry(
                             vardef.first, 
                             s, 
@@ -424,8 +472,8 @@
                           );
                         }
 
-                        table.insert(e);
-                        table.offsets.back() += $2->width;
+                        table->insert(e);
+                        table->offsets.back() += $2->width;
 
                         if (vardef.second != NULL) {
                           $$ = new NodeAssignList(
@@ -434,20 +482,15 @@
                           );
 
                           if (rtype != "Bool") {
-                            if(type.find("[]") != string::npos)
-                            {
-                              tac->gen("assign " + to_string(offset)+ "["+ addr + "] " + vardef.second->addr);
-                            }
-                            else
-                              tac->gen("assign " + addr + " " + vardef.second->addr);
+                            tac->gen("assign " + addr + " " + vardef.second->addr);
                           }
                           else {
                             tac->backpatch(vardef.second->truelist, tac->instructions.size());
-                            tac->gen("assign " + addr + " 1");
+                            tac->gen("assign " + addr + " True");
                             tac->gen("goto " + to_string(tac->instructions.size() + 2));
 
                             tac->backpatch(vardef.second->falselist, tac->instructions.size());
-                            tac->gen("assign " + addr + " 0");
+                            tac->gen("assign " + addr + " False");
                           }
                         }
                       }
@@ -460,6 +503,7 @@
                   }
                 } 
               ;
+  
   VarDefList  : IdDef OptAssign 
                 {
                   $$ = new vector<pair<string, ExpressionNode*>>;
@@ -476,9 +520,10 @@
                   } 
                 }
               ;   
+  
   IdDef       : ID 
                 {
-                  if (! table.verifyInsert($1)) {
+                  if (! table->verifyInsert($1)) {
                     addError((string) "Redefinition of '\e[1;3m" + $1 + "\e[0m'.");
                     $$ = (char*) "";
                   } 
@@ -487,6 +532,7 @@
                     $$ = $1; 
                   }
                 }
+  
   OptAssign   : /* lambda */                { $$ = NULL; }
               | ASSIGNMENT Exp              { $$ = $2; }
               ;
@@ -514,7 +560,7 @@
         | ID 
           {
             Entry *e;
-            if ((e = table.lookup($1)) == NULL) {
+            if ((e = table->lookup($1)) == NULL) {
               addError((string) "'\e[1;3m" + $1 + "\e[0m' wasn't declared.");
               $$ = predefinedTypes["$Error"];
             } 
@@ -980,21 +1026,10 @@
             $$ = new NodeUnaryOperator($1, $2, type); 
 
             $$->addr = tac->newTemp();
-            tac->gen("sub " + $$->addr + " 0 " + $2->addr);
+            tac->gen("minus " + $$->addr + $2->addr);
           }
 
-        | PLUS Exp 
-          { 
-            Type *return_type;
-            if ($2->type->toString() == "Int") {
-              return_type = predefinedTypes["Int"];
-            } else {
-              return_type = predefinedTypes["Float"];
-            }
-
-            Type *type = verifyUnaryOpType({"Int", "Float"}, $2->type, "+", return_type);
-            $$ = new NodeUnaryOperator($1, $2, type); 
-          }
+        | PLUS Exp              { $$ = $2; }
 
         | Exp POWER Exp 
           { 
@@ -1035,7 +1070,7 @@
 
             // Creamos una etiqueta para el loop
             string loop_name = tac->newLabel();
-            tac->gen(loop_name + ":");
+            tac->gen("@label " + loop_name);
 
             // Verificamos si el exponente es menor o igual a 0, en ese caso salimos del
             // bucle
@@ -1048,7 +1083,7 @@
             tac->gen("goto " + loop_name);
 
             // Final del ciclo
-            tac->gen(loop_name + "_end:");
+            tac->gen("@label " + loop_name + "_end");
           }
 
         | Exp OPEN_BRACKET Exp CLOSE_BRACKET 
@@ -1132,7 +1167,7 @@
             } 
             
             else {
-              Entry *e = table.lookup($1->type->toString()); 
+              Entry *e = table->lookup($1->type->toString()); 
 
               if (e->category != "Structure") {
                 addError(
@@ -1144,7 +1179,7 @@
               
               else {
                 StructureEntry *se = (StructureEntry*) e;
-                VarEntry *field = (VarEntry*) table.lookup($3, se->def_scope);
+                VarEntry *field = (VarEntry*) table->lookup($3, se->def_scope);
 
                 if (field == NULL) {
                   addError(
@@ -1173,7 +1208,7 @@
         | ID 
           { 
             Entry *e;
-            if ((e = table.lookup($1)) == NULL) {
+            if ((e = table->lookup($1)) == NULL) {
               addError((string) "'\e[1;3m" + $1 + "\e[0m' wasn't declared.");
               $$ = new NodeID($1, predefinedTypes["$Error"]);
             } 
@@ -1187,7 +1222,7 @@
               VarEntry *ve = (VarEntry*) e;
               $$ = new NodeID($1, ve->type); 
 
-              if (table.ret_type == "") {
+              if (table->ret_type == "") {
                 $$->addr = ve->addr;
               }
               else {
@@ -1208,7 +1243,23 @@
             if ($2->toString() != "$Error") {
               $$ = new NodeNew($2); 
               $$->addr = tac->newTemp();
-              tac->gen("new " + $$->addr + " " + to_string($2->width));
+              tac->gen("malloc " + $$->addr + " " + to_string($2->width));
+              string type = $2->toString();
+
+              // Si el tipo es un arreglo de longitud constante
+              if (type.back() == ']' && ((ArrayType*) $2)->size->is_lit) {
+                allocConstArray($2, $$->addr);
+              }
+
+              // En cambio si es un arreglo de longitud variable
+              else if (type.back() == ']') {
+                allocVarArray($2, $$->addr);
+              }
+
+              // En cambio si es una estructura
+              else if (! predefinedTypes.count(type) && type[0] != '^') {
+                allocStruct($2, $$->addr);
+              }
             }
 
             else {
@@ -1255,12 +1306,12 @@
                 }
                 else {
                   tac->backpatch($4->truelist, tac->instructions.size());
-                  tac->gen("assign " + $2->addr + " 1");
+                  tac->gen("assign " + $2->addr + " True");
                   $$->truelist = {tac->instructions.size()};
                   tac->gen("goto _");
 
                   tac->backpatch($4->falselist, tac->instructions.size());
-                  tac->gen("assign " + $2->addr + " 0");
+                  tac->gen("assign " + $2->addr + " False");
                   $$->falselist = {tac->instructions.size()};
                   tac->gen("goto _");
                 }
@@ -1313,7 +1364,7 @@
             $$ = new NodeSTRING($1); 
             $$->addr = tac->newTemp();
             int n = strlen($1);
-            tac->gen("new " + $$->addr + " " + to_string(4 * (n - 1)));
+            tac->gen("malloc " + $$->addr + " " + to_string(4 * (n - 1)));
 
             // Almacenamos cada caracter
             unsigned i = 0;
@@ -1389,10 +1440,10 @@
                   $2->addr = tac->newTemp();
 
                   tac->backpatch($2->truelist, tac->instructions.size());
-                  tac->gen("assign " + $2->addr + " 1");
+                  tac->gen("assign " + $2->addr + " True");
                   tac->gen("goto " + to_string(tac->instructions.size() + 2));
                   tac->backpatch($2->falselist, tac->instructions.size());
-                  tac->gen("assign " + $2->addr + " 0");
+                  tac->gen("assign " + $2->addr + " False");
                 }
 
                 $$ = new NodeArrayElems($1, type, $2, size);
@@ -1436,10 +1487,10 @@
                   $2->addr = tac->newTemp();
 
                   tac->backpatch($2->truelist, tac->instructions.size());
-                  tac->gen("assign " + $2->addr + " 1");
+                  tac->gen("assign " + $2->addr + " True");
                   tac->gen("goto " + to_string(tac->instructions.size() + 2));
                   tac->backpatch($2->falselist, tac->instructions.size());
-                  tac->gen("assign " + $2->addr + " 0");
+                  tac->gen("assign " + $2->addr + " False");
                 }
 
                 $$ = new NodeArrayElems($1, type, $2, size);
@@ -1459,7 +1510,7 @@
                         Type *type = NULL;
                         Entry *e;
 
-                        if ((e = table.lookup($1)) == NULL) {
+                        if ((e = table->lookup($1)) == NULL) {
                           addError((string) "'\e[1;3m" + $1 + "\e[0m' wasn't declared.");
                           type = predefinedTypes["$Error"];
                         } 
@@ -1632,10 +1683,10 @@
                           $1->addr = tac->newTemp();
 
                           tac->backpatch($1->truelist, tac->instructions.size());
-                          tac->gen("assign " + $1->addr + " 1");
+                          tac->gen("assign " + $1->addr + " True");
                           tac->gen("goto " + to_string(tac->instructions.size() + 2));
                           tac->backpatch($1->falselist, tac->instructions.size());
-                          tac->gen("assign " + $1->addr + " 0");
+                          tac->gen("assign " + $1->addr + " False");
                         }
 
                         $$->currentArgs.push_back($1);  
@@ -1658,10 +1709,10 @@
                           $3->addr = tac->newTemp();
 
                           tac->backpatch($3->truelist, tac->instructions.size());
-                          tac->gen("assign " + $3->addr + " 1");
+                          tac->gen("assign " + $3->addr + " True");
                           tac->gen("goto " + to_string(tac->instructions.size() + 2));
                           tac->backpatch($3->falselist, tac->instructions.size());
-                          tac->gen("assign " + $3->addr + " 0");
+                          tac->gen("assign " + $3->addr + " False");
                         }
 
                         $$->currentArgs.push_back($3);
@@ -1682,10 +1733,10 @@
                           $3->addr = tac->newTemp();
 
                           tac->backpatch($3->truelist, tac->instructions.size());
-                          tac->gen("assign " + $3->addr + " 1");
+                          tac->gen("assign " + $3->addr + " True");
                           tac->gen("goto " + to_string(tac->instructions.size() + 2));
                           tac->backpatch($3->falselist, tac->instructions.size());
-                          tac->gen("assign " + $3->addr + " 0");
+                          tac->gen("assign " + $3->addr + " False");
                         }
 
                         $$->currentArgs[$1] = $3; 
@@ -1714,10 +1765,10 @@
                           $5->addr = tac->newTemp();
 
                           tac->backpatch($5->truelist, tac->instructions.size());
-                          tac->gen("assign " + $5->addr + " 1");
+                          tac->gen("assign " + $5->addr + " True");
                           tac->gen("goto " + to_string(tac->instructions.size() + 2));
                           tac->backpatch($5->falselist, tac->instructions.size());
-                          tac->gen("assign " + $5->addr + " 0");
+                          tac->gen("assign " + $5->addr + " False");
                         }
 
                         $$->currentArgs[$3] = $5;
@@ -1735,9 +1786,9 @@
   UnionDef  : UnionId OPEN_C_BRACE UnionBody CLOSE_C_BRACE  
               { 
                 if ($1 != "" && $3 != NULL) {
-                  int def_s = table.currentScope();
-                  table.exitScope(); 
-                  int s = table.currentScope();
+                  int def_s = table->currentScope();
+                  table->exitScope(); 
+                  int s = table->currentScope();
 
                   Entry *e = new StructureEntry(
                     $1, 
@@ -1746,19 +1797,19 @@
                     def_s,
                     ((NodeUnionFields*) $3)->max_width
                   );
-                  table.insert(e);
+                  table->insert(e);
                 }
 
                 $$ = NULL;
-                table.offsets.pop_back();
+                table->offsets.pop_back();
               }
             ;
 
   UnionId   : UNION IdDef   
               { 
-                table.newScope(); 
+                table->newScope(); 
                 $$ = $2; 
-                table.offsets.push_back(0);
+                table->offsets.push_back(0);
               }
             ;  
 
@@ -1770,15 +1821,17 @@
 
                 else {
                   $$ = new NodeUnionFields(NULL, $1, $2, $1->width); 
-                  int s = table.currentScope();
+                  int s = table->currentScope();
                   Entry *e = new VarEntry(
                     $2, 
                     s, 
                     "Field", 
                     $1, 
-                    table.offsets.back()
+                    table->offsets.back(),
+                    "",
+                    table
                   );
-                  table.insert(e);
+                  table->insert(e);
                 }
               }
 
@@ -1792,15 +1845,17 @@
                   int max_width = ((NodeUnionFields*) $1)->max_width;
                   max_width = max_width > $2->width ? max_width : $2->width;
                   $$ = new NodeUnionFields($1, $2, $3, max_width); 
-                  int s = table.currentScope();
+                  int s = table->currentScope();
                   Entry *e = new VarEntry(
                     $3, 
                     s, 
                     "Field", 
                     $2, 
-                    table.offsets.back()
+                    table->offsets.back(),
+                    "",
+                    table
                   );
-                  table.insert(e);
+                  table->insert(e);
                 }
               }
             ;
@@ -1810,30 +1865,30 @@
   RegDef    : RegId OPEN_C_BRACE RegBody CLOSE_C_BRACE  
               { 
                 if ($1 != "" && $3 != NULL) {
-                  int def_s = table.currentScope();
-                  table.exitScope();
-                  int s = table.currentScope();
+                  int def_s = table->currentScope();
+                  table->exitScope();
+                  int s = table->currentScope();
 
                   Entry *e = new StructureEntry(
                     $1, 
                     s, 
                     "Structure", 
                     def_s,
-                    table.offsets.back()
+                    table->offsets.back()
                   );
-                  table.insert(e);
+                  table->insert(e);
                 }
 
                 $$ = NULL;
-                table.offsets.pop_back();
+                table->offsets.pop_back();
               }
             ;   
 
   RegId     : REGISTER IdDef 
               { 
-                table.newScope(); 
+                table->newScope(); 
                 $$ = $2; 
-                table.offsets.push_back(0);
+                table->offsets.push_back(0);
               }
             ; 
 
@@ -1856,16 +1911,18 @@
                 
                 else {
                   $$ = new NodeRegFields(NULL, $1, $2, $3);
-                  int s = table.currentScope();
+                  int s = table->currentScope();
                   Entry *e = new VarEntry(
                     $2, 
                     s, 
                     "Field", 
                     $1, 
-                    table.offsets.back()
+                    table->offsets.back(),
+                    "",
+                    table
                   );
-                  table.insert(e);
-                  table.offsets.back() += $1->width; 
+                  table->insert(e);
+                  table->offsets.back() += $1->width; 
                 }
               }
 
@@ -1889,16 +1946,18 @@
                 
                 else {
                   $$ = new NodeRegFields($1, $2, $3, $4);
-                  int s = table.currentScope();
+                  int s = table->currentScope();
                   Entry *e = new VarEntry(
                     $3, 
                     s, 
                     "Field", 
                     $2, 
-                    table.offsets.back()
+                    table->offsets.back(),
+                    "",
+                    table
                   );
-                  table.insert(e);
-                  table.offsets.back() += $2->width; 
+                  table->insert(e);
+                  table->offsets.back() += $2->width; 
                 }
               }
             ;
@@ -1908,7 +1967,7 @@
   Conditional : If Cond THEN M I N M OptElsif M OptElse DONE  
                 { 
                   $$ = new NodeConditional($2, $5, $8, $10);
-                  table.exitScope(); 
+                  table->exitScope(); 
 
                   tac->backpatch($2->truelist, $4);
                   tac->backpatch($2->falselist, $7);
@@ -1954,7 +2013,7 @@
                 }
               ;
 
-  If          : IF                              { table.newScope(); }
+  If          : IF                              { table->newScope(); }
               ;
   OptElsif    : /* lambda */                    { $$ = NULL; }
               | Elsifs                          { $$ = $1; }
@@ -1980,8 +2039,8 @@
 
   Elsif       : ELSIF 
                 { 
-                  table.exitScope();
-                  table.newScope(); 
+                  table->exitScope();
+                  table->newScope(); 
                 }
               ;
   OptElse     : /* lambda */                    { $$ = NULL; }
@@ -1993,8 +2052,8 @@
               ;
   Else        : ELSE                             
                 { 
-                  table.exitScope();
-                  table.newScope(); 
+                  table->exitScope();
+                  table->newScope(); 
                 }
               ;
 
@@ -2003,7 +2062,7 @@
   LoopWhile : While M Cond M DO I DONE                      
               { 
                 $$ = new NodeWhile($3, $6); 
-                table.exitScope();
+                table->exitScope();
 
                 tac->backpatch($6->nextlist, $2);
                 tac->backpatch($3->truelist, $4);
@@ -2012,7 +2071,7 @@
               }
             ; 
 
-  While     : WHILE                { table.newScope(); }
+  While     : WHILE                { table->newScope(); }
             ;
 
   LoopFor   : ForSign DO I DONE 
@@ -2029,8 +2088,8 @@
                 }
 
                 tac->gen("goto " + $1->label);
-                tac->gen($1->label + "_end:");
-                table.exitScope();
+                tac->gen("@label " + $1->label + "_end");
+                table->exitScope();
               }
 
   ForSign   : For OPEN_PAR IdDef SEMICOLON Exp SEMICOLON Exp OptStep CLOSE_PAR 
@@ -2039,18 +2098,18 @@
                 string type2 = $7->type->toString();
                 string type3 = $8 == NULL ? "" : $8->type->toString();
 
-                int s = table.currentScope();
+                int s = table->currentScope();
                 Type *t = predefinedTypes["Float"];
                 VarEntry *e = new VarEntry(
                   $3, 
                   s, 
                   "Var", 
                   t, 
-                  table.offsets.back(),
+                  table->offsets.back(),
                   tac->newTemp()
                 );
-                table.insert(e); 
-                table.offsets.back() += predefinedTypes["Float"]->width;
+                table->insert(e); 
+                table->offsets.back() += predefinedTypes["Float"]->width;
 
                 if (type1 != "$Error" && type1 != "Float" && type1 != "Int") {
                   addError(
@@ -2081,7 +2140,7 @@
                 $$->label = tac->newLabel();
 
                 tac->gen("assign " + $$->addr + " " + $5->addr);
-                tac->gen($$->label + ":");
+                tac->gen("@label " + $$->label);
 
                 // Verificacion de iteracion del for
                 tac->gen("geq test " + $$->addr + " " + $7->addr);
@@ -2091,7 +2150,7 @@
               }
             ;
 
-  For       : FOR                                       { table.newScope(); }
+  For       : FOR                                       { table->newScope(); }
             ;
 
   OptStep   : /* lambda */                              { $$ = NULL; }
@@ -2104,23 +2163,23 @@
               { 
                 if ($1->toString() == "Error") {
                   NodeError *err = (NodeError*) $1;
-                  table.exitScope();
-                  table.exitScope();
+                  table->exitScope();
+                  table->exitScope();
                   if (err->errInfo != "")
-                    table.erase(err->errInfo, table.currentScope());
+                    table->erase(err->errInfo, table->currentScope());
 
                   $$ = new NodeError();
                 } 
 
                 else {
-                  table.exitScope();
-                  table.exitScope();
+                  table->exitScope();
+                  table->exitScope();
 
                   $$ = new NodeRoutineDef($1, $3); 
                 }
 
-                table.ret_type = "";
-                table.offsets.pop_back();
+                table->ret_type = "";
+                table->offsets.pop_back();
               }
             ; 
 
@@ -2138,7 +2197,7 @@
                 else if (get<1>(*$1) != -1) {
                   bool error = false;
                   FunctionEntry *fe;
-                  fe = (FunctionEntry*) table.lookup(get<0>(*$1), get<1>(*$1));
+                  fe = (FunctionEntry*) table->lookup(get<0>(*$1), get<1>(*$1));
 
                   for (int i = 0; i < $3->params.size(); i++) {
                     if (
@@ -2180,7 +2239,7 @@
 
                   else if (get<1>(*$1) == get<2>(*$1)) {
                     fe->category = "Function";
-                    fe->def_scope = table.currentScope();
+                    fe->def_scope = table->currentScope();
                     $3->params.clear();
 
                     $$ = new NodeRoutineSign(get<0>(*$1), $3, $5);
@@ -2188,9 +2247,9 @@
 
                   else {
                     FunctionEntry *e;
-                    e = (FunctionEntry*) table.lookup(get<0>(*$1));
+                    e = (FunctionEntry*) table->lookup(get<0>(*$1));
                     e->return_type = $5;
-                    e->def_scope = table.currentScope();                  
+                    e->def_scope = table->currentScope();                  
                     e->args = fe->args;
                     $3->params.clear();
                     
@@ -2200,9 +2259,9 @@
                 
                 else {
                   FunctionEntry *e;
-                  e = (FunctionEntry*) table.lookup(get<0>(*$1));
+                  e = (FunctionEntry*) table->lookup(get<0>(*$1));
                   e->return_type = $5;
-                  e->def_scope = table.currentScope();  
+                  e->def_scope = table->currentScope();  
                   e->args = $3->params;
                   $3->params.clear();
                   
@@ -2210,20 +2269,20 @@
                 }
 
                 if ($5->toString() != "$Error") {
-                  table.ret_type = $5->toString();
+                  table->ret_type = $5->toString();
                 }
 
-                table.newScope();
+                table->newScope();
               }
             ;
 
   RoutId    : DEF ID                                        
               {
-                Entry *e = table.lookup($2);
+                Entry *e = table->lookup($2);
 
                 if (
                   e != NULL &&
-                  e->scope == table.currentScope() &&
+                  e->scope == table->currentScope() &&
                   e->category != "Declaration"
                 ) {
                   addError(
@@ -2235,19 +2294,19 @@
                 
                 else if (e != NULL && e->category == "Declaration") {
                   $$ = new tuple<string, int, int>(
-                    $2, e->scope, table.currentScope()
+                    $2, e->scope, table->currentScope()
                   ); 
                 }
 
                 else {
-                  int s = table.currentScope();
+                  int s = table->currentScope();
                   Entry *e = new FunctionEntry($2, s, "Function");
-                  table.insert(e);
+                  table->insert(e);
                   $$ = new tuple<string, int, int>((string) $2, -1, -1);
                 }
                 
-                table.newScope();
-                table.offsets.push_back(0);
+                table->newScope();
+                table->offsets.push_back(0);
               }
             ;    
 
@@ -2311,16 +2370,16 @@
                   $$ = new NodeRoutArgDef(NULL, $1, $2, $3, NULL);
                   $$->currentParams.push_back({$3, $1->toString(), $2, true});
 
-                  int s = table.currentScope();
+                  int s = table->currentScope();
                   Entry *e = new VarEntry(
                     $3, 
                     s, 
                     "Var", 
                     $1, 
-                    table.offsets.back()
+                    table->offsets.back()
                   );
-                  table.insert(e);
-                  table.offsets.back() += $1->width; 
+                  table->insert(e);
+                  table->offsets.back() += $1->width; 
                 }
               }
             | MandArgs COMMA Type OptRef IdDef              
@@ -2337,16 +2396,16 @@
                   $1->currentParams.clear();
                   $$->currentParams.push_back({$5, $3->toString(), $4, true});
 
-                  int s = table.currentScope();
+                  int s = table->currentScope();
                   Entry *e = new VarEntry(
                     $5, 
                     s, 
                     "Var", 
                     $3, 
-                    table.offsets.back()
+                    table->offsets.back()
                   );
-                  table.insert(e);
-                  table.offsets.back() += $3->width; 
+                  table->insert(e);
+                  table->offsets.back() += $3->width; 
                 }
               }
             ;   
@@ -2376,16 +2435,16 @@
                   $$ = new NodeRoutArgDef(NULL, $1, $2, $3, $5);
                   $$->currentParams.push_back({$3, type, $2,false});
 
-                  int s = table.currentScope();
+                  int s = table->currentScope();
                   Entry *e = new VarEntry(
                     $3, 
                     s, 
                     "Var",
                     $1, 
-                    table.offsets.back()
+                    table->offsets.back()
                   );
-                  table.insert(e);
-                  table.offsets.back() += $1->width; 
+                  table->insert(e);
+                  table->offsets.back() += $1->width; 
                 }
               }
 
@@ -2418,16 +2477,16 @@
                   $1->currentParams.clear();
                   $$->currentParams.push_back({$5, type, $4,false});
 
-                  int s = table.currentScope();
+                  int s = table->currentScope();
                   Entry *e = new VarEntry(
                     $5, 
                     s, 
                     "Var", 
                     $3, 
-                    table.offsets.back()
+                    table->offsets.back()
                   );
-                  table.insert(e);
-                  table.offsets.back() += $3->width; 
+                  table->insert(e);
+                  table->offsets.back() += $3->width; 
                 }
               }
 
@@ -2456,10 +2515,10 @@
 
             | Actions RETURN Exp SEMICOLON                  
               {
-                if (table.ret_type != "" && $3->type->toString() != table.ret_type) {
+                if (table->ret_type != "" && $3->type->toString() != table->ret_type) {
                   addError(
                     "Expected return type '\e[1;3m" + 
-                    table.ret_type + "\e[0m' but " +
+                    table->ret_type + "\e[0m' but " +
                     "'\e[1;3m" + $3->type->toString() + "\e[0m' found."
                   );
                   $$ = new NodeError();
@@ -2472,10 +2531,10 @@
 
             | Actions RETURN SEMICOLON                      
               {
-                if (table.ret_type != "" && "Unit" != table.ret_type) {
+                if (table->ret_type != "" && "Unit" != table->ret_type) {
                   addError(
                     "Expected return type '\e[1;3m" + 
-                    table.ret_type + "\e[0m' but " +
+                    table->ret_type + "\e[0m' but " +
                     "'\e[1;3mUnit\e[0m' found ."
                   );
                   $$ = new NodeError();
@@ -2491,10 +2550,10 @@
 /* ======================= SUBROUTINES DECLARATION =================== */
   RoutDec   : DecId OPEN_PAR RoutArgs CLOSE_PAR OptReturn 
               {
-                table.exitScope();
+                table->exitScope();
 
                 if ($3 != NULL && $1 != "" && $5->toString() != "$Error") {
-                  int s = table.currentScope();
+                  int s = table->currentScope();
                   Entry *e = new FunctionDeclarationEntry(
                     $1, 
                     s,
@@ -2502,7 +2561,7 @@
                     $3->params,
                     $5
                   );
-                  table.insert(e);
+                  table->insert(e);
                 }
                 
                 $$ = NULL;
@@ -2511,7 +2570,7 @@
 
   DecId     : DEC IdDef   
               {
-                table.newScope();
+                table->newScope();
                 $$ = $2;
               }
             ;
@@ -2524,18 +2583,18 @@ int main(int argc, char **argv)
   // Adding scope 0 elements.
   vector<string> primitives = {"Unit", "Bool", "Char", "Int", "Float", "String"};
   for (string t : primitives) {
-    table.insert(new PrimitiveEntry(t));
+    table->insert(new PrimitiveEntry(t));
   }
   FunctionEntry *fe = new FunctionEntry("read", 0, "Function");
   fe->return_type = new ArrayType(predefinedTypes["Char"], new NodeINT(1));
   fe->def_scope = 0;
-  table.insert(fe);
+  table->insert(fe);
 
   fe = new FunctionEntry("print", 0, "Function");
   fe->args.push_back({"text", "(Char)[]", false, true});
   fe->return_type = predefinedTypes["Unit"];
   fe->def_scope = 0;
-  table.insert(fe);
+  table->insert(fe);
 
   // Booleans for options
   bool bLexOpt = false;
@@ -2672,7 +2731,7 @@ int main(int argc, char **argv)
       }
 
     } else if (bSymbolsOpt) {
-      table.printTable();
+      table->printTable();
 
     } else if (bTACOpt) {
       tac->print();
@@ -2801,6 +2860,229 @@ Type *verifyBinayOpType(
         type1->toString() + "\e[0m' and '\e[1;3m" + type2->toString() + "\e[0m'."
       );
       return predefinedTypes["$Error"];
+    }
+  }
+}
+
+
+void allocConstArray(Type *t, string final_addr) {
+  stack<ArrayType*> arrayStack;
+  ArrayType* at;
+  
+  // Recorremos el hiper arreglo hasta conseguir un tipo que no es un arreglo o es un 
+  // arreglo de longitud variable.
+  do {
+    at = (ArrayType*) t;
+    arrayStack.push(at);
+    t = at->type;
+  } while (t->toString().back() == ']' && ((ArrayType*) t)->size->is_lit);
+
+  // Si nos conseguimos con un arreglo o una estructura
+  if (
+    t->toString().back() == ']' || 
+    (! predefinedTypes.count(t->toString()) && t->toString()[0] != '^')
+  ) {
+    // Obtenemos la longitud del hiper arreglo
+    string size_addr = tac->newTemp();
+    tac->gen("assign " + size_addr + " " + to_string(t->width));
+
+    while (! arrayStack.empty()) {
+      tac->gen("mult " + size_addr + " " + size_addr + " " + arrayStack.top()->size->addr);
+      arrayStack.pop();
+    }
+
+    string label = tac->newLabel();
+    tac->gen("@label " + label);
+    tac->gen("sub " + size_addr + " " + size_addr + " " + to_string(t->width));
+    tac->gen("lt test " + size_addr + " 0");
+    tac->gen("goif " + label + "_end test");
+
+    if (t->toString().back() == ']') {
+      allocVarArray(t, final_addr + "[" + size_addr + "]");
+    } 
+    else {
+      allocStruct(t, final_addr + "[" + size_addr + "]");
+    }
+
+    tac->gen("goto " + label);
+    tac->gen("@label " + label + "_end");
+  }
+}
+
+void allocVarArray(Type *t, string final_addr) {
+  stack<ArrayType*> arrayStack;
+  ArrayType *at;
+  
+  do {
+    at = (ArrayType*) t;
+    arrayStack.push(at);
+    t = at->type;
+  } while (t->toString().back() == ']');
+
+  string size_addr = tac->newTemp();
+  tac->gen("assign " + size_addr + " " + to_string(t->width));
+
+  while (! arrayStack.empty()) {
+    tac->gen("mult " + size_addr + " " + size_addr + " " + arrayStack.top()->size->addr);
+    arrayStack.pop();
+  }
+
+  tac->gen("malloc " + final_addr + " " + size_addr);
+
+  // Si el tipo base del hiper arreglo no es primitivo ni puntero
+  if (! predefinedTypes.count(t->toString()) && t->toString()[0] != '^') {
+    string label = tac->newLabel();
+    tac->gen("@label " + label);
+    tac->gen("sub " + size_addr + " " + size_addr + " " + to_string(t->width));
+    tac->gen("lt test " + size_addr + " 0");
+    tac->gen("goif " + label + "_end test");
+
+    allocStruct(t, final_addr + "[" + size_addr + "]");
+
+    tac->gen("goto " + label);
+    tac->gen("goto " + label + "_end");
+  }
+}
+
+void allocStruct(Type *t, string final_addr) {
+  // Obtenemos el scope de definicion de la estructura.
+  PrimitiveType *pt = (PrimitiveType*) t;
+  StructureEntry *se = (StructureEntry*) table->lookup(pt->id);
+  int scope = se->def_scope;
+
+  if (table->scopeEntries.count(scope)) {
+    VarEntry *ve;
+    string type;
+    ArrayType *at;
+
+    for (Entry *e : table->scopeEntries[scope]) {
+      ve = (VarEntry*) e;
+      type = ve->type->toString();
+
+      if (type.back() == ']') {
+        at = (ArrayType*) ve->type;
+        if (! at->size->is_lit) {
+          allocVarArray(ve->type, final_addr + "[" + to_string(ve->offset) + "]");
+        }
+        else {
+          allocConstArray(ve->type, final_addr + "[" + to_string(ve->offset) + "]");
+
+        }
+      }
+      else if (! predefinedTypes.count(type) && type[0] != '^') {
+        allocStruct(ve->type, final_addr + "[" + to_string(ve->offset) + "]");
+      }
+    }
+  }
+}
+
+void freeConstArray(Type *t, string final_addr) {
+  stack<ArrayType*> arrayStack;
+  ArrayType* at;
+  
+  // Recorremos el hiper arreglo hasta conseguir un tipo que no es un arreglo o es un 
+  // arreglo de longitud variable.
+  do {
+    at = (ArrayType*) t;
+    arrayStack.push(at);
+    t = at->type;
+  } while (t->toString().back() == ']' && ((ArrayType*) t)->size->is_lit);
+
+  // Si nos conseguimos con un arreglo o una estructura
+  if (
+    t->toString().back() == ']' || 
+    (! predefinedTypes.count(t->toString()) && t->toString()[0] != '^')
+  ) {
+    // Obtenemos la longitud del hiper arreglo
+    string size_addr = tac->newTemp();
+    tac->gen("assign " + size_addr + " " + to_string(t->width));
+
+    while (! arrayStack.empty()) {
+      tac->gen("mult " + size_addr + " " + size_addr + " " + arrayStack.top()->size->addr);
+      arrayStack.pop();
+    }
+
+    string label = tac->newLabel();
+    tac->gen("@label " + label);
+    tac->gen("sub " + size_addr + " " + size_addr + " " + to_string(t->width));
+    tac->gen("lt test " + size_addr + " 0");
+    tac->gen("goif " + label + "_end test");
+
+    if (t->toString().back() == ']') {
+      freeVarArray(t, final_addr + "[" + size_addr + "]");
+    } 
+    else {
+      freeStruct(t, final_addr + "[" + size_addr + "]");
+    }
+
+    tac->gen("goto " + label);
+    tac->gen("@label " + label + "_end");
+  }
+}
+
+void freeVarArray(Type *t, string final_addr) {
+  stack<ArrayType*> arrayStack;
+  ArrayType *at;
+  
+  do {
+    at = (ArrayType*) t;
+    arrayStack.push(at);
+    t = at->type;
+  } while (t->toString().back() == ']');
+
+  // Si el tipo base del hiper arreglo no es primitivo ni puntero
+  if (! predefinedTypes.count(t->toString()) && t->toString()[0] != '^') {
+    string size_addr = tac->newTemp();
+    tac->gen("assign " + size_addr + " " + to_string(t->width));
+
+    while (! arrayStack.empty()) {
+      tac->gen("mult " + size_addr + " " + size_addr + " " + arrayStack.top()->size->addr);
+      arrayStack.pop();
+    }
+    
+    string label = tac->newLabel();
+    tac->gen("@label " + label);
+    tac->gen("sub " + size_addr + " " + size_addr + " " + to_string(t->width));
+    tac->gen("lt test " + size_addr + " 0");
+    tac->gen("goif " + label + "_end test");
+
+    freeStruct(t, final_addr + "[" + size_addr + "]");
+
+    tac->gen("goto " + label);
+    tac->gen("goto " + label + "_end");
+  }
+  
+  tac->gen("free " + final_addr);
+}
+
+void freeStruct(Type *t, string final_addr) {
+  // Obtenemos el scope de definicion de la estructura.
+  PrimitiveType *pt = (PrimitiveType*) t;
+  StructureEntry *se = (StructureEntry*) table->lookup(pt->id);
+  int scope = se->def_scope;
+
+  if (table->scopeEntries.count(scope)) {
+    VarEntry *ve;
+    string type;
+    ArrayType *at;
+
+    for (Entry *e : table->scopeEntries[scope]) {
+      ve = (VarEntry*) e;
+      type = ve->type->toString();
+
+      if (type.back() == ']') {
+        at = (ArrayType*) ve->type;
+        if (! at->size->is_lit) {
+          freeVarArray(ve->type, final_addr + "[" + to_string(ve->offset) + "]");
+        }
+        else {
+          freeConstArray(ve->type, final_addr + "[" + to_string(ve->offset) + "]");
+
+        }
+      }
+      else if (! predefinedTypes.count(type) && type[0] != '^') {
+        freeStruct(ve->type, final_addr + "[" + to_string(ve->offset) + "]");
+      }
     }
   }
 }

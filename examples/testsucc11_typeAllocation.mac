@@ -1,0 +1,15 @@
+let Bool[7][6] A;
+
+let Int b = 13;
+let Char[10][b] B;
+
+let Int c = 5;
+let Char[b][69] C;
+
+register R0 {
+	Bool b;
+	Char c;
+	Int[10] i;
+	Float f;
+}
+let R0 d;

@@ -209,7 +209,8 @@ VarEntry::VarEntry(
     string category, 
     Type *type, 
     int offset, 
-    string addr
+    string addr,
+    SymbolsTable *st
   ) {
   this->id = id;
   this->type = type;
@@ -217,6 +218,13 @@ VarEntry::VarEntry(
   this->category = category;
   this->offset = offset;
   this->addr = addr;
+
+  if (st != NULL && st->scopeEntries.count(scope)) {
+    st->scopeEntries[scope].push_back(this);
+  }
+  else if (st != NULL) {
+    st->scopeEntries[scope] = {this};
+  }
 }
 
 /*
@@ -251,7 +259,7 @@ VarArrayEntry::VarArrayEntry(
 
   Type *elementsType = type->type; 
   // For now is just thinking is onedimesional
-  this->baseConstant = offset - (this->low * type->type->width);
+  //this->baseConstant = offset - (this->low * type->type->width);
 }
 
 void VarArrayEntry::print(void) {

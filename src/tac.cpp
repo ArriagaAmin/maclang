@@ -47,11 +47,10 @@ void TAC::print(void) {
     unsigned long long index = 0;
     unsigned len = to_string(this->instructions.size()).size();
 
-    cout << ".data\n";
     for (pair<string, unsigned long long> addr : this->address) {
-        cout << "  " << addr.first << ":  .space " << to_string(addr.second) << "\n";
+        cout << "@staticv " << addr.first << " " << to_string(addr.second) << "\n";
     }
-    cout << "\n.text\n";
+    cout << "\n";
 
     for (string instr : this->instructions) {
         printf("%.*llu", len, index, ' ');
