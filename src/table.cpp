@@ -232,6 +232,39 @@ void VarEntry::print(void) {
   cout << "\e[1;31m)\e[0m";
 }
 
+VarArrayEntry::VarArrayEntry(
+    string id, 
+    int scope, 
+    string category, 
+    ArrayType *type, 
+    int offset,
+    string addr
+  ) {
+  this->id = id;
+  this->type = type;
+  this->scope = scope;
+  this->category = category;
+  this->offset = offset;
+  this->addr = addr;
+  this->low = 0;
+  this->high = type->getSize();
+
+  Type *elementsType = type->type; 
+  // For now is just thinking is onedimesional
+  this->baseConstant = offset - (this->low * type->type->width);
+}
+
+void VarArrayEntry::print(void) {
+  cout << "\e[1;31m(\e[1;34mScope:\e[0m " << this->scope;
+  cout << ", \e[1;34mID:\e[0m " << this->id;
+  cout << ", \e[1;34mCategory:\e[0m " << this->category;
+  cout << ", \e[1;34mType: \e[0m";
+  cout << this->type->toString(); 
+  cout << ", \e[1;34mOffset: \e[0m" << this->offset;
+  cout << ", \e[1;34mConstant: \e[0m" << this->baseConstant; 
+  cout << "\e[1;31m)\e[0m";
+}
+
 StructureEntry::StructureEntry(
   string id, 
   int scope, 
