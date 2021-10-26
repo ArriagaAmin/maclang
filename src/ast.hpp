@@ -294,6 +294,8 @@ class Node {
 
       string toString(void);
 
+      string getId();
+
       void printTree(vector<bool> *identation);
   };
 
