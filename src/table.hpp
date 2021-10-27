@@ -32,11 +32,11 @@ class SymbolsTable {
   private:
     // Dictionary:  Name -> Entries
     map<string, deque<Entry*>> symTable;
-    vector<int> scopeStack;
     // Last scope added
     int lastScope;
 
   public:
+    vector<int> scopeStack;
     // Return type in a function definition.
     string ret_type;
     vector<int> offsets;
@@ -148,8 +148,9 @@ class FunctionEntry : public Entry {
     Type *return_type;
     // scope for all inner definitions
     int def_scope;
-    // every arg is a tuple (name, type, isReference, isMandatory)
-    vector<tuple<string, string, bool, bool>> args;
+    // every arg is a tuple (name, type, isReference, Expression)
+    vector<tuple<string, string, bool, ExpressionNode*>> args;
+    string addr;
 
     FunctionEntry(string id, int scope, string category);
     FunctionEntry(void) {};
@@ -165,7 +166,7 @@ class FunctionDeclarationEntry : public FunctionEntry {
       string id, 
       int scope,
       string category, 
-      vector<tuple<string, string, bool, bool>> args, 
+      vector<tuple<string, string, bool, ExpressionNode*>> args, 
       Type *return_type
     );
 

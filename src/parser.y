@@ -164,7 +164,7 @@
   NodeFunctionCallPositionalArgs *fcpArgs;
   NodeFunctionCallNamedArgs *fcnArgs;
   vector<pair<string, ExpressionNode*>> *varList;
-  tuple<string, int, int> *scopeid;
+  pair<string, FunctionEntry*> *funcEntry;
 }
 
 %locations
@@ -262,7 +262,7 @@
 %type <str>           IdDef UnionId RegId DecId
 %type <nS>            S
 %type <varList>       VarDefList
-%type <scopeid>       RoutId
+%type <funcEntry>       RoutId
 %type <integer>       M
 
 %%
@@ -272,6 +272,11 @@
             { 
               $$ = new NodeS($1); 
               ast = $$; 
+
+              // Verificamos que no quedaron llamadas a funciones de solo declaraciones.
+              for (pair<string, vector<pair<unsigned long long, vector<int>>>> f : tac->functionlist) {
+                addError("Function '\e[1;3m" + f.first + "\e[0m' undefined.");
+              }
 
               if ($1 != NULL) {
                 tac->backpatch($1->nextlist, tac->instructions.size());
@@ -342,7 +347,7 @@
                     string addr = $2->addr;
                     
                     // Si el tipo es un arreglo de longitud constante
-                    if (type.back() == ']' && ((ArrayType*) t)->size->is_lit) {
+                    if (type.back() == ']' && ! ((ArrayType*) t)->is_pointer) {
                       freeConstArray(t, addr);
                     }
 
@@ -386,16 +391,7 @@
                     $$ = new NodeAssign($1, $3);
 
                     if (rtype != "Bool") {
-                      // Handling arrays
-                      if(ltype.find("]") != string::npos)
-                      {
-                        NodeID* lvalue = (NodeID*) $1;
-                        Entry* e = table.lookup(lvalue->getId());
-                        VarArrayEntry *ve = (VarArrayEntry*) e;
-                        tac->gen("assign " + to_string(ve->offset) + "["+ $1->addr + "] " + $3->addr);
-                      }
-                      else
-                        tac->gen("assign " + $1->addr + " " + $3->addr);
+                      tac->gen("assign " + $1->addr + " " + $3->addr);
                     }
                     else {
                       tac->backpatch($3->truelist, tac->instructions.size());
@@ -429,14 +425,19 @@
                         string addr;
 
                         // Si el tipo es un arreglo de longitud constante
-                        if (type.back() == ']' && ((ArrayType*) $2)->size->is_lit) {
+                        if (type.back() == ']' && ! ((ArrayType*) $2)->is_pointer) {
                           addr = tac->newAddr($2->width);
                           allocConstArray($2, addr);
                         }
 
                         // En cambio si es un arreglo de longitud variable
                         else if (type.back() == ']') {
-                          addr = tac->newTemp();
+                          if (table->ret_type == "") {
+                            addr = tac->newTemp();
+                          }
+                          else {
+                            addr = "base[" + to_string(table->offsets.back()) + "]";
+                          }
                           allocVarArray($2, addr);
                         }
 
@@ -446,7 +447,12 @@
                           allocStruct($2, addr);
                         }
 
-                        // En caso contrario, usamos un temporal comun.
+                        // En cambio, si estamos dentro de una funcion
+                        else if (table->ret_type != "") {
+                            addr = "base[" + to_string(table->offsets.back()) + "]";
+                        }
+                          
+                        // En caso contrario, usamos un temporal comun
                         else {
                           addr = tac->newTemp();
                         }
@@ -587,13 +593,13 @@
         | T_FLOAT                             { $$ = predefinedTypes["Float"]; }
         | T_STRING                            
           { 
-            $$ = new ArrayType(predefinedTypes["Char"], new NodeINT(8), true); 
+            $$ = new ArrayType(predefinedTypes["Char"], new NodeINT(1), true); 
           }
         ;
 
 
 /* ======================= EXPRESSIONS =============================== */
-  Exp   : Exp EQUIV Exp 
+  Exp   : Exp EQUIV M Exp 
           { 
             set<string> types = {"Bool", "Char", "Int", "Float"};
             set<pair<string, string>> tuples = {
@@ -606,7 +612,7 @@
             };
 
             Type *t1 = $1->type;
-            Type *t2 = $3->type;
+            Type *t2 = $4->type;
 
             Type *type = verifyBinayOpType(
               tuples, 
@@ -617,16 +623,33 @@
               "==", 
               predefinedTypes["Bool"]
             );
-            $$ = new NodeBinaryOperator($1, $2, $3, type); 
+            $$ = new NodeBinaryOperator($1, $2, $4, type); 
 
-            tac->gen("eq test " + $1->addr + " " + $3->addr);
+            if (t1->toString() == "Bool" && t2->toString() == "Bool") {
+              $1->addr = tac->newTemp();
+              tac->backpatch($1->truelist, tac->instructions.size());
+              tac->gen("assign " + $1->addr + " True");
+              tac->gen("goto " + to_string(tac->instructions.size() + 2));
+              tac->backpatch($1->falselist, tac->instructions.size());
+              tac->gen("assign " + $1->addr + " False");
+              tac->gen("goto " + to_string($3));
+
+              $4->addr = tac->newTemp();
+              tac->backpatch($4->truelist, tac->instructions.size());
+              tac->gen("assign " + $4->addr + " True");
+              tac->gen("goto " + to_string(tac->instructions.size() + 2));
+              tac->backpatch($4->falselist, tac->instructions.size());
+              tac->gen("assign " + $4->addr + " False");
+            }
+
+            tac->gen("eq test " + $1->addr + " " + $4->addr);
             $$->truelist = {tac->instructions.size()};
             $$->falselist = {tac->instructions.size() + 1};
             tac->gen("goif test _");
             tac->gen("goto _");
           }
 
-        | Exp NOT_EQUIV Exp 
+        | Exp NOT_EQUIV M Exp 
           { 
             set<string> types = {"Bool", "Char", "Int", "Float"};
             set<pair<string, string>> tuples = {
@@ -639,7 +662,7 @@
             };
 
             Type *t1 = $1->type;
-            Type *t2 = $3->type;
+            Type *t2 = $4->type;
 
             Type *type = verifyBinayOpType(
               tuples, 
@@ -650,9 +673,26 @@
               "!=", 
               predefinedTypes["Bool"]
             );                                      
-            $$ = new NodeBinaryOperator($1, $2, $3, type); 
+            $$ = new NodeBinaryOperator($1, $2, $4, type); 
 
-            tac->gen("neq test " + $1->addr + " " + $3->addr);
+            if (t1->toString() == "Bool" && t2->toString() == "Bool") {
+              $1->addr = tac->newTemp();
+              tac->backpatch($1->truelist, tac->instructions.size());
+              tac->gen("assign " + $1->addr + " True");
+              tac->gen("goto " + to_string(tac->instructions.size() + 2));
+              tac->backpatch($1->falselist, tac->instructions.size());
+              tac->gen("assign " + $1->addr + " False");
+              tac->gen("goto " + to_string($3));
+
+              $4->addr = tac->newTemp();
+              tac->backpatch($4->truelist, tac->instructions.size());
+              tac->gen("assign " + $4->addr + " True");
+              tac->gen("goto " + to_string(tac->instructions.size() + 2));
+              tac->backpatch($4->falselist, tac->instructions.size());
+              tac->gen("assign " + $4->addr + " False");
+            }
+
+            tac->gen("neq test " + $1->addr + " " + $4->addr);
             $$->truelist = {tac->instructions.size()};
             $$->falselist = {tac->instructions.size() + 1};
             tac->gen("goif test _");
@@ -1029,7 +1069,7 @@
             $$ = new NodeUnaryOperator($1, $2, type); 
 
             $$->addr = tac->newTemp();
-            tac->gen("minus " + $$->addr + $2->addr);
+            tac->gen("minus " + $$->addr + " " + $2->addr);
           }
 
         | PLUS Exp              { $$ = $2; }
@@ -1118,17 +1158,27 @@
             else {
               Type *type = ((ArrayType*) $1->type)->type;
               $$ = new NodeArrayAccess($1, $3, type);
-              if(type->toString().find("]") == string::npos)
+              if(type->toString().back() == ']')
               {
+                string t = tac->newTemp();
                 $$->addr = tac->newTemp();
-                tac->gen("assign " + $$->addr + " " + $3->addr + "*" + to_string(type->width));
+                tac->gen("mult " + t + " " + $3->addr + " " + to_string(type->width));
+                tac->gen("assign " + t + " " + $1->addr + "[" + t + "]");
+                tac->gen("ref " + $$->addr + " " + t);
               }
               else
               {
                 string t = tac->newTemp();
                 $$->addr = tac->newTemp();
-                tac->gen("assign " + t + " " + $3->addr + "*" + to_string(type->width));
-                tac->gen("assign " + $$->addr + " " + $1->addr + "+" + t);
+                tac->gen("mult " + t + " " + $3->addr + " " + to_string(type->width));
+                tac->gen("assign " + $$->addr + " " + $1->addr + "[" + t + "]");
+
+                if (type->toString() == "Bool") {
+                  $$->truelist = {tac->instructions.size()};
+                  tac->gen("goif " + $$->addr + " _");
+                  $$->falselist = {tac->instructions.size()};
+                  tac->gen("goto _");
+                }
               } 
             }
           }
@@ -1150,8 +1200,7 @@
             else {
               Type *type = ((PointerType*) $2->type)->type;
               $$ = new NodePointer($2, type); 
-              $$->addr = tac->newTemp();
-              tac->gen("deref " + $$->addr + " " + $2->addr);
+              $$->addr = $2->addr + "[0]";
             }
           }
 
@@ -1250,7 +1299,7 @@
               string type = $2->toString();
 
               // Si el tipo es un arreglo de longitud constante
-              if (type.back() == ']' && ((ArrayType*) $2)->size->is_lit) {
+              if (type.back() == ']' && ! ((ArrayType*) $2)->is_pointer) {
                 allocConstArray($2, $$->addr);
               }
 
@@ -1365,19 +1414,7 @@
         | STRING 
           { 
             $$ = new NodeSTRING($1); 
-            $$->addr = tac->newTemp();
-            int n = strlen($1);
-            tac->gen("malloc " + $$->addr + " " + to_string(4 * (n - 1)));
-
-            // Almacenamos cada caracter
-            unsigned i = 0;
-            for (int j = 1; j < n-1; j++) {
-              tac->gen(
-                "assign " + $$->addr + "[" + to_string(i) + "] '" + $1[j] + "'"
-              );
-              i += predefinedTypes["Char"]->width;
-            }
-            tac->gen("assign " + $$->addr + "[" + to_string(i) + "] '\\0'");
+            $$->addr = tac->newStr($1);
           }
         ;
 
@@ -1525,12 +1562,12 @@
                         
                         else {
                           FunctionEntry *fe = (FunctionEntry*) e;
-                          bool correctTypes = true, allMand = true;
+                          bool correctTypes = true;
                           string type_str;
 
                           int numPositional = $3->positionalArgs.size(), i = 0;
 
-                          for (tuple<string, string, bool, bool> arg : fe->args) {
+                          for (tuple<string, string, bool, ExpressionNode*> arg : fe->args) {
                             if (i < numPositional) {
                               type_str = $3->positionalArgs[i]->type->toString();
 
@@ -1552,9 +1589,7 @@
                                 correctTypes = false;
                               }
 
-                              if (correctTypes) {
-                                tac->gen("param " + $3->positionalArgs[i]->addr);
-                              }
+                              tac->gen("param " + $3->positionalArgs[i]->addr);
                             } 
                             
                             else if ($3->keywords.count(get<0>(arg))) {
@@ -1571,17 +1606,18 @@
                               }
                               $3->keywords.erase(get<0>(arg));
 
-                              if (correctTypes) {
-                                tac->gen("param " + $3->namedArgs[get<0>(arg)]->addr);
-                              }
+                              tac->gen("param " + $3->namedArgs[get<0>(arg)]->addr);
                             } 
                             
-                            else if (get<3>(arg) && allMand) {
+                            else if (get<3>(arg) == NULL) {
                               addError(
                                 (string) "Missing required positional arguments."
                               );
                               correctTypes = false;
-                              allMand = false;
+                            }
+
+                            else {
+                              tac->gen("param " + get<3>(arg)->addr);
                             }
 
                             i++;
@@ -1601,12 +1637,40 @@
                           }
                         }
 
+
                         if (type == NULL) {
                           FunctionEntry *fe = (FunctionEntry*) e;
                           type = fe->return_type;
                           $$ = new NodeFunctionCall($1, $3, false, type); 
                           $$->addr = tac->newTemp();
-                          tac->gen("call " + $$->addr + " " + to_string(fe->args.size()));
+
+                          if (e->category == "Declaration") {
+                            // Almacenamos el scope y el numero de la instruccion donde
+                            // se llamo a la funcion 
+                            if (tac->functionlist.count(fe->id)) {
+                              tac->functionlist[fe->id].push_back({
+                                tac->instructions.size(),
+                                table->scopeStack
+                              });
+                            }
+                            else {
+                              tac->functionlist[fe->id] = {{
+                                tac->instructions.size(),
+                                table->scopeStack
+                              }};
+                            }
+
+                            tac->gen(
+                              "call " + $$->addr + " _ " + to_string(fe->args.size())
+                            );
+                          }
+
+                          else {
+                            tac->gen(
+                              "call " + $$->addr + " " + fe->addr + " " + 
+                              to_string(fe->args.size())
+                            );
+                          }
 
                           if (type->toString() == "Bool") {
                             $$->truelist = {tac->instructions.size()};
@@ -1976,7 +2040,12 @@
                   tac->backpatch($2->falselist, $7);
 
                   vector<unsigned long long> t;
-                  t = merge<unsigned long long>($5->nextlist, $6->nextlist);
+                  if ($5 != NULL) {
+                    t = merge<unsigned long long>($5->nextlist, $6->nextlist);
+                  }
+                  else {
+                    t = $6->nextlist;
+                  }
 
                   if ($8 != NULL && $10 != NULL) {
                     t = merge<unsigned long long>(t, $8->truelist);
@@ -2025,7 +2094,12 @@
                 { 
                   $$ = new NodeElsif(NULL, $2, $5); 
                   tac->backpatch($2->truelist, $4);
-                  $$->truelist = merge<unsigned long long>($5->nextlist, $6->nextlist);
+                  if ($5 != NULL) {
+                    $$->truelist = merge<unsigned long long>($5->nextlist, $6->nextlist);
+                  }
+                  else {
+                    $$->truelist = $6->nextlist;
+                  }
                   $$->falselist = $2->falselist;
                 }
 
@@ -2034,7 +2108,12 @@
                   $$ = new NodeElsif($1, $4, $7); 
                   tac->backpatch($1->falselist, $2);
                   tac->backpatch($4->truelist, $6);
-                  $$->truelist = merge<unsigned long long>($1->truelist, $7->nextlist);
+                  if ($7 != NULL) {
+                    $$->truelist = merge<unsigned long long>($1->truelist, $7->nextlist);
+                  }
+                  else {
+                  $$->truelist = $1->truelist;
+                  }
                   $$->truelist = merge<unsigned long long>($$->truelist, $8->nextlist);
                   $$->falselist = $4->falselist;
                 }
@@ -2050,7 +2129,9 @@
               | Else I
                 { 
                   $$ = new NodeElse($2); 
-                  $$->nextlist = $2->nextlist;
+                  if ($2 != NULL) {
+                    $$->nextlist = $2->nextlist;
+                  }
                 }
               ;
   Else        : ELSE                             
@@ -2067,7 +2148,9 @@
                 $$ = new NodeWhile($3, $6); 
                 table->exitScope();
 
-                tac->backpatch($6->nextlist, $2);
+                if ($6 != NULL) {
+                  tac->backpatch($6->nextlist, $2);
+                }
                 tac->backpatch($3->truelist, $4);
                 $$->nextlist = $3->falselist;
                 tac->gen("goto " + to_string($2));
@@ -2081,7 +2164,9 @@
               {
                 $$ = new NodeFor($1, $3);
 
-                tac->backpatch($3->nextlist, tac->instructions.size());
+                if ($3 != NULL) {
+                  tac->backpatch($3->nextlist, tac->instructions.size());
+                }
 
                 if ($1->step != NULL) {
                   tac->gen("add " + $1->addr + " " + $1->addr + " " + $1->step->addr);
@@ -2183,31 +2268,35 @@
 
                 table->ret_type = "";
                 table->offsets.pop_back();
+
+                tac->gen("@endfunction");
+                tac->backpatch($1->nextlist, tac->instructions.size());
               }
             ; 
 
   RoutSign  : RoutId OPEN_PAR RoutArgs CLOSE_PAR OptReturn  
               {
-                if ($3 == NULL || get<0>(*$1) == "" || $5->toString() == "$Error") {
+                FunctionEntry *fe;
+
+                if ($3 == NULL || $1->first == "" || $5->toString() == "$Error") {
                   NodeError *err = new NodeError();
-                  if (get<1>(*$1) == -1)
-                    err->errInfo = get<0>(*$1);
+                  if ($1->second == NULL)
+                    err->errInfo = $1->first;
                   else 
                     err->errInfo = "";
                   $$ = err;
                 } 
                 
-                else if (get<1>(*$1) != -1) {
+                else if ($1->second != NULL) {
                   bool error = false;
-                  FunctionEntry *fe;
-                  fe = (FunctionEntry*) table->lookup(get<0>(*$1), get<1>(*$1));
+                  FunctionEntry *fe_dec = $1->second;
 
                   for (int i = 0; i < $3->params.size(); i++) {
                     if (
-                      i == fe->args.size() ||
-                      get<0>($3->params[i]) != get<0>(fe->args[i]) ||
-                      get<1>($3->params[i]) != get<1>(fe->args[i]) ||
-                      get<2>($3->params[i]) != get<2>(fe->args[i])
+                      i == fe_dec->args.size() ||
+                      get<0>($3->params[i]) != get<0>(fe_dec->args[i]) ||
+                      get<1>($3->params[i]) != get<1>(fe_dec->args[i]) ||
+                      get<2>($3->params[i]) != get<2>(fe_dec->args[i])
                     ) {
                       addError(
                         (string) "Sign of function dont match with "
@@ -2217,7 +2306,7 @@
                       break;
                     }
 
-                    if (! get<3>($3->params[i])) {
+                    if (get<3>($3->params[i]) != NULL) {
                       addError(
                         (string) "Default values must be in declaration."
                       );
@@ -2226,7 +2315,7 @@
                     }
                   }
 
-                  if ($5->toString() != fe->return_type->toString()) {
+                  if ($5->toString() != fe_dec->return_type->toString()) {
                     addError(
                       (string) "Sign of function dont match with "
                       "the declaration."
@@ -2240,35 +2329,53 @@
                     $$ = err;
                   }
 
-                  else if (get<1>(*$1) == get<2>(*$1)) {
-                    fe->category = "Function";
-                    fe->def_scope = table->currentScope();
-                    $3->params.clear();
-
-                    $$ = new NodeRoutineSign(get<0>(*$1), $3, $5);
-                  }
-
                   else {
-                    FunctionEntry *e;
-                    e = (FunctionEntry*) table->lookup(get<0>(*$1));
-                    e->return_type = $5;
-                    e->def_scope = table->currentScope();                  
-                    e->args = fe->args;
+                    fe = (FunctionEntry*) table->lookup($1->first);
+                    fe->args = fe_dec->args;
+                    fe->addr = tac->newFunc();
                     $3->params.clear();
                     
-                    $$ = new NodeRoutineSign(get<0>(*$1), $3, $5);
+                    $$ = new NodeRoutineSign($1->first, $3, $5);
+
+                    // Verificamos si hay que completar algunas llamadas a esta funcion 
+                    // antes de que se definiera.
+                    if (tac->functionlist.count(fe->id)) {
+                      vector<unsigned long long> instructions = {};
+                      int n = tac->functionlist[fe->id].size();
+
+                      for (int j = 0; j < n; j++) {
+                        // Verificamos si el scope de definicion esta en la pila de scopes 
+                        // de la llamada.
+                        for (int s : tac->functionlist[fe->id][j].second) {
+                          if (s == fe->scope) {
+                            instructions.push_back(tac->functionlist[fe->id][j].first);
+                            tac->functionlist[fe->id].erase(
+                              tac->functionlist[fe->id].begin() + (j--)
+                            );
+                            break;
+                          }
+                        }
+                      }
+
+                      tac->backpatch(instructions, fe->addr);
+
+                      // Verificamos si la lista de esta funcion esta vacia
+                      if (tac->functionlist[fe->id].size() == 0) {
+                        tac->functionlist.erase(fe->id);
+                      }
+                    }
                   }
                 }
                 
                 else {
-                  FunctionEntry *e;
-                  e = (FunctionEntry*) table->lookup(get<0>(*$1));
-                  e->return_type = $5;
-                  e->def_scope = table->currentScope();  
-                  e->args = $3->params;
+                  fe = (FunctionEntry*) table->lookup($1->first);
+                  fe->return_type = $5;
+                  fe->def_scope = table->currentScope();  
+                  fe->args = $3->params;
+                  fe->addr = tac->newFunc();
                   $3->params.clear();
                   
-                  $$ = new NodeRoutineSign(get<0>(*$1), $3, $5);
+                  $$ = new NodeRoutineSign($1->first, $3, $5);
                 }
 
                 if ($5->toString() != "$Error") {
@@ -2276,10 +2383,15 @@
                 }
 
                 table->newScope();
+
+                $$->nextlist = {tac->instructions.size()};
+                tac->gen("goto _");
+                $$->addr = fe->addr;
+                tac->gen("@function " + $$->addr);
               }
             ;
 
-  RoutId    : DEF ID                                        
+  RoutId    : DEF ID 
               {
                 Entry *e = table->lookup($2);
 
@@ -2292,20 +2404,25 @@
                     (string) "Redefinition of '\e[1;3m" 
                     + $2 + "\e[0m'."
                   );
-                  $$ = new tuple<string, int, int>("", -1, -1);
+                  $$ = new pair<string, FunctionEntry*>("", NULL);
                 } 
                 
                 else if (e != NULL && e->category == "Declaration") {
-                  $$ = new tuple<string, int, int>(
-                    $2, e->scope, table->currentScope()
-                  ); 
+                  FunctionEntry *fe_dec = (FunctionEntry*) e;
+                  $$ = new pair<string, FunctionEntry*>($2, fe_dec); 
+                  
+                  int s = table->currentScope();
+                  FunctionEntry *fe = new FunctionEntry($2, s, "Function");
+                  fe->args = fe_dec->args;
+                  fe->return_type = fe_dec->return_type; 
+                  table->insert(fe);
                 }
 
                 else {
+                  $$ = new pair<string, FunctionEntry*>($2, NULL);
                   int s = table->currentScope();
                   Entry *e = new FunctionEntry($2, s, "Function");
                   table->insert(e);
-                  $$ = new tuple<string, int, int>((string) $2, -1, -1);
                 }
                 
                 table->newScope();
@@ -2371,7 +2488,7 @@
 
                 else {
                   $$ = new NodeRoutArgDef(NULL, $1, $2, $3, NULL);
-                  $$->currentParams.push_back({$3, $1->toString(), $2, true});
+                  $$->currentParams.push_back({$3, $1->toString(), $2, NULL});
 
                   int s = table->currentScope();
                   Entry *e = new VarEntry(
@@ -2397,7 +2514,7 @@
                   );
                   $$->currentParams = $1->currentParams;
                   $1->currentParams.clear();
-                  $$->currentParams.push_back({$5, $3->toString(), $4, true});
+                  $$->currentParams.push_back({$5, $3->toString(), $4, NULL});
 
                   int s = table->currentScope();
                   Entry *e = new VarEntry(
@@ -2413,7 +2530,7 @@
               }
             ;   
 
-  OptArgs   : Type OptRef IdDef ASSIGNMENT Exp              
+  OptArgs   : Type OptRef IdDef ASSIGNMENT Exp 
               { 
                 string type = $1->toString();
                 string rtype = $5->type->toString();
@@ -2436,7 +2553,7 @@
                 
                 else {
                   $$ = new NodeRoutArgDef(NULL, $1, $2, $3, $5);
-                  $$->currentParams.push_back({$3, type, $2,false});
+                  $$->currentParams.push_back({$3, type, $2, (ExpressionNode*) $5});
 
                   int s = table->currentScope();
                   Entry *e = new VarEntry(
@@ -2478,7 +2595,7 @@
 
                   $$->currentParams = $1->currentParams;
                   $1->currentParams.clear();
-                  $$->currentParams.push_back({$5, type, $4,false});
+                  $$->currentParams.push_back({$5, type, $4, (ExpressionNode*) $7});
 
                   int s = table->currentScope();
                   Entry *e = new VarEntry(
@@ -2494,12 +2611,15 @@
               }
 
             ;
+  
   OptRef    : /* lambda */                { $$ = false; }
             | AT                          { $$ = true; }
             ; 
+  
   OptReturn : /* lambda */                { $$ = predefinedTypes["Unit"]; }
             | RIGHT_ARROW Type            { $$ = $2; }
             ; 
+  
   Actions   : /* lambda */                { $$ = NULL; }
             | Actions Action                                
               { 
@@ -2529,6 +2649,7 @@
 
                 else {
                   $$ = new NodeReturn($3);
+                  tac->gen("return " + $3->addr);
                 }
               }
 
@@ -2545,6 +2666,7 @@
 
                 else {
                   $$ = new NodeReturn();
+                  tac->gen("return 0");
                 }
               }
             ;
@@ -2557,13 +2679,14 @@
 
                 if ($3 != NULL && $1 != "" && $5->toString() != "$Error") {
                   int s = table->currentScope();
-                  Entry *e = new FunctionDeclarationEntry(
+                  FunctionDeclarationEntry *e = new FunctionDeclarationEntry(
                     $1, 
                     s,
                     "Declaration",
                     $3->params,
                     $5
                   );
+                  e->addr = "";
                   table->insert(e);
                 }
                 
@@ -2589,13 +2712,15 @@ int main(int argc, char **argv)
     table->insert(new PrimitiveEntry(t));
   }
   FunctionEntry *fe = new FunctionEntry("read", 0, "Function");
-  fe->return_type = new ArrayType(predefinedTypes["Char"], new NodeINT(1));
+  fe->return_type = new ArrayType(predefinedTypes["Char"], new NodeINT(1), true);
+  fe->addr = "READ";
   fe->def_scope = 0;
   table->insert(fe);
 
   fe = new FunctionEntry("print", 0, "Function");
-  fe->args.push_back({"text", "(Char)[]", false, true});
+  fe->args.push_back({"text", "(Char)[]", false, NULL});
   fe->return_type = predefinedTypes["Unit"];
+  fe->addr = "PRINT";
   fe->def_scope = 0;
   table->insert(fe);
 
@@ -2878,7 +3003,7 @@ void allocConstArray(Type *t, string final_addr) {
     at = (ArrayType*) t;
     arrayStack.push(at);
     t = at->type;
-  } while (t->toString().back() == ']' && ((ArrayType*) t)->size->is_lit);
+  } while (t->toString().back() == ']' && ! ((ArrayType*) t)->is_pointer);
 
   // Si nos conseguimos con un arreglo o una estructura
   if (
@@ -2915,6 +3040,11 @@ void allocConstArray(Type *t, string final_addr) {
 void allocVarArray(Type *t, string final_addr) {
   stack<ArrayType*> arrayStack;
   ArrayType *at;
+
+  // Si el arreglo corresponde a un string, no hay que hacer nada.
+  if (((ArrayType*) t)->is_string) {
+    return;
+  }
   
   do {
     at = (ArrayType*) t;
@@ -2964,7 +3094,7 @@ void allocStruct(Type *t, string final_addr) {
 
       if (type.back() == ']') {
         at = (ArrayType*) ve->type;
-        if (! at->size->is_lit) {
+        if (at->is_pointer) {
           allocVarArray(ve->type, final_addr + "[" + to_string(ve->offset) + "]");
         }
         else {
@@ -2989,7 +3119,7 @@ void freeConstArray(Type *t, string final_addr) {
     at = (ArrayType*) t;
     arrayStack.push(at);
     t = at->type;
-  } while (t->toString().back() == ']' && ((ArrayType*) t)->size->is_lit);
+  } while (t->toString().back() == ']' && ! ((ArrayType*) t)->is_pointer);
 
   // Si nos conseguimos con un arreglo o una estructura
   if (
@@ -3026,6 +3156,11 @@ void freeConstArray(Type *t, string final_addr) {
 void freeVarArray(Type *t, string final_addr) {
   stack<ArrayType*> arrayStack;
   ArrayType *at;
+
+  // Si el arreglo corresponde a un string, no hay que hacer nada.
+  if (((ArrayType*) t)->is_string) {
+    return;
+  }
   
   do {
     at = (ArrayType*) t;
@@ -3075,7 +3210,7 @@ void freeStruct(Type *t, string final_addr) {
 
       if (type.back() == ']') {
         at = (ArrayType*) ve->type;
-        if (! at->size->is_lit) {
+        if (at->is_pointer) {
           freeVarArray(ve->type, final_addr + "[" + to_string(ve->offset) + "]");
         }
         else {

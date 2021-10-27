@@ -1,15 +1,29 @@
-def F(Int a, Char @c, ^Int khe = new Int, String ola = "k ase?", Bool[10] b = [False]) {
+def F(
+    Int a, 
+    Char @c, 
+    ^Int khe = new Int, 
+    String ola = "k ase?", 
+    Bool[1] b = [False]
+) {
     let Int a = 0;
+    let Int b = a + 8;
 }
 
-def g() => Int {}
+let Int a, s, d;
+
+def g() => Int {
+    let Int asd;
+}
 g();
 
 F(1, khe=new Int, b=[False], ola="nada", c='a');
 F(0, c='c', b=[True]);
 
-if (True) then F(0, c='c', b=[True]); 
-elsif (False) then F(0, c='c', b=[True]);  done
+if (True) then 
+    F(0, c='d'); 
+elsif (False) then 
+    F(0, c='e');  
+done
 
 for (i; 0; 100) do 
     print(read());

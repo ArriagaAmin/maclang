@@ -21,7 +21,7 @@ forget p;
 # Que inutilidad lmao
 forget new Int;
 
-let ^^(^^(^Int)[6][4])[9][2] wtf;
+let ^^(^^(^Int)[6][4])[9][1] wtf;
 
 let Int w = ^^^(^^(wtf[0][0])[0][0]);
 

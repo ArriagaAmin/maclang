@@ -77,11 +77,12 @@ class Node {
   class ExpressionNode;
   class ArrayType : public Type {
     public: 
-      bool pointer;
+      bool is_string;
+      bool is_pointer;
       ExpressionNode *size;
       Type *type;
 
-      ArrayType(Type *type, ExpressionNode *size, bool pointer=false);
+      ArrayType(Type *type, ExpressionNode *size, bool is_string=false);
 
       void print(void);
 
@@ -653,7 +654,7 @@ class Node {
       Node *optArgs;
 
     public:
-      vector<tuple<string, string, bool, bool>> params;
+      vector<tuple<string, string, bool, ExpressionNode*>> params;
 
       NodeRoutArgs(Node *oblArgs, Node *optArgs);
 
@@ -673,7 +674,7 @@ class Node {
       Node *rvalue;
 
     public:
-      vector<tuple<string, string, bool, bool>> currentParams;
+      vector<tuple<string, string, bool, ExpressionNode*>> currentParams;
       
       NodeRoutArgDef(Node *head, Type *type, bool ref, string id, Node *rvalue);
 

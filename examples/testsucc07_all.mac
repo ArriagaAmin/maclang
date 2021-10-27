@@ -12,18 +12,18 @@ let Char c = 'A';
 let Bool b;                          
 let Float f = 1.5;                    
 let Int x;                  
-let Int[10] y = [x+1,3, x---0];         
+let Int[3] y = [x+1,3, x---0];         
 let Float q4 = -(x ** x + 1.0);
 
 # tipos complejos
 ## arreglos
 let Bool[4] array;
-let Int[6][x] integers = [[1, 1], [90], [42], [x, x, x]];
+let Int[2][4] integers = [[1, 1], [90, 0], [42, 24], [x, x]];
 
 ## strings
-let String hello = "world", aja = ['a', 'y', ' ', 'n', 'o'];
-let Char[4] ohno = read();
-let Char[3] press = ['F'];
+let String hello = "world";
+let String ohno = read();
+let Char[1] press = ['F'];
 
 ## registros
 register registro {

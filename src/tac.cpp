@@ -14,6 +14,20 @@ string TAC::newLabel()
     return temp;
 }
 
+string TAC::newFunc()
+{
+    string temp = "F" + to_string(tempFuncNumber);
+    tempFuncNumber++;
+    return temp;
+}
+
+string TAC::newStr(string str)
+{
+    string temp = "S" + to_string(this->strings.size());
+    this->strings.push_back({temp, str});
+    return temp;
+}
+
 string TAC::newAddr(unsigned long long bytes)
 {
     string temp = "A" + to_string(this->address.size());
@@ -43,12 +57,21 @@ void TAC::backpatch(vector<unsigned long long> ps, unsigned long long l) {
     }
 }
 
+void TAC::backpatch(vector<unsigned long long> ps, string l) {
+    for (unsigned long long i : ps) {
+        this->instructions[i] = replaceAll(this->instructions[i], "_", l);
+    }
+}
+
 void TAC::print(void) {
     unsigned long long index = 0;
     unsigned len = to_string(this->instructions.size()).size();
 
     for (pair<string, unsigned long long> addr : this->address) {
         cout << "@staticv " << addr.first << " " << to_string(addr.second) << "\n";
+    }
+    for (pair<string, string> str : this->strings) {
+        cout << "@string " << str.first << " " << str.second << "\n";
     }
     cout << "\n";
 

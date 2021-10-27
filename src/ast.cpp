@@ -74,20 +74,21 @@
   }
 
 
-  ArrayType::ArrayType(Type *type, ExpressionNode *size, bool pointer) {
+  ArrayType::ArrayType(Type *type, ExpressionNode *size, bool is_string) {
     this->type = type;
     this->size = size;
+    this->is_string = is_string;
     string t_size = type->toString();
 
     // Si size es un literal, podemos calcular directamente el desplazamiento.
-    if (size->is_lit && ! pointer) {
+    if (! is_string && size->is_lit) {
       this->width = type->width * ((NodeINT*) size)->value;
-      this->pointer = false;
+      this->is_pointer = false;
     }
     // En caso contrario, se tomara como un puntero.
     else {
       this->width = primitiveWidths["Pointer"];
-      this->pointer = true;
+      this->is_pointer = true;
     }
     this->category = "Array";
   }
@@ -95,11 +96,11 @@
     cout << "(";
     this->type->print();
     cout << ")[";
-    if (! this->pointer) this->size->print();
+    if (! this->is_pointer) this->size->print();
     cout << "]";
   }
   string ArrayType::toString(void) {
-    string size = this->pointer ? "" : to_string( ((NodeINT*) this->size)->value );
+    string size = this->is_pointer ? "" : to_string( ((NodeINT*) this->size)->value );
     return "(" + this->type->toString() + ")[" + size + "]";
   }
   void ArrayType::printTree(vector<bool> *identation) {
