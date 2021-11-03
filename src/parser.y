@@ -1158,20 +1158,10 @@
             else {
               Type *type = ((ArrayType*) $1->type)->type;
               $$ = new NodeArrayAccess($1, $3, type);
-              if(type->toString().back() == ']')
+              if(type->toString().back() != ']')
               {
-                string t = tac->newTemp();
                 $$->addr = tac->newTemp();
-                tac->gen("mult " + t + " " + $3->addr + " " + to_string(type->width));
-                tac->gen("assign " + t + " " + $1->addr + "[" + t + "]");
-                tac->gen("ref " + $$->addr + " " + t);
-              }
-              else
-              {
-                string t = tac->newTemp();
-                $$->addr = tac->newTemp();
-                tac->gen("mult " + t + " " + $3->addr + " " + to_string(type->width));
-                tac->gen("assign " + $$->addr + " " + $1->addr + "[" + t + "]");
+                tac->gen("mult " + $$->addr + " " + $3->addr + " " + to_string(type->width));
 
                 if (type->toString() == "Bool") {
                   $$->truelist = {tac->instructions.size()};
@@ -1179,10 +1169,17 @@
                   $$->falselist = {tac->instructions.size()};
                   tac->gen("goto _");
                 }
+              }
+              else
+              {
+                string t = tac->newTemp();
+                $$->addr = tac->newTemp();
+                tac->gen("mult " + t + " " + $3->addr + " " + to_string(type->width));
+                tac->gen("assign " + $$->addr + " " + $1->addr + "[" + t + "]");
+                tac->gen("ref " + $$->addr + " " + t);
               } 
             }
           }
-
         | POINTER Exp  
           { 
             if ($2->type->toString() == "$Error") {
