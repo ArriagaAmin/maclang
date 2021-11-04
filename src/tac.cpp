@@ -51,9 +51,14 @@ void TAC::gen(string instr)
 }
 
 void TAC::backpatch(vector<unsigned long long> ps, unsigned long long l) {
-    string instr = to_string(l);
+    string instr = "E" + to_string(l);
+    bool replace = false;
     for (unsigned long long i : ps) {
         this->instructions[i] = replaceAll(this->instructions[i], "_", instr);
+        replace = true;
+    }
+    if (replace) {
+        this->numberLabels.insert(l);
     }
 }
 
@@ -75,11 +80,16 @@ void TAC::print(void) {
     }
     cout << "\n";
 
+
     for (string instr : this->instructions) {
-        printf("%.*llu", len, index, ' ');
-        cout << "│ " << instr << "\n";
+        if (this->numberLabels.count(index) != 0) {
+            cout << "@label E" << index << "\n";
+        }
+        cout << instr << "\n";
         index++;
     }
-    printf("%.*llu", len, index, ' ');
-    cout << "│ " << "\n";
+    
+    if (this->numberLabels.count(index) != 0) {
+        cout << "@label E" << index << "\n";
+    }
 }

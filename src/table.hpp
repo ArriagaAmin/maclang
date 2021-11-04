@@ -1,7 +1,10 @@
+#pragma once
+
 #include <map>
 #include <deque>
 #include <vector>
 #include <iostream>
+
 #include "ast.hpp"
 
 using namespace std;

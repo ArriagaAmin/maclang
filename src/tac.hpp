@@ -1,8 +1,11 @@
+#pragma once
+
 #include <vector>
 #include <tuple>
 #include <string>
 #include <iostream>
 #include <map>
+#include <set>
 
 using namespace std;
 
@@ -14,6 +17,7 @@ private:
     unsigned long long tempFuncNumber = 0;
     vector<pair<string, string>> strings;
     vector<pair<string, unsigned long long>> address;
+    set<unsigned long long> numberLabels;
 
 public:
     vector<string> instructions;
