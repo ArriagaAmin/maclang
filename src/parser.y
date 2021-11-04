@@ -427,6 +427,7 @@
                         // Si el tipo es un arreglo de longitud constante
                         if (type.back() == ']' && ! ((ArrayType*) $2)->is_pointer) {
                           addr = tac->newAddr($2->width);
+                          tac->gen("@declared " + addr + " " + vardef.first);
                           allocConstArray($2, addr);
                         }
 
@@ -438,28 +439,32 @@
                           else {
                             addr = "base[" + to_string(table->offsets.back()) + "]";
                           }
+                          tac->gen("@declared " + addr + " " + vardef.first);
                           allocVarArray($2, addr);
                         }
 
                         // En cambio si es una estructura
                         else if (! predefinedTypes.count(type) && type[0] != '^') {
                           addr = tac->newAddr($2->width);
+                          tac->gen("@declared " + addr + " " + vardef.first);
                           allocStruct($2, addr);
                         }
 
                         // En cambio, si estamos dentro de una funcion
                         else if (table->ret_type != "") {
-                            addr = "base[" + to_string(table->offsets.back()) + "]";
+                          addr = "base[" + to_string(table->offsets.back()) + "]";
+                          tac->gen("@declared " + addr + " " + vardef.first);
                         }
                           
                         // En caso contrario, usamos un temporal comun
                         else {
                           addr = tac->newTemp();
+                          tac->gen("@declared " + addr + " " + vardef.first);
                         }
 
                         int offset = table->offsets.back();
                         Entry *e;
-                        if(type.back() == ']') {
+                        if(type.back() != ']') {
                           e = new VarEntry(
                             vardef.first, 
                             s, 
