@@ -1,18 +1,2 @@
-let Bool b;
-let Bool x = b;
-
-if True then 
-    0;
-elsif False then 
-    1;
-elsif b then 
-    2;
-elsif b || False then 
-    3;
-else
-    4;
-done
-
-while b do 
-    0;
-done
+let Int[3][3] y;
+let Int x = y[0][1];

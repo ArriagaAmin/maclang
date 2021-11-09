@@ -352,11 +352,21 @@
                           addr = tac->newTemp();
                         }
 
+                        // Declaramos la variable.
+                        tac->gen("@declared " + addr + " " + vardef.first);
+
                         // Almacenamos la entrada.
                         int offset = table->offsets.back();
                         Entry *e;
-                        if(type.back() == ']') {
-                          e = new VarEntry(vardef.first, s, "Var", $2, offset, addr);
+                        if(type.back() != ']') {
+                          e = new VarEntry(
+                            vardef.first, 
+                            s, 
+                            "Var", 
+                            $2, 
+                            offset,
+                            addr
+                          );
                         }
                         else{
                           ArrayType *current = (ArrayType*) $2;
@@ -861,8 +871,7 @@
               else {
                 string t = tac->newTemp();
                 $$->addr = tac->newTemp();
-                tac->gen("mult " + t + " " + $3->addr + " " + to_string(type->width));
-                tac->gen("assign " + $$->addr + " " + $1->addr + "[" + t + "]");
+                tac->gen("mult " + $$->addr + " " + $3->addr + " " + to_string(type->width));
 
                 // Si el tipo base es booleano, aplicamos el backpatching correspondiente.
                 if (type->toString() == "Bool") {
@@ -871,10 +880,9 @@
                   $$->falselist = {tac->instructions.size()};
                   tac->gen("goto _");
                 }
-              } 
+              }
             }
           }
-
         | POINTER Exp  
           { 
             // Verificamos que el tipo base no sea erroneo.
