@@ -106,7 +106,6 @@ void allocVarArray(Type *t, string final_addr) {
   un arreglo de longitud variable.
 */
 void allocStruct(Type *t, string final_addr) {
-  extern TAC *tac;
   extern map<string, Type*> predefinedTypes;
   extern SymbolsTable *table;
 
@@ -254,7 +253,6 @@ void freeVarArray(Type *t, string final_addr) {
   un arreglo de longitud variable.
 */
 void freeStruct(Type *t, string final_addr) {
-  extern TAC *tac;
   extern map<string, Type*> predefinedTypes;
   extern SymbolsTable *table;
 

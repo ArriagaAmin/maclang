@@ -1,7 +1,10 @@
 # compiled files
 *.out
 *.output
+*.tab.h
+*.tab.c
 maclang
+tac2mips
 
 # flex
 *.yy.c

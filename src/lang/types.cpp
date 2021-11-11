@@ -69,8 +69,8 @@ Type *verifyUnaryOpType(string op, string type) {
   } 
   else if (unaryOpGraph[op].count(type) == 0) {
      addError(
-      (string) "Operator '\e[1;3m" + op + "\e[0m' can't be applied with operand type " +
-      "'\e[1;3m" + type + "\e[0m'."
+      (string) "Operator '\033[1;3m" + op + "\033[0m' can't be applied with operand type " +
+      "'\033[1;3m" + type + "\033[0m'."
     );
     return predefinedTypes["$Error"];
   } else {
@@ -90,8 +90,8 @@ Type *verifyBinayOpType(string op, string type1, string type2) {
   // Verificamos que la operacion acepta el par de tipos.
   else if (binaryOpGraph[op].count({type1, type2}) == 0){
     addError(
-      "Operator '\e[1;3m" + op + "\e[0m' don't matches with operand types: '\e[1;3m" +
-      type1 + "\e[0m' and '\e[1;3m" + type2 + "\e[0m'."
+      "Operator '\033[1;3m" + op + "\033[0m' don't matches with operand types: '\033[1;3m" +
+      type1 + "\033[0m' and '\033[1;3m" + type2 + "\033[0m'."
     );
     return predefinedTypes["$Error"];
   }

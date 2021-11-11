@@ -25,7 +25,7 @@
     yylloc.first_line = yylloc.last_line = yylineno; \
     yylloc.first_column = yycolumn; yylloc.last_column = yycolumn + yyleng - 1; \
     yycolumn += yyleng; \
-    yylval.str = strdup(yytext); 
+    yylval.str = new string(yytext); 
 
   // add an error to queue
   void pushError(void);
@@ -35,7 +35,7 @@
 \$\{(\}[^\$]|[^\}])*\}\$      { /* ignore multiline line comment */ }
 #.*\n                         { yycolumn = 1; /* ignore single line comment */ }
 #.*                           { yycolumn = 1; /* ignore single line comment */ }
-";"      		                  { return SEMICOLON; }
+";"                           { return SEMICOLON; }
 "("                           { return OPEN_PAR; }
 ")"                           { return CLOSE_PAR; }
 "**"                          { return POWER; }
@@ -115,8 +115,8 @@ void pushError() {
   string token = strdup(yytext);
   string file = strdup(filename);
 
-  string error = "\e[1m" + file + " (" + to_string(yylineno) + ", " + 
-    to_string(yycolumn - yyleng) + "): \e[31mLexical error:\e[0m Unexpected " +
+  string error = "\033[1m" + file + " (" + to_string(yylineno) + ", " + 
+    to_string(yycolumn - yyleng) + "): \033[31mLexical error:\033[0m Unexpected " +
     "token \"" + token + "\".\n\n";
 
   // add the error to the queue

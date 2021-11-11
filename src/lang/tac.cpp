@@ -51,7 +51,7 @@ void TAC::gen(string instr)
 }
 
 void TAC::backpatch(vector<unsigned long long> ps, unsigned long long l) {
-    string instr = "E" + to_string(l);
+    string instr = "B" + to_string(l);
     bool replace = false;
     for (unsigned long long i : ps) {
         this->instructions[i] = replaceAll(this->instructions[i], "_", instr);
@@ -70,7 +70,6 @@ void TAC::backpatch(vector<unsigned long long> ps, string l) {
 
 void TAC::print(void) {
     unsigned long long index = 0;
-    unsigned len = to_string(this->instructions.size()).size();
 
     for (pair<string, unsigned long long> addr : this->address) {
         cout << "@staticv " << addr.first << " " << to_string(addr.second) << "\n";
@@ -78,18 +77,16 @@ void TAC::print(void) {
     for (pair<string, string> str : this->strings) {
         cout << "@string " << str.first << " " << str.second << "\n";
     }
-    cout << "\n";
-
 
     for (string instr : this->instructions) {
         if (this->numberLabels.count(index) != 0) {
-            cout << "@label E" << index << "\n";
+            cout << "@label B" << index << "\n";
         }
         cout << instr << "\n";
         index++;
     }
     
     if (this->numberLabels.count(index) != 0) {
-        cout << "@label E" << index << "\n";
+        cout << "@label B" << index << "\n";
     }
 }

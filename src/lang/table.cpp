@@ -142,15 +142,15 @@ void SymbolsTable::exitScope() {
   Prints a representation of the symbols table.
 */
 void SymbolsTable::printTable() {
-  cout << "\n\e[1;32m            =< MACLANG >=             \e[0m" << endl;
-  cout << "\n\e[1;32m***Imprimiendo la tabla de símbolos***\e[0m" << endl;
+  cout << "\n\033[1;32m            =< MACLANG >=             \033[0m" << endl;
+  cout << "\n\033[1;32m***Imprimiendo la tabla de símbolos***\033[0m" << endl;
 
   // Iterate over each entry of the table.
   map<string, deque<Entry*>>::iterator begin = this->symTable.begin();
   map<string, deque<Entry*>>::iterator end = this->symTable.end();
   for (map<string, deque<Entry*>>::iterator i = begin; i != end; i++) {
 
-    cout << "\e[1;33mName:\e[0m " << i->first << " \n   =====> [";
+    cout << "\033[1;33mName:\033[0m " << i->first << " \n   =====> [";
 
     // Iterates over each element of a list in a table entry.
     deque<Entry*>::iterator qbegin = i->second.begin();
@@ -172,7 +172,7 @@ void SymbolsTable::printTable() {
   Prints a representation of the scope stack.
 */
 void SymbolsTable::printScopeStack() {
-  cout << "\e[1;32mBottom ==> \e[0m";
+  cout << "\033[1;32mBottom ==> \033[0m";
   
   // Iterates over the stack to print each element.
   vector<int>::const_iterator begin = this->scopeStack.begin();
@@ -181,7 +181,7 @@ void SymbolsTable::printScopeStack() {
     cout << *i << ' ';
   }
   
-  cout << "\e[1;31m<== Top\e[0m\n";
+  cout << "\033[1;31m<== Top\033[0m\n";
 }
 
 
@@ -194,13 +194,13 @@ PrimitiveEntry::PrimitiveEntry(string id) {
 }
 
 void PrimitiveEntry::print(void) {
-  cout << "\e[1;31m(\e[1;34mScope:\e[0m " << this->scope;
-  cout << ", \e[1;34mID:\e[0m " << this->id;
-  cout << ", \e[1;34mCategory:\e[0m " << this->category;
+  cout << "\033[1;31m(\033[1;34mScope:\033[0m " << this->scope;
+  cout << ", \033[1;34mID:\033[0m " << this->id;
+  cout << ", \033[1;34mCategory:\033[0m " << this->category;
   if (this->id != "String") {
-    cout << ", \e[1;34mWidth:\e[0m " << this->type->width;
+    cout << ", \033[1;34mWidth:\033[0m " << this->type->width;
   }
-  cout << "\e[1;31m)\e[0m";
+  cout << "\033[1;31m)\033[0m";
 }
 
 VarEntry::VarEntry(
@@ -231,13 +231,13 @@ VarEntry::VarEntry(
   Prints a representation of the table entry.
 */
 void VarEntry::print(void) {
-  cout << "\e[1;31m(\e[1;34mScope:\e[0m " << this->scope;
-  cout << ", \e[1;34mID:\e[0m " << this->id;
-  cout << ", \e[1;34mCategory:\e[0m " << this->category;
-  cout << ", \e[1;34mType: \e[0m";
+  cout << "\033[1;31m(\033[1;34mScope:\033[0m " << this->scope;
+  cout << ", \033[1;34mID:\033[0m " << this->id;
+  cout << ", \033[1;34mCategory:\033[0m " << this->category;
+  cout << ", \033[1;34mType: \033[0m";
   cout << this->type->toString(); 
-  cout << ", \e[1;34mOffset: \e[0m" << this->offset; 
-  cout << "\e[1;31m)\e[0m";
+  cout << ", \033[1;34mOffset: \033[0m" << this->offset; 
+  cout << "\033[1;31m)\033[0m";
 }
 
 VarArrayEntry::VarArrayEntry(
@@ -261,14 +261,14 @@ VarArrayEntry::VarArrayEntry(
 }
 
 void VarArrayEntry::print(void) {
-  cout << "\e[1;31m(\e[1;34mScope:\e[0m " << this->scope;
-  cout << ", \e[1;34mID:\e[0m " << this->id;
-  cout << ", \e[1;34mCategory:\e[0m " << this->category;
-  cout << ", \e[1;34mType: \e[0m";
+  cout << "\033[1;31m(\033[1;34mScope:\033[0m " << this->scope;
+  cout << ", \033[1;34mID:\033[0m " << this->id;
+  cout << ", \033[1;34mCategory:\033[0m " << this->category;
+  cout << ", \033[1;34mType: \033[0m";
   cout << this->type->toString(); 
-  cout << ", \e[1;34mOffset: \e[0m" << this->offset;
-  cout << ", \e[1;34mConstant: \e[0m" << this->baseConstant; 
-  cout << "\e[1;31m)\e[0m";
+  cout << ", \033[1;34mOffset: \033[0m" << this->offset;
+  cout << ", \033[1;34mConstant: \033[0m" << this->baseConstant; 
+  cout << "\033[1;31m)\033[0m";
 }
 
 StructureEntry::StructureEntry(
@@ -289,12 +289,12 @@ StructureEntry::StructureEntry(
   Prints a representation of the table entry.
 */
 void StructureEntry::print(void) {
-  cout << "\e[1;31m(\e[1;34mScope:\e[0m " << this->scope;
-  cout << ", \e[1;34mID:\e[0m " << this->id;
-  cout << ", \e[1;34mCategory:\e[0m " << this->category;
-  cout << ", \e[1;34mDef Scope:\e[0m " << this->def_scope; 
-  cout << ", \e[1;34mWidth: \e[0m" << this->width; 
-  cout << "\e[1;31m)\e[0m";
+  cout << "\033[1;31m(\033[1;34mScope:\033[0m " << this->scope;
+  cout << ", \033[1;34mID:\033[0m " << this->id;
+  cout << ", \033[1;34mCategory:\033[0m " << this->category;
+  cout << ", \033[1;34mDef Scope:\033[0m " << this->def_scope; 
+  cout << ", \033[1;34mWidth: \033[0m" << this->width; 
+  cout << "\033[1;31m)\033[0m";
 }
 
 FunctionEntry::FunctionEntry(
@@ -311,13 +311,13 @@ FunctionEntry::FunctionEntry(
   Prints a representation of the table entry.
 */
 void FunctionEntry::print(void) {
-  cout << "\e[1;31m(\e[1;34mScope:\e[0m " << this->scope;
-  cout << ", \e[1;34mID:\e[0m " << this->id;
-  cout << ", \e[1;34mCategory:\e[0m " << this->category;
+  cout << "\033[1;31m(\033[1;34mScope:\033[0m " << this->scope;
+  cout << ", \033[1;34mID:\033[0m " << this->id;
+  cout << ", \033[1;34mCategory:\033[0m " << this->category;
   if (this->return_type) {
-    cout << ", \e[1;34mReturn Type:\e[0m " << this->return_type->toString();
+    cout << ", \033[1;34mReturn Type:\033[0m " << this->return_type->toString();
   }
-  cout << "\e[1;31m)\e[0m";
+  cout << "\033[1;31m)\033[0m";
 }
 
 FunctionDeclarationEntry::FunctionDeclarationEntry(
@@ -338,11 +338,11 @@ FunctionDeclarationEntry::FunctionDeclarationEntry(
   Prints a representation of the table entry.
 */
 void FunctionDeclarationEntry::print(void) {
-  cout << "\e[1;31m(\e[1;34mScope:\e[0m " << this->scope;
-  cout << ", \e[1;34mID:\e[0m " << this->id;
-  cout << ", \e[1;34mCategory:\e[0m " << this->category;
+  cout << "\033[1;31m(\033[1;34mScope:\033[0m " << this->scope;
+  cout << ", \033[1;34mID:\033[0m " << this->id;
+  cout << ", \033[1;34mCategory:\033[0m " << this->category;
   if (this->return_type) {
-    cout << ", \e[1;34mReturn Type:\e[0m " << this->return_type->toString();
+    cout << ", \033[1;34mReturn Type:\033[0m " << this->return_type->toString();
   }
-  cout << "\e[1;31m)\e[0m";
+  cout << "\033[1;31m)\033[0m";
 }

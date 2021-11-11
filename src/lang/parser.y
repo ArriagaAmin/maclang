@@ -35,8 +35,8 @@
   int                                   integer;
   float                                 flot;
   bool                                  boolean;
-  char*                                 str;
   char                                  ch;
+  string                                *str;
   Node                                  *ast;
   NodeS                                 *nS;
   Type                                  *t;
@@ -136,7 +136,7 @@
 
               // Verificamos que no quedaron llamadas a funciones de solo declaraciones.
               for (pair<string, vector<pair<unsigned long long, vector<int>>>> f : tac->functionlist) {
-                addError("Function '\e[1;3m" + f.first + "\e[0m' undefined.");
+                addError("Function '\033[1;3m" + f.first + "\033[0m' undefined.");
               }
 
               if ($1 != NULL) {
@@ -208,7 +208,7 @@
 
                   else if ($2->type->category != "Pointer") {
                     string t = $2->type->toString();
-                    addError("Expected a pointer but '\e[1;3m" + t + "\e[0m' found.");
+                    addError("Expected a pointer but '\033[1;3m" + t + "\033[0m' found.");
                     $$ = NULL;
                   }
 
@@ -250,8 +250,8 @@
 
                   else if (ltype != rtype) {
                     addError(
-                      "Can't assign a '\e[1;3m" + rtype +
-                      "\e[0m' to a '\e[1;3m" + ltype + "\e[0m'."
+                      "Can't assign a '\033[1;3m" + rtype +
+                      "\033[0m' to a '\033[1;3m" + ltype + "\033[0m'."
                     );
                     $$ = NULL;
                   } 
@@ -271,7 +271,7 @@
                       // asignacion de True, y luego saltamos la asignaicon de False.
                       tac->backpatch($3->truelist, tac->instructions.size());
                       tac->gen("assign " + $1->addr + " True");
-                      string label = "E" + to_string(tac->instructions.size() + 2);
+                      string label = "B" + to_string(tac->instructions.size() + 2);
                       tac->gen("goto " + label);
 
                       // Aplicamos backpatching sobre la falselist para realizar la 
@@ -299,8 +299,8 @@
                       // expresion (en caso de haberla) son iguales.
                       if (exp != NULL && type != rtype) {
                         addError(
-                          "Can't assign a '\e[1;3m" + rtype +
-                          "\e[0m' to a '\e[1;3m" + type + "\e[0m'."
+                          "Can't assign a '\033[1;3m" + rtype +
+                          "\033[0m' to a '\033[1;3m" + type + "\033[0m'."
                         );
                       } 
 
@@ -394,7 +394,7 @@
                             // Backpatching sobre la truelist.
                             tac->backpatch(exp->truelist, tac->instructions.size());
                             tac->gen("assign " + addr + " True");
-                            string label = "E" + to_string(tac->instructions.size() + 2);
+                            string label = "B" + to_string(tac->instructions.size() + 2);
                             // Salto para evitar la asignacion de False.
                             tac->gen("goto " + label);
                             // Backpatching sobre la falselist.
@@ -413,16 +413,16 @@
   VarDefList  : IdDef OptAssign 
                 {
                   $$ = new vector<pair<string, ExpressionNode*>>;
-                  if ($1 != "" && ($2 == NULL || $2->type->toString() != "$Error")) {
-                    $$->push_back({$1, $2});
+                  if (*$1 != "" && ($2 == NULL || $2->type->toString() != "$Error")) {
+                    $$->push_back({*$1, $2});
                   }
                 }  
 
               | VarDefList COMMA IdDef OptAssign  
                 {
                   $$ = $1;
-                  if ($3 != "" && ($4 == NULL || $4->type->toString() != "$Error")) {
-                    $$->push_back({$3, $4});
+                  if (*$3 != "" && ($4 == NULL || $4->type->toString() != "$Error")) {
+                    $$->push_back({*$3, $4});
                   } 
                 }
               ;   
@@ -430,9 +430,9 @@
   IdDef       : ID 
                 {
                   // Verificamos que no hay otro identificador igual en este scope.
-                  if (! table->verifyInsert($1)) {
-                    addError((string) "Redefinition of '\e[1;3m" + $1 + "\e[0m'.");
-                    $$ = (char*) "";
+                  if (! table->verifyInsert(*$1)) {
+                    addError("Redefinition of '\033[1;3m" + *$1 + "\033[0m'.");
+                    $$ = new string("");
                   } 
                   else {
                     $$ = $1; 
@@ -468,16 +468,16 @@
           {
             Entry *e;
             // Verificamos que el identificador existe y corresponde a una estructura.
-            if ((e = table->lookup($1)) == NULL) {
-              addError((string) "'\e[1;3m" + $1 + "\e[0m' wasn't declared.");
+            if ((e = table->lookup(*$1)) == NULL) {
+              addError("'\033[1;3m" + *$1 + "\033[0m' wasn't declared.");
               $$ = predefinedTypes["$Error"];
             } 
             else if (e->category != "Type" && e->category != "Structure") {
-              addError((string) "'\e[1;3m" + $1 + "\e[0m' isn't a type.");
+              addError("'\033[1;3m" + *$1 + "\033[0m' isn't a type.");
               $$ = predefinedTypes["$Error"];
             } 
             else {
-              $$ = new PrimitiveType($1);
+              $$ = new PrimitiveType(*$1);
               $$->width = ((StructureEntry*) e)->width;
             }
           }
@@ -498,8 +498,10 @@
 /* ======================= EXPRESSIONS =============================== */
   W     : /* lambda */        
           { 
+            // La siguiente instruccion vacia es para evitar repeticion de etiquetas
+            tac->gen("");
             $$ = tac->instructions.size(); 
-            tac->gen("@label E" + to_string($$));
+            tac->gen("@label B" + to_string($$));
           }
 
   Exp   : Exp EQUIV W Exp 
@@ -507,8 +509,8 @@
             // Verificamos que los tipos coinciden con la operacion
             Type *t1 = $1->type;
             Type *t2 = $4->type;
-            Type *type = verifyBinayOpType($2, t1->toString(), t2->toString());
-            $$ = new NodeBinaryOperator($1, $2, $4, type); 
+            Type *type = verifyBinayOpType(*$2, t1->toString(), t2->toString());
+            $$ = new NodeBinaryOperator($1, *$2, $4, type); 
 
             if (t1->toString() == "Bool" && t2->toString() == "Bool") {
               // Si las expressiones son booleanas, entonces primero tenemos que usar
@@ -522,7 +524,7 @@
               $1->addr = tac->newTemp();
               tac->backpatch($1->truelist, tac->instructions.size());
               tac->gen("assign " + $1->addr + " True");
-              label = "E" + to_string(tac->instructions.size() + 2);
+              label = "B" + to_string(tac->instructions.size() + 2);
               tac->gen("goto " + label);
               
               // Usamos backpatching sobre la falselist de la primera expresion para 
@@ -533,13 +535,13 @@
               tac->gen("@label " + label);
 
               // Saltamos a la segunda expresion
-              tac->gen("goto E" + to_string($3));
+              tac->gen("goto B" + to_string($3));
 
               // Repetimos el mismo proceso de la primera expresion.
               $4->addr = tac->newTemp();
               tac->backpatch($4->truelist, tac->instructions.size());
               tac->gen("assign " + $4->addr + " True");
-              label = "E" + to_string(tac->instructions.size() + 2);
+              label = "B" + to_string(tac->instructions.size() + 2);
               tac->gen("goto " + label);
               tac->backpatch($4->falselist, tac->instructions.size());
               tac->gen("assign " + $4->addr + " False");
@@ -561,8 +563,8 @@
             // Verificamos que los tipos coinciden con la operacion
             Type *t1 = $1->type;
             Type *t2 = $4->type;
-            Type *type = verifyBinayOpType($2, t1->toString(), t2->toString());
-            $$ = new NodeBinaryOperator($1, $2, $4, type); 
+            Type *type = verifyBinayOpType(*$2, t1->toString(), t2->toString());
+            $$ = new NodeBinaryOperator($1, *$2, $4, type); 
 
             if (t1->toString() == "Bool" && t2->toString() == "Bool") {
               // Si las expressiones son booleanas, entonces primero tenemos que usar
@@ -576,7 +578,7 @@
               $1->addr = tac->newTemp();
               tac->backpatch($1->truelist, tac->instructions.size());
               tac->gen("assign " + $1->addr + " True");
-              label = "E" + to_string(tac->instructions.size() + 2);
+              label = "B" + to_string(tac->instructions.size() + 2);
               tac->gen("goto " + label);
 
               // Usamos backpatching sobre la falselist de la primera expresion para 
@@ -587,13 +589,13 @@
               tac->gen("@label " + label);
 
               // Saltamos a la segunda expresion
-              tac->gen("goto E" + to_string($3));
+              tac->gen("goto B" + to_string($3));
 
               // Repetimos el mismo proceso de la primera expresion.
               $4->addr = tac->newTemp();
               tac->backpatch($4->truelist, tac->instructions.size());
               tac->gen("assign " + $4->addr + " True");
-              label = "E" + to_string(tac->instructions.size() + 2);
+              label = "B" + to_string(tac->instructions.size() + 2);
               tac->gen("goto " + label);
               tac->backpatch($4->falselist, tac->instructions.size());
               tac->gen("assign " + $4->addr + " False");
@@ -614,8 +616,8 @@
             // Verificamos que los tipos coinciden con la operacion
             Type *t1 = $1->type;
             Type *t2 = $4->type;
-            Type *type = verifyBinayOpType($2, t1->toString(), t2->toString());
-            $$ = new NodeBinaryOperator($1, $2, $4, type); 
+            Type *type = verifyBinayOpType(*$2, t1->toString(), t2->toString());
+            $$ = new NodeBinaryOperator($1, *$2, $4, type); 
 
             // Aplicamos backpatching.
             tac->backpatch($1->falselist, $3);
@@ -628,8 +630,8 @@
             // Verificamos que los tipos coinciden con la operacion
             Type *t1 = $1->type;
             Type *t2 = $4->type;
-            Type *type = verifyBinayOpType($2, t1->toString(), t2->toString());
-            $$ = new NodeBinaryOperator($1, $2, $4, type); 
+            Type *type = verifyBinayOpType(*$2, t1->toString(), t2->toString());
+            $$ = new NodeBinaryOperator($1, *$2, $4, type); 
 
             // Aplicamos backpatching.
             tac->backpatch($1->truelist, $3);
@@ -640,8 +642,8 @@
         | NOT Exp 
           { 
             // Verificamos que el tipo coincide con la operacion.
-            Type *type = verifyUnaryOpType($1, $2->type->toString());
-            $$ = new NodeUnaryOperator($1, $2, type); 
+            Type *type = verifyUnaryOpType(*$1, $2->type->toString());
+            $$ = new NodeUnaryOperator(*$1, $2, type); 
 
             // Aplicamos backpatching.
             $$->truelist = $2->falselist;
@@ -653,8 +655,8 @@
             // Verificamos que los tipos coinciden con la operacion
             Type *t1 = $1->type;
             Type *t2 = $3->type;
-            Type *type = verifyBinayOpType($2, t1->toString(), t2->toString());
-            $$ = new NodeBinaryOperator($1, $2, $3, type);  
+            Type *type = verifyBinayOpType(*$2, t1->toString(), t2->toString());
+            $$ = new NodeBinaryOperator($1, *$2, $3, type);  
 
             // Aplicamos backpatching.
             tac->gen("lt test " + $1->addr + " " + $3->addr);
@@ -669,8 +671,8 @@
             // Verificamos que los tipos coinciden con la operacion
             Type *t1 = $1->type;
             Type *t2 = $3->type;
-            Type *type = verifyBinayOpType($2, t1->toString(), t2->toString());
-            $$ = new NodeBinaryOperator($1, $2, $3, type); 
+            Type *type = verifyBinayOpType(*$2, t1->toString(), t2->toString());
+            $$ = new NodeBinaryOperator($1, *$2, $3, type); 
 
             // Aplicamos backpatching.
             tac->gen("leq test " + $1->addr + " " + $3->addr);
@@ -685,8 +687,8 @@
             // Verificamos que los tipos coinciden con la operacion
             Type *t1 = $1->type;
             Type *t2 = $3->type;
-            Type *type = verifyBinayOpType($2, t1->toString(), t2->toString());
-            $$ = new NodeBinaryOperator($1, $2, $3, type); 
+            Type *type = verifyBinayOpType(*$2, t1->toString(), t2->toString());
+            $$ = new NodeBinaryOperator($1, *$2, $3, type); 
 
             // Aplicamos backpatching.
             tac->gen("gt test " + $1->addr + " " + $3->addr);
@@ -701,8 +703,8 @@
             // Verificamos que los tipos coinciden con la operacion
             Type *t1 = $1->type;
             Type *t2 = $3->type;
-            Type *type = verifyBinayOpType($2, t1->toString(), t2->toString());
-            $$ = new NodeBinaryOperator($1, $2, $3, type); 
+            Type *type = verifyBinayOpType(*$2, t1->toString(), t2->toString());
+            $$ = new NodeBinaryOperator($1, *$2, $3, type); 
 
             // Aplicamos backpatching.
             tac->gen("geq test " + $1->addr + " " + $3->addr);
@@ -717,8 +719,8 @@
             // Verificamos que los tipos coinciden con la operacion
             Type *t1 = $1->type;
             Type *t2 = $3->type;
-            Type *type = verifyBinayOpType($2, t1->toString(), t2->toString());
-            $$ = new NodeBinaryOperator($1, $2, $3, type); 
+            Type *type = verifyBinayOpType(*$2, t1->toString(), t2->toString());
+            $$ = new NodeBinaryOperator($1, *$2, $3, type); 
 
             // Agregamos las instrucciones del TAC.
             $$->addr = tac->newTemp();
@@ -730,8 +732,8 @@
             // Verificamos que los tipos coinciden con la operacion
             Type *t1 = $1->type;
             Type *t2 = $3->type;
-            Type *type = verifyBinayOpType($2, t1->toString(), t2->toString());
-            $$ = new NodeBinaryOperator($1, $2, $3, type); 
+            Type *type = verifyBinayOpType(*$2, t1->toString(), t2->toString());
+            $$ = new NodeBinaryOperator($1, *$2, $3, type); 
 
             // Agregamos las instrucciones del TAC.
             $$->addr = tac->newTemp();
@@ -743,8 +745,8 @@
             // Verificamos que los tipos coinciden con la operacion
             Type *t1 = $1->type;
             Type *t2 = $3->type;
-            Type *type = verifyBinayOpType($2, t1->toString(), t2->toString());
-            $$ = new NodeBinaryOperator($1, $2, $3, type); 
+            Type *type = verifyBinayOpType(*$2, t1->toString(), t2->toString());
+            $$ = new NodeBinaryOperator($1, *$2, $3, type); 
 
             // Agregamos las instrucciones del TAC.
             $$->addr = tac->newTemp();
@@ -756,8 +758,8 @@
             // Verificamos que los tipos coinciden con la operacion
             Type *t1 = $1->type;
             Type *t2 = $3->type;
-            Type *type = verifyBinayOpType($2, t1->toString(), t2->toString());
-            $$ = new NodeBinaryOperator($1, $2, $3, type); 
+            Type *type = verifyBinayOpType(*$2, t1->toString(), t2->toString());
+            $$ = new NodeBinaryOperator($1, *$2, $3, type); 
 
             // Agregamos las instrucciones del TAC.
             $$->addr = tac->newTemp();
@@ -769,8 +771,8 @@
             // Verificamos que los tipos coinciden con la operacion
             Type *t1 = $1->type;
             Type *t2 = $3->type;
-            Type *type = verifyBinayOpType($2, t1->toString(), t2->toString());
-            $$ = new NodeBinaryOperator($1, $2, $3, type); 
+            Type *type = verifyBinayOpType(*$2, t1->toString(), t2->toString());
+            $$ = new NodeBinaryOperator($1, *$2, $3, type); 
 
             // Agregamos las instrucciones del TAC.
             $$->addr = tac->newTemp();
@@ -780,8 +782,8 @@
         | MINUS Exp  
           { 
             // Verificamos que el tipo coincide con la operacion
-            Type *type = verifyUnaryOpType($1, $2->type->toString());
-            $$ = new NodeUnaryOperator($1, $2, type); 
+            Type *type = verifyUnaryOpType(*$1, $2->type->toString());
+            $$ = new NodeUnaryOperator(*$1, $2, type); 
 
             // Agregamos las instrucciones del TAC.
             $$->addr = tac->newTemp();
@@ -791,7 +793,7 @@
         | PLUS Exp
           { 
             // Verificamos que el tipo coincide con la operacion.
-            Type *type = verifyUnaryOpType($1, $2->type->toString());
+            verifyUnaryOpType(*$1, $2->type->toString());
             $$ = $2; 
           }
 
@@ -800,8 +802,8 @@
             // Verificamos que los tipos coinciden con la operacion
             Type *t1 = $1->type;
             Type *t2 = $3->type;
-            Type *type = verifyBinayOpType($2, t1->toString(), t2->toString());
-            $$ = new NodeBinaryOperator($1, $2, $3, type); 
+            Type *type = verifyBinayOpType(*$2, t1->toString(), t2->toString());
+            $$ = new NodeBinaryOperator($1, *$2, $3, type); 
 
             // Generamos el codigo TAC para la exponencial.
             $$->addr = tac->newTemp();
@@ -837,14 +839,14 @@
             }
             // O que no sea un arreglo.
             else if ($1->type->category != "Array") {
-              addError("'\e[1;3m" + ltype + "\e[0m' type can't be indexed.");
+              addError("'\033[1;3m" + ltype + "\033[0m' type can't be indexed.");
               $$ = new NodeArrayAccess($1, $3, predefinedTypes["$Error"]); 
             } 
             // O que la expresion de acceso no sea entera.
             else if (itype != "$Error" && itype != "Int") {
               addError(
-                "Expected a '\e[1;3mInt\e[0m' but '\e[1;3m" +
-                itype + "\e[0m' found."
+                "Expected a '\033[1;3mInt\033[0m' but '\033[1;3m" +
+                itype + "\033[0m' found."
               );
               $$ = new NodeArrayAccess($1, $3, predefinedTypes["$Error"]); 
             }
@@ -864,7 +866,7 @@
                 string t = tac->newTemp();
                 $$->addr = tac->newTemp();
                 tac->gen("mult " + t + " " + $3->addr + " " + to_string(type->width));
-                tac->gen("add " + $$->addr + " " + $1->addr + t);
+                tac->gen("add " + $$->addr + " " + $1->addr + " " + t);
               }
 
               // En caso contrario, se hace un acceso a memoria.
@@ -892,8 +894,8 @@
             // O no sea un puntero.
             else if ($2->type->category != "Pointer") {
               addError(
-                "'\e[1;3m" + $2->type->toString() + 
-                "\e[0m' type can't be desreferenced."
+                "'\033[1;3m" + $2->type->toString() + 
+                "\033[0m' type can't be desreferenced."
               );
               $$ = new NodePointer($2, predefinedTypes["$Error"]); 
             } 
@@ -910,43 +912,43 @@
           { 
             // Verificamos que el tipo base no es erronea.
             if ($1->type->toString() == "$Error") {
-              $$ = new NodeDot($1, $3, predefinedTypes["$Error"]);
+              $$ = new NodeDot($1, *$3, predefinedTypes["$Error"]);
             } 
             // O no sea un tipo "primitivo" (extendiendo a las estructuras).
             else if ($1->type->category != "Primitive") {
               addError(
-                "'\e[1;3m" + $1->type->toString() + 
-                "\e[0m' type can't be accessed."
+                "'\033[1;3m" + $1->type->toString() + 
+                "\033[0m' type can't be accessed."
               );
-              $$ = new NodeDot($1, $3, predefinedTypes["$Error"]);
+              $$ = new NodeDot($1, *$3, predefinedTypes["$Error"]);
             } 
             else {
               Entry *e = table->lookup($1->type->toString()); 
               // O no sea una estructura.
               if (e->category != "Structure") {
                 addError(
-                  "'\e[1;3m" + $1->type->toString() + 
-                  "\e[0m' type can't be accessed."
+                  "'\033[1;3m" + $1->type->toString() + 
+                  "\033[0m' type can't be accessed."
                 );
-                $$ = new NodeDot($1, $3, predefinedTypes["$Error"]);
+                $$ = new NodeDot($1, *$3, predefinedTypes["$Error"]);
               } 
               
               else {
                 StructureEntry *se = (StructureEntry*) e;
-                VarEntry *field = (VarEntry*) table->lookup($3, se->def_scope);
+                VarEntry *field = (VarEntry*) table->lookup(*$3, se->def_scope);
 
                 // O no tenga el campo indicado.
                 if (field == NULL) {
                   addError(
-                    "'\e[1;3m" + $1->type->toString() + 
-                    "\e[0m' has no member '\e[1;3m" + 
-                    $3 + "\e[0m'."
+                    "'\033[1;3m" + $1->type->toString() + 
+                    "\033[0m' has no member '\033[1;3m" + 
+                    *$3 + "\033[0m'."
                   );
-                  $$ = new NodeDot($1, $3, predefinedTypes["$Error"]);
+                  $$ = new NodeDot($1, *$3, predefinedTypes["$Error"]);
                 } 
 
                 else {
-                  $$ = new NodeDot($1, $3, field->type);
+                  $$ = new NodeDot($1, *$3, field->type);
 
                   // El acceso a campo es equivalente al acceso a memoria desplazado
                   // por el offset del campo.
@@ -969,18 +971,18 @@
             Entry *e;
 
             // Verificamos que el ID este declarado.
-            if ((e = table->lookup($1)) == NULL) {
-              addError((string) "'\e[1;3m" + $1 + "\e[0m' wasn't declared.");
-              $$ = new NodeID($1, predefinedTypes["$Error"]);
+            if ((e = table->lookup(*$1)) == NULL) {
+              addError("'\033[1;3m" + *$1 + "\033[0m' wasn't declared.");
+              $$ = new NodeID(*$1, predefinedTypes["$Error"]);
             } 
             // Y sea una variable.
             else if (e->category != "Var") {
-              addError((string) "'\e[1;3m" + $1 + "\e[0m' isn't a variable.");
-              $$ = new NodeID($1, predefinedTypes["$Error"]);
+              addError("'\033[1;3m" + *$1 + "\033[0m' isn't a variable.");
+              $$ = new NodeID(*$1, predefinedTypes["$Error"]);
             } 
             else {
               VarEntry *ve = (VarEntry*) e;
-              $$ = new NodeID($1, ve->type); 
+              $$ = new NodeID(*$1, ve->type); 
 
               // Si nos encontramos fuera de una funcion, usamos la etiqueta de la 
               // variable.
@@ -1051,8 +1053,8 @@
               // O que los tipos de ambas expresiones no coincidan
               else if (ltype != rtype) {
                 addError(
-                  "Can't assign a '\e[1;3m" + rtype +
-                  "\e[0m' to a '\e[1;3m" + ltype + "\e[0m'."
+                  "Can't assign a '\033[1;3m" + rtype +
+                  "\033[0m' to a '\033[1;3m" + ltype + "\033[0m'."
                 );
                 $$ = new ExpressionNode();
                 $$->type = predefinedTypes["$Error"];
@@ -1128,8 +1130,8 @@
 
         | STRING 
           { 
-            $$ = new NodeSTRING($1); 
-            $$->addr = tac->newStr($1);
+            $$ = new NodeSTRING(*$1); 
+            $$->addr = tac->newStr(*$1);
           }
         ;
 
@@ -1182,9 +1184,9 @@
                 
                 else if (type1 != type2) {
                   addError(
-                    (string) "All elements of an array must have the same type" +
-                    ", but found '\e[1;3m" + type1 + "\e[0m' and " +
-                    "'\e[1;3m" + type2 + "\e[0m'."
+                    "All elements of an array must have the same type"
+                    ", but found '\033[1;3m" + type1 + "\033[0m' and "
+                    "'\033[1;3m" + type2 + "\033[0m'."
                   );
                   type = predefinedTypes["$Error"];
                   size = 0;
@@ -1202,7 +1204,7 @@
                   tac->backpatch($2->truelist, tac->instructions.size());
                   tac->gen("assign " + $2->addr + " True");
 
-                  label = "E" + to_string(tac->instructions.size() + 2);
+                  label = "B" + to_string(tac->instructions.size() + 2);
                   tac->gen("goto " + label);
                   tac->backpatch($2->falselist, tac->instructions.size());
                   tac->gen("assign " + $2->addr + " False");
@@ -1233,9 +1235,9 @@
 
                 else if (type1 != type2) {
                   addError(
-                    (string) "All elements of an array must have the same type" +
-                    ", but found '\e[1;3m" + type1 + "\e[0m' and " +
-                    "'\e[1;3m" + type2 + "\e[0m'."
+                    "All elements of an array must have the same type"
+                    ", but found '\033[1;3m" + type1 + "\033[0m' and "
+                    "'\033[1;3m" + type2 + "\033[0m'."
                   );
                   type = predefinedTypes["$Error"];
                   size = 0;
@@ -1253,7 +1255,7 @@
                   tac->backpatch($2->truelist, tac->instructions.size());
                   tac->gen("assign " + $2->addr + " True");
 
-                  label = "E" + to_string(tac->instructions.size() + 2);
+                  label = "B" + to_string(tac->instructions.size() + 2);
                   tac->gen("goto " + label);
                   tac->backpatch($2->falselist, tac->instructions.size());
                   tac->gen("assign " + $2->addr + " False");
@@ -1277,13 +1279,13 @@
                         Type *type = NULL;
                         Entry *e;
 
-                        if ((e = table->lookup($1)) == NULL) {
-                          addError((string) "'\e[1;3m" + $1 + "\e[0m' wasn't declared.");
+                        if ((e = table->lookup(*$1)) == NULL) {
+                          addError("'\033[1;3m" + *$1 + "\033[0m' wasn't declared.");
                           type = predefinedTypes["$Error"];
                         } 
                         
                         else if (e->category!="Function" && e->category!="Declaration") {
-                          addError((string) "'\e[1;3m" + $1 + "\e[0m' isn't a function.");
+                          addError("'\033[1;3m" + *$1 + "\033[0m' isn't a function.");
                           type = predefinedTypes["$Error"];
                         } 
                         
@@ -1300,18 +1302,18 @@
 
                               if (get<1>(arg) != type_str) {
                                 addError(
-                                  (string) "Argument '\e[1;3m" + get<0>(arg) + 
-                                  "\e[0m' " + "must be '\e[1;3m" + get<1>(arg) + 
-                                  "\e[0m' but '\e[1;3m" + type_str + 
-                                  "\e[0m' found."
+                                  "Argument '\033[1;3m" + get<0>(arg) + 
+                                  "\033[0m' " + "must be '\033[1;3m" + get<1>(arg) + 
+                                  "\033[0m' but '\033[1;3m" + type_str + 
+                                  "\033[0m' found."
                                 );
                                 correctTypes = false;
                               }
 
                               if ($3->keywords.count(get<0>(arg))) {
                                 addError(
-                                  (string) "Got multiple values of '\e[1;3m" + 
-                                  get<0>(arg) + "\e[0m'."
+                                  "Got multiple values of '\033[1;3m" + 
+                                  get<0>(arg) + "\033[0m'."
                                 );
                                 correctTypes = false;
                               }
@@ -1324,10 +1326,10 @@
 
                               if (get<1>(arg) != type_str) {
                                 addError(
-                                  (string) "Argument '\e[1;3m" + get<0>(arg) + 
-                                  "\e[0m' " + "must be '\e[1;3m" + get<1>(arg) + 
-                                  "\e[0m' but '\e[1;3m" + type_str + 
-                                  "\e[0m' found."
+                                  "Argument '\033[1;3m" + get<0>(arg) + 
+                                  "\033[0m' " + "must be '\033[1;3m" + get<1>(arg) + 
+                                  "\033[0m' but '\033[1;3m" + type_str + 
+                                  "\033[0m' found."
                                 );
                                 correctTypes = false;
                               }
@@ -1338,7 +1340,7 @@
                             
                             else if (get<3>(arg) == NULL) {
                               addError(
-                                (string) "Missing required positional arguments."
+                                "Missing required positional arguments."
                               );
                               correctTypes = false;
                             }
@@ -1353,7 +1355,7 @@
                           if ($3->keywords.size()) {
                             string err = "Got unexpected keywords: ";
                             for (string k : $3->keywords) {
-                              err += "'\e[1;3m" + k + "\e[0m', ";
+                              err += "'\033[1;3m" + k + "\033[0m', ";
                             }
                             addError(err);
                             correctTypes = false;
@@ -1368,7 +1370,7 @@
                         if (type == NULL) {
                           FunctionEntry *fe = (FunctionEntry*) e;
                           type = fe->return_type;
-                          $$ = new NodeFunctionCall($1, $3, false, type); 
+                          $$ = new NodeFunctionCall(*$1, $3, false, type); 
                           $$->addr = tac->newTemp();
 
                           if (e->category == "Declaration") {
@@ -1407,7 +1409,7 @@
                           }
                         } 
                         else {
-                          $$ = new NodeFunctionCall($1, $3, false, type); 
+                          $$ = new NodeFunctionCall(*$1, $3, false, type); 
                         }
 
                       }
@@ -1481,7 +1483,7 @@
                           tac->backpatch($1->truelist, tac->instructions.size());
                           tac->gen("assign " + $1->addr + " True");
 
-                          label = "E" + to_string(tac->instructions.size() + 2);
+                          label = "B" + to_string(tac->instructions.size() + 2);
                           tac->gen("goto " + label);
                           tac->backpatch($1->falselist, tac->instructions.size());
                           tac->gen("assign " + $1->addr + " False");
@@ -1512,7 +1514,7 @@
                           tac->backpatch($3->truelist, tac->instructions.size());
                           tac->gen("assign " + $3->addr + " True");
 
-                          label = "E" + to_string(tac->instructions.size() + 2);
+                          label = "B" + to_string(tac->instructions.size() + 2);
                           tac->gen("goto " + label);
                           tac->backpatch($3->falselist, tac->instructions.size());
                           tac->gen("assign " + $3->addr + " False");
@@ -1531,7 +1533,7 @@
                       } 
 
                       else {
-                        $$ = new NodeFunctionCallNamedArgs(NULL, $1, $3);
+                        $$ = new NodeFunctionCallNamedArgs(NULL, *$1, $3);
 
                         if ($3->type->toString() == "Bool") {
                           string label;
@@ -1541,25 +1543,23 @@
                           tac->backpatch($3->truelist, tac->instructions.size());
                           tac->gen("assign " + $3->addr + " True");
 
-                          label = "E" + to_string(tac->instructions.size() + 2);
+                          label = "B" + to_string(tac->instructions.size() + 2);
                           tac->gen("goto " + label);
                           tac->backpatch($3->falselist, tac->instructions.size());
                           tac->gen("assign " + $3->addr + " False");
                           tac->gen("@label " + label);
                         }
 
-                        $$->currentArgs[$1] = $3; 
-                        $$->keywords.insert($1);
+                        $$->currentArgs[*$1] = $3; 
+                        $$->keywords.insert(*$1);
                       }
                     }
 
                   | NamedArgs COMMA ID ASSIGNMENT Exp           
                     { 
-                      $$ = new NodeFunctionCallNamedArgs($1, $3, $5); 
-                      if ($1 != NULL && $1->currentArgs.count($3)) {
-                        addError(
-                          (string) "Got multiple values of '\e[1;3m" + $3 + "\e[0m'."
-                        );
+                      $$ = new NodeFunctionCallNamedArgs($1, *$3, $5); 
+                      if ($1 != NULL && $1->currentArgs.count(*$3)) {
+                        addError("Got multiple values of '\033[1;3m" + *$3 + "\033[0m'.");
                         $$ = NULL;
                       } 
                       
@@ -1578,18 +1578,18 @@
                           tac->backpatch($5->truelist, tac->instructions.size());
                           tac->gen("assign " + $5->addr + " True");
 
-                          label = "E" + to_string(tac->instructions.size() + 2);
+                          label = "B" + to_string(tac->instructions.size() + 2);
                           tac->gen("goto " + label);
                           tac->backpatch($5->falselist, tac->instructions.size());
                           tac->gen("assign " + $5->addr + " False");
                           tac->gen("@label " + label);
                         }
 
-                        $$->currentArgs[$3] = $5;
+                        $$->currentArgs[*$3] = $5;
                         $1->currentArgs.clear();
 
                         $$->keywords = $1->keywords;
-                        $$->keywords.insert($3);
+                        $$->keywords.insert(*$3);
                         $1->keywords.clear();
                       }
                     }
@@ -1599,13 +1599,13 @@
 /* ======================= UNION DEFINITION ========================== */
   UnionDef  : UnionId OPEN_C_BRACE UnionBody CLOSE_C_BRACE  
               { 
-                if ($1 != "" && $3 != NULL) {
+                if (*$1 != "" && $3 != NULL) {
                   int def_s = table->currentScope();
                   table->exitScope(); 
                   int s = table->currentScope();
 
                   Entry *e = new StructureEntry(
-                    $1, 
+                    *$1, 
                     s, 
                     "Structure", 
                     def_s,
@@ -1629,15 +1629,15 @@
 
   UnionBody  : Type IdDef SEMICOLON                          
               { 
-                if ($2 == "" || $1->toString() == "$Error") {
+                if (*$2 == "" || $1->toString() == "$Error") {
                   $$ = NULL;
                 } 
 
                 else {
-                  $$ = new NodeUnionFields(NULL, $1, $2, $1->width); 
+                  $$ = new NodeUnionFields(NULL, $1, *$2, $1->width); 
                   int s = table->currentScope();
                   Entry *e = new VarEntry(
-                    $2, 
+                    *$2, 
                     s, 
                     "Field", 
                     $1, 
@@ -1651,17 +1651,17 @@
 
             | UnionBody Type IdDef SEMICOLON 
               { 
-                if ($1 == NULL || $3 == "" || $2->toString() == "$Error") {
+                if ($1 == NULL || *$3 == "" || $2->toString() == "$Error") {
                   $$ = NULL;
                 } 
 
                 else {
                   int max_width = ((NodeUnionFields*) $1)->max_width;
                   max_width = max_width > $2->width ? max_width : $2->width;
-                  $$ = new NodeUnionFields($1, $2, $3, max_width); 
+                  $$ = new NodeUnionFields($1, $2, *$3, max_width); 
                   int s = table->currentScope();
                   Entry *e = new VarEntry(
-                    $3, 
+                    *$3, 
                     s, 
                     "Field", 
                     $2, 
@@ -1678,13 +1678,13 @@
 /* ======================= REGISTER DEFINITION ======================= */
   RegDef    : RegId OPEN_C_BRACE RegBody CLOSE_C_BRACE  
               { 
-                if ($1 != "" && $3 != NULL) {
+                if (*$1 != "" && $3 != NULL) {
                   int def_s = table->currentScope();
                   table->exitScope();
                   int s = table->currentScope();
 
                   Entry *e = new StructureEntry(
-                    $1, 
+                    *$1, 
                     s, 
                     "Structure", 
                     def_s,
@@ -1708,7 +1708,7 @@
 
   RegBody    : Type IdDef OptAssign SEMICOLON            
               { 
-                bool cond = $2 == "" || $1->toString() == "$Error" ||
+                bool cond = *$2 == "" || $1->toString() == "$Error" ||
                   ($3 != NULL && $3->type->toString() == "$Error");
 
                 if (cond) {
@@ -1717,17 +1717,17 @@
 
                 else if ($3 != NULL && $1->toString() != $3->type->toString()) {
                   addError(
-                    "Can't assign a '\e[1;3m" + $3->type->toString() +
-                    "\e[0m' to a '\e[1;3m" + $1->toString() + "\e[0m'."
+                    "Can't assign a '\033[1;3m" + $3->type->toString() +
+                    "\033[0m' to a '\033[1;3m" + $1->toString() + "\033[0m'."
                   );
                   $$ = NULL;
                 }
                 
                 else {
-                  $$ = new NodeRegFields(NULL, $1, $2, $3);
+                  $$ = new NodeRegFields(NULL, $1, *$2, $3);
                   int s = table->currentScope();
                   Entry *e = new VarEntry(
-                    $2, 
+                    *$2, 
                     s, 
                     "Field", 
                     $1, 
@@ -1742,14 +1742,14 @@
 
             |  RegBody Type IdDef OptAssign SEMICOLON    
               { 
-                if ($3 == "" || $2->toString() == "$Error") {
+                if (*$3 == "" || $2->toString() == "$Error") {
                   $$ = NULL;
                 } 
 
                 else if ($4 != NULL && $2->toString() != $4->type->toString()) {
                   addError(
-                    "Can't assign a '\e[1;3m" + $4->type->toString() +
-                    "\e[0m' to a '\e[1;3m" + $2->toString() + "\e[0m'."
+                    "Can't assign a '\033[1;3m" + $4->type->toString() +
+                    "\033[0m' to a '\033[1;3m" + $2->toString() + "\033[0m'."
                   );
                   $$ = NULL;
                 }
@@ -1759,10 +1759,10 @@
                 }
                 
                 else {
-                  $$ = new NodeRegFields($1, $2, $3, $4);
+                  $$ = new NodeRegFields($1, $2, *$3, $4);
                   int s = table->currentScope();
                   Entry *e = new VarEntry(
-                    $3, 
+                    *$3, 
                     s, 
                     "Field", 
                     $2, 
@@ -1824,8 +1824,8 @@
                 {
                   if ($1->type->toString() != "$Error" && $1->type->toString() != "Bool") {
                     addError(
-                      "Condition must be a '\e[1;3mBool\e[0m' but '\e[1;3m" +
-                      $1->type->toString() + "\e[0m' found."
+                      "Condition must be a '\033[1;3mBool\033[0m' but '\033[1;3m" +
+                      $1->type->toString() + "\033[0m' found."
                     );
                   }
                   $$ = $1;
@@ -1900,7 +1900,7 @@
                 }
                 tac->backpatch($3->truelist, $4);
                 $$->nextlist = $3->falselist;
-                tac->gen("goto " + to_string($2));
+                tac->gen("goto B" + to_string($2));
               }
             ; 
 
@@ -1936,7 +1936,7 @@
                 int s = table->currentScope();
                 Type *t = predefinedTypes["Float"];
                 VarEntry *e = new VarEntry(
-                  $3, 
+                  *$3, 
                   s, 
                   "Var", 
                   t, 
@@ -1949,28 +1949,28 @@
                 if (type1 != "$Error" && type1 != "Float" && type1 != "Int") {
                   addError(
                     "Initial value in a for loop must be "
-                    "'\e[1;3mInt\e[0m' or '\e[1;3mFloat\e[0m' "
-                    "but '\e[1;3m" + type1 + "\e[0m' found."
+                    "'\033[1;3mInt\033[0m' or '\033[1;3mFloat\033[0m' "
+                    "but '\033[1;3m" + type1 + "\033[0m' found."
                   );
                 }
 
                 if (type2 != "$Error" && type2 != "Float" && type2 != "Int") {
                   addError(
                     "End value in a for loop must be "
-                    "'\e[1;3mInt\e[0m' or '\e[1;3mFloat\e[0m' "
-                    "but '\e[1;3m" + type2 + "\e[0m' found."
+                    "'\033[1;3mInt\033[0m' or '\033[1;3mFloat\033[0m' "
+                    "but '\033[1;3m" + type2 + "\033[0m' found."
                   );
                 }
 
                 if ($8 != NULL && type3 != "$Error" && type3 != "Float" && type3 != "Int") {
                   addError(
                     "Step value in a for loop must be "
-                    "'\e[1;3mInt\e[0m' or '\e[1;3mFloat\e[0m' "
-                    "but '\e[1;3m" + type3 + "\e[0m' found."
+                    "'\033[1;3mInt\033[0m' or '\033[1;3mFloat\033[0m' "
+                    "but '\033[1;3m" + type3 + "\033[0m' found."
                   );
                 }
 
-                $$ = new NodeForSign($3, $5, $7, $8);
+                $$ = new NodeForSign(*$3, $5, $7, $8);
                 $$->addr = tac->newTemp();
                 $$->label = tac->newLabel();
 
@@ -2038,35 +2038,27 @@
                   bool error = false;
                   FunctionEntry *fe_dec = $1->second;
 
-                  for (int i = 0; i < $3->params.size(); i++) {
+                  for (int i = 0; (size_t) i < $3->params.size(); i++) {
                     if (
-                      i == fe_dec->args.size() ||
+                      (size_t) i == fe_dec->args.size() ||
                       get<0>($3->params[i]) != get<0>(fe_dec->args[i]) ||
                       get<1>($3->params[i]) != get<1>(fe_dec->args[i]) ||
                       get<2>($3->params[i]) != get<2>(fe_dec->args[i])
                     ) {
-                      addError(
-                        (string) "Sign of function dont match with "
-                        "the declaration."
-                      );
+                      addError("Sign of function dont match with the declaration.");
                       error = true;
                       break;
                     }
 
                     if (get<3>($3->params[i]) != NULL) {
-                      addError(
-                        (string) "Default values must be in declaration."
-                      );
+                      addError("Default values must be in declaration.");
                       error = true;
                       break;
                     }
                   }
 
                   if ($5->toString() != fe_dec->return_type->toString()) {
-                    addError(
-                      (string) "Sign of function dont match with "
-                      "the declaration."
-                    );
+                    addError("Sign of function dont match with the declaration.");
                     error = true;
                   }
 
@@ -2140,35 +2132,32 @@
 
   RoutId    : DEF ID 
               {
-                Entry *e = table->lookup($2);
+                Entry *e = table->lookup(*$2);
 
                 if (
                   e != NULL &&
                   e->scope == table->currentScope() &&
                   e->category != "Declaration"
                 ) {
-                  addError(
-                    (string) "Redefinition of '\e[1;3m" 
-                    + $2 + "\e[0m'."
-                  );
+                  addError("Redefinition of '\033[1;3m" + *$2 + "\033[0m'.");
                   $$ = new pair<string, FunctionEntry*>("", NULL);
                 } 
                 
                 else if (e != NULL && e->category == "Declaration") {
                   FunctionEntry *fe_dec = (FunctionEntry*) e;
-                  $$ = new pair<string, FunctionEntry*>($2, fe_dec); 
+                  $$ = new pair<string, FunctionEntry*>(*$2, fe_dec); 
                   
                   int s = table->currentScope();
-                  FunctionEntry *fe = new FunctionEntry($2, s, "Function");
+                  FunctionEntry *fe = new FunctionEntry(*$2, s, "Function");
                   fe->args = fe_dec->args;
                   fe->return_type = fe_dec->return_type; 
                   table->insert(fe);
                 }
 
                 else {
-                  $$ = new pair<string, FunctionEntry*>($2, NULL);
+                  $$ = new pair<string, FunctionEntry*>(*$2, NULL);
                   int s = table->currentScope();
-                  Entry *e = new FunctionEntry($2, s, "Function");
+                  Entry *e = new FunctionEntry(*$2, s, "Function");
                   table->insert(e);
                 }
                 
@@ -2229,17 +2218,17 @@
 
   MandArgs  : Type OptRef IdDef                             
               { 
-                if ($3 == "" || $1->toString() == "$Error") {
+                if (*$3 == "" || $1->toString() == "$Error") {
                   $$ = NULL;
                 } 
 
                 else {
-                  $$ = new NodeRoutArgDef(NULL, $1, $2, $3, NULL);
-                  $$->currentParams.push_back({$3, $1->toString(), $2, NULL});
+                  $$ = new NodeRoutArgDef(NULL, $1, $2, *$3, NULL);
+                  $$->currentParams.push_back({*$3, $1->toString(), $2, NULL});
 
                   int s = table->currentScope();
                   Entry *e = new VarEntry(
-                    $3, 
+                    *$3, 
                     s, 
                     "Var", 
                     $1, 
@@ -2251,21 +2240,21 @@
               }
             | MandArgs COMMA Type OptRef IdDef              
               { 
-                if ($1 == NULL || $5 == "" || $3->toString() == "$Error") {
+                if ($1 == NULL || *$5 == "" || $3->toString() == "$Error") {
                   $$ = NULL;
                 } 
 
                 else {
                   $$ = new NodeRoutArgDef(
-                    $1, $3, $4, $5, NULL
+                    $1, $3, $4, *$5, NULL
                   );
                   $$->currentParams = $1->currentParams;
                   $1->currentParams.clear();
-                  $$->currentParams.push_back({$5, $3->toString(), $4, NULL});
+                  $$->currentParams.push_back({*$5, $3->toString(), $4, NULL});
 
                   int s = table->currentScope();
                   Entry *e = new VarEntry(
-                    $5, 
+                    *$5, 
                     s, 
                     "Var", 
                     $3, 
@@ -2288,23 +2277,23 @@
                 
                 else if (type != rtype) {
                   addError(
-                    "Can't assign a '\e[1;3m" + rtype +
-                    "\e[0m' to a '\e[1;3m" + type + "\e[0m'."
+                    "Can't assign a '\033[1;3m" + rtype +
+                    "\033[0m' to a '\033[1;3m" + type + "\033[0m'."
                   );
                   $$ = NULL;
                 } 
 
-                else if ($3 == "") {
+                else if (*$3 == "") {
                   $$ = NULL;
                 }
                 
                 else {
-                  $$ = new NodeRoutArgDef(NULL, $1, $2, $3, $5);
-                  $$->currentParams.push_back({$3, type, $2, (ExpressionNode*) $5});
+                  $$ = new NodeRoutArgDef(NULL, $1, $2, *$3, $5);
+                  $$->currentParams.push_back({*$3, type, $2, (ExpressionNode*) $5});
 
                   int s = table->currentScope();
                   Entry *e = new VarEntry(
-                    $3, 
+                    *$3, 
                     s, 
                     "Var",
                     $1, 
@@ -2315,7 +2304,7 @@
                 }
               }
 
-            | OptArgs COMMA Type OptRef IdDef ASSIGNMENT Exp                                
+            | OptArgs COMMA Type OptRef IdDef ASSIGNMENT Exp   
               { 
                 string type = $3->toString();
                 string rtype = $7->type->toString();
@@ -2325,28 +2314,28 @@
                 
                 else if (type != rtype) {
                   addError(
-                    "Can't assign a '\e[1;3m" + rtype +
-                    "\e[0m' to a '\e[1;3m" + type + "\e[0m'."
+                    "Can't assign a '\033[1;3m" + rtype +
+                    "\033[0m' to a '\033[1;3m" + type + "\033[0m'."
                   );
                   $$ = NULL;
                 } 
                 
-                else if ($1 == NULL || $5 == "") {
+                else if ($1 == NULL || *$5 == "") {
                   $$ = NULL;
                 } 
                 
                 else {
                   $$ = new NodeRoutArgDef(
-                    $1, $3, $4, $5, $7
+                    $1, $3, $4, *$5, $7
                   );
 
                   $$->currentParams = $1->currentParams;
                   $1->currentParams.clear();
-                  $$->currentParams.push_back({$5, type, $4, (ExpressionNode*) $7});
+                  $$->currentParams.push_back({*$5, type, $4, (ExpressionNode*) $7});
 
                   int s = table->currentScope();
                   Entry *e = new VarEntry(
-                    $5, 
+                    *$5, 
                     s, 
                     "Var", 
                     $3, 
@@ -2387,9 +2376,9 @@
               {
                 if (table->ret_type != "" && $3->type->toString() != table->ret_type) {
                   addError(
-                    "Expected return type '\e[1;3m" + 
-                    table->ret_type + "\e[0m' but " +
-                    "'\e[1;3m" + $3->type->toString() + "\e[0m' found."
+                    "Expected return type '\033[1;3m" + 
+                    table->ret_type + "\033[0m' but " +
+                    "'\033[1;3m" + $3->type->toString() + "\033[0m' found."
                   );
                   $$ = new NodeError();
                 } 
@@ -2404,9 +2393,9 @@
               {
                 if (table->ret_type != "" && "Unit" != table->ret_type) {
                   addError(
-                    "Expected return type '\e[1;3m" + 
-                    table->ret_type + "\e[0m' but " +
-                    "'\e[1;3mUnit\e[0m' found ."
+                    "Expected return type '\033[1;3m" + 
+                    table->ret_type + "\033[0m' but " +
+                    "'\033[1;3mUnit\033[0m' found ."
                   );
                   $$ = new NodeError();
                 } 
@@ -2424,10 +2413,10 @@
               {
                 table->exitScope();
 
-                if ($3 != NULL && $1 != "" && $5->toString() != "$Error") {
+                if ($3 != NULL && *$1 != "" && $5->toString() != "$Error") {
                   int s = table->currentScope();
                   FunctionDeclarationEntry *e = new FunctionDeclarationEntry(
-                    $1, 
+                    *$1, 
                     s,
                     "Declaration",
                     $3->params,
@@ -2482,11 +2471,11 @@ int main(int argc, char **argv) {
 
   // Verify all arguments has been passed
   if (argc != 3) {
-    cout << "\e[1mSYNOPSIS\n"
-      "\t\e[1mmaclang\e[0m lex \e[4mFILE\e[0m\n"
-      "\t\e[1mmaclang\e[0m parse \e[4mFILE\e[0m\n"
-      "\t\e[1mmaclang\e[0m symbols \e[4mFILE\e[0m\n"
-      "\t\e[1mmaclang\e[0m tac \e[4mFILE\e[0m\n";
+    cout << "\033[1mSYNOPSIS\n"
+      "\t\033[1mmaclang\033[0m lex \033[4mFILE\033[0m\n"
+      "\t\033[1mmaclang\033[0m parse \033[4mFILE\033[0m\n"
+      "\t\033[1mmaclang\033[0m symbols \033[4mFILE\033[0m\n"
+      "\t\033[1mmaclang\033[0m tac \033[4mFILE\033[0m\n";
     return 1;
   } 
   
@@ -2498,11 +2487,11 @@ int main(int argc, char **argv) {
   if (! (bParseOpt || bSymbolsOpt || bTACOpt || bLexOpt)) {
     cout << "Invalid action: " << argv[1] << endl;
 
-    cout << "\e[1mSYNOPSIS\n"
-      "\t\e[1mmaclang\e[0m lex \e[4mFILE\e[0m\n"
-      "\t\e[1mmaclang\e[0m parse \e[4mFILE\e[0m\n"
-      "\t\e[1mmaclang\e[0m symbols \e[4mFILE\e[0m\n"
-      "\t\e[1mmaclang\e[0m tac \e[4mFILE\e[0m\n";
+    cout << "\033[1mSYNOPSIS\n"
+      "\t\033[1mmaclang\033[0m lex \033[4mFILE\033[0m\n"
+      "\t\033[1mmaclang\033[0m parse \033[4mFILE\033[0m\n"
+      "\t\033[1mmaclang\033[0m symbols \033[4mFILE\033[0m\n"
+      "\t\033[1mmaclang\033[0m tac \033[4mFILE\033[0m\n";
 
     return 1;
   } 
@@ -2523,7 +2512,7 @@ int main(int argc, char **argv) {
   queue<string> tokens;
   while(bLexOpt && (tok = yylex()))
   {
-    tokens.push("\e[0;33m" + to_string(tok) + ":\e[1;36m " + yytext + "\e[0m\n");
+    tokens.push("\033[0;33m" + to_string(tok) + ":\033[1;36m " + yytext + "\033[0m\n");
   }
   fclose(yyin);
   // if were asked just for lexing print the results of it and return
