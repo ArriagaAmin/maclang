@@ -35,6 +35,9 @@ class Node {
 
       string category;
       int width;
+      // Indica que estamos definiendo una variable de un tipo estructura dentro de la
+      // definicion de la estructura, y por lo tanto, solo se puede usar como puntero.
+      bool danger = false;
 
       // Returns a string representation of the sub ast.
       virtual string toString(void) { return ""; };

@@ -136,9 +136,9 @@ class StructureEntry : public Entry {
   public:
     // scope where the entry was defined.
     int def_scope;  
-    int width;
+    int width = -1;
 
-    StructureEntry(string id, int scope, string category, int def_scope, int width);
+    StructureEntry(string id, int scope, string category);
 
     // Prints the structure information
     void print(void);

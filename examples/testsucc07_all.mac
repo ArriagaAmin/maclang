@@ -33,6 +33,14 @@ register registro {
   Int numero4;
 }
 
+register Node {
+  ^Node parent;
+  ^Node left;
+  ^Node right;
+  String key;
+  Int value;
+}
+
 # uniones
 union unio {
   Int entero;

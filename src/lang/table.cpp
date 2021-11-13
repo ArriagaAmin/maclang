@@ -271,18 +271,10 @@ void VarArrayEntry::print(void) {
   cout << "\033[1;31m)\033[0m";
 }
 
-StructureEntry::StructureEntry(
-  string id, 
-  int scope, 
-  string category, 
-  int def_scope,
-  int width
-) {
+StructureEntry::StructureEntry(string id, int scope, string category) {
   this->id = id;
   this->scope = scope;
   this->category = category;
-  this->def_scope = def_scope;
-  this->width = width;
 }
 
 /*

@@ -502,6 +502,7 @@
             } 
             else {
               $$ = new ArrayType($1, $3);
+              $$->danger = $1->danger;
             }
           }
 
@@ -509,7 +510,9 @@
           { 
             if ($2->toString() != "$Error") {
               $$ = new PointerType($2); 
-            } else {
+              $$->danger = false;
+            } 
+            else {
               $$ = predefinedTypes["$Error"];
             }
           }
@@ -529,6 +532,11 @@
             else {
               $$ = new PrimitiveType(*$1);
               $$->width = ((StructureEntry*) e)->width;
+              // Verificamos si estamos usando un tipo estructura dentro de la definicion
+              // de la estructura.
+              if ($$->width == -1) {
+                $$->danger = true;
+              }
             }
           }
 
@@ -1663,19 +1671,19 @@
 /* ======================= UNION DEFINITION ========================== */
   UnionDef  : UnionId OPEN_C_BRACE UnionBody CLOSE_C_BRACE  
               { 
-                if (*$1 != "" && $3 != NULL) {
-                  int def_s = table->currentScope();
-                  table->exitScope(); 
-                  int s = table->currentScope();
+                int def_s = table->currentScope();
+                table->exitScope(); 
+                int s = table->currentScope();
 
-                  Entry *e = new StructureEntry(
-                    *$1, 
-                    s, 
-                    "Structure", 
-                    def_s,
-                    ((NodeUnionFields*) $3)->max_width
-                  );
-                  table->insert(e);
+                if (*$1 != "") {
+                  StructureEntry *e = (StructureEntry*) table->lookup(*$1, s);
+                  e->def_scope = def_s;
+                  if ($3 != NULL) {
+                    e->width = ((NodeUnionFields*) $3)->max_width;
+                  } 
+                  else {
+                    e->width = 0;
+                  }
                 }
 
                 $$ = NULL;
@@ -1685,6 +1693,12 @@
 
   UnionId   : UNION IdDef   
               { 
+                if (*$2 != "") {
+                  int s = table->currentScope();
+                  Entry *e = new StructureEntry(*$2, s, "Structure");
+                  table->insert(e);
+                }
+
                 table->newScope(); 
                 $$ = $2; 
                 table->offsets.push_back(0);
@@ -1696,6 +1710,11 @@
                 if (*$2 == "" || $1->toString() == "$Error") {
                   $$ = NULL;
                 } 
+
+                else if ($1->danger) {
+                  addError("A Union cannot contain itself.");
+                  $$ = NULL;
+                }
 
                 else {
                   $$ = new NodeUnionFields(NULL, $1, *$2, $1->width); 
@@ -1718,6 +1737,11 @@
                 if ($1 == NULL || *$3 == "" || $2->toString() == "$Error") {
                   $$ = NULL;
                 } 
+
+                else if ($2->danger) {
+                  addError("A Union cannot contain itself.");
+                  $$ = NULL;
+                }
 
                 else {
                   int max_width = ((NodeUnionFields*) $1)->max_width;
@@ -1742,19 +1766,19 @@
 /* ======================= REGISTER DEFINITION ======================= */
   RegDef    : RegId OPEN_C_BRACE RegBody CLOSE_C_BRACE  
               { 
-                if (*$1 != "" && $3 != NULL) {
-                  int def_s = table->currentScope();
-                  table->exitScope();
-                  int s = table->currentScope();
+                int def_s = table->currentScope();
+                table->exitScope();
+                int s = table->currentScope();
 
-                  Entry *e = new StructureEntry(
-                    *$1, 
-                    s, 
-                    "Structure", 
-                    def_s,
-                    table->offsets.back()
-                  );
-                  table->insert(e);
+                if (*$1 != "") {
+                  StructureEntry *e = (StructureEntry*) table->lookup(*$1, s);
+                  e->def_scope = def_s;
+                  if ($3 != NULL) {
+                    e->width = table->offsets.back();
+                  }
+                  else {
+                    e->width = 0;
+                  }
                 }
 
                 $$ = NULL;
@@ -1764,6 +1788,12 @@
 
   RegId     : REGISTER IdDef 
               { 
+                if (*$2 != "") {
+                  int s = table->currentScope();
+                  Entry *e = new StructureEntry(*$2, s, "Structure");
+                  table->insert(e);
+                }
+
                 table->newScope(); 
                 $$ = $2; 
                 table->offsets.push_back(0);
@@ -1784,6 +1814,11 @@
                     "Can't assign a '\033[1;3m" + $3->type->toString() +
                     "\033[0m' to a '\033[1;3m" + $1->toString() + "\033[0m'."
                   );
+                  $$ = NULL;
+                }
+
+                else if ($1->danger) {
+                  addError("A Register cannot contain itself.");
                   $$ = NULL;
                 }
                 
@@ -1819,6 +1854,11 @@
                 }
 
                 else if ($1 == NULL) {
+                  $$ = NULL;
+                }
+
+                else if ($2->danger) {
+                  addError("A Register cannot contain itself.");
                   $$ = NULL;
                 }
                 
