@@ -1,0 +1,82 @@
+structure Node;
+
+# Listas dinamicas 
+register List {
+	^((^Node)[]) array;
+	Int capacity;
+	Int size;
+}
+
+register Node {
+	^Node parent;
+	^List childs;
+	Int ID;
+	Int value;
+}
+
+def List_init(Int capacity = 8) => ^List {
+	let ^List l = new List;
+	^l.array = new (^Node)[capacity];
+	^l.capacity = capacity;
+	^l.size = 0;
+
+	return l;
+}
+
+def List_destroy(^List l) {
+	forget ^l.array;
+	forget l;
+}
+
+def List_assign(^List l, Int i, ^Node n) {
+	^(^l.array)[i] = n;
+}
+
+def List_get(^List l, Int i) => ^Node {
+	return ^(^l.array)[i];
+}
+
+def List_append(^List l, ^Node n) {
+	if ^l.size < ^l.capacity then
+		^(^l.array)[^l.size] = n;
+	else 
+		let ^((^Node)[]) new_array = new (^Node)[2 * ^l.capacity * 2];
+		let Int i = 0;
+		while i < ^l.capacity do 
+			^new_array[i] = ^(^l.array)[i];
+			i = i + 1;
+		done
+		forget ^l.array;
+		^l.array = new_array;
+	done
+}
+
+def Node_init(Int ID, Int value) => ^Node {
+	let ^Node n = new Node;
+	^n.childs = new List;
+	^n.ID = ID;
+	^n.value = value;
+	return n;
+}
+
+def Node_destroy(^Node n) {
+	forget ^n.childs;
+	forget n;
+}
+
+# Verifica que el nodo n esta conectado con un nodo con el id indicado
+def DFS_search(^Node n, Int ID) => Bool {
+	if ^n.ID == ID then 
+		return True; 
+	done 
+
+	let Int i = 0;
+	while i < ^(^n.childs).size do 
+		if DFS_search(List_get(^n.childs, i), ID) then 
+			return True; 
+		done 
+	done 
+
+	return False;
+}
+

@@ -38,6 +38,10 @@ class Node {
       // Indica que estamos definiendo una variable de un tipo estructura dentro de la
       // definicion de la estructura, y por lo tanto, solo se puede usar como puntero.
       bool danger = false;
+      // Indica el nombre de la estructura que hace del tipo incompleto. "" En caso de
+      // no tener un tipo incompleto. Una estructura es incompleta si solo ha sido
+      // declarada o si tiene un campo incompleto.
+      string incomplete = "";
 
       // Returns a string representation of the sub ast.
       virtual string toString(void) { return ""; };
@@ -177,7 +181,7 @@ class Node {
     public:
       int value;
 
-      NodeINT(int value, bool defineType=true);
+      NodeINT(int value);
 
       void printTree(vector<bool> *identation);
   };
@@ -390,6 +394,7 @@ class Node {
 
     public:
       int max_width;
+      vector<string> incompletes = {};
       NodeUnionFields(Node *head, Type *type, string id, int max_width);
   };
 
@@ -402,6 +407,7 @@ class Node {
       Node *rvalue;
 
     public:
+      vector<string> incompletes = {};
       NodeRegFields(Node *head, Type *type, string id, Node *rvalue);
   };
 

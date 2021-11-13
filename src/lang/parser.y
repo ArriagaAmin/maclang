@@ -65,8 +65,8 @@
 %left       <str> ASTERISK DIV MODULE
 %right      <str> POWER
 %left       <str> OPEN_BRACKET CLOSE_BRACKET
-%right      <str> POINTER
 %left       <str> DOT
+%right      <str> POINTER
 %nonassoc   <str> ID
 %left       <str> OPEN_PAR
 
@@ -77,6 +77,7 @@
 %token COMMA
 %token REGISTER 
 %token UNION
+%token STRUCTURE
 %token FORGET 
 %token BREAK
 %token EXIT
@@ -90,10 +91,10 @@
 %token FOR
 %token LET
 %token DEF
+%token DEC
 %token AT 
 %token RIGHT_ARROW
-%token RETURN 
-%token DEC
+%token RETURN
 
 %token <integer>  INT
 %token <flot>     FLOAT 
@@ -108,7 +109,7 @@
 %token <str>      T_FLOAT
 %token <str>      T_STRING 
 
-%type <ast>           I Inst Action VarInst VarDef UnionDef UnionBody 
+%type <ast>           I Inst Action VarInst VarDef UnionDef UnionBody StructDec
 %type <ast>           RegBody Conditional OptElsif Elsifs OptElse Def RegDef
 %type <ast>           LoopWhile LoopFor RoutDef Actions RoutSign RoutDec N 
 %type <expr>          Exp FuncCall Array
@@ -138,7 +139,7 @@
 
               // Verificamos que no quedaron llamadas a funciones de solo declaraciones.
               for (pair<string, vector<pair<unsigned long long, vector<int>>>> f : tac->functionlist) {
-                addError("Function '\033[1;3m" + f.first + "\033[0m' undefined.");
+                addError("Function '\033[1;3m" + f.first + "\033[0m' declared but not defined.");
               }
 
               // Liberamos la memoria reservada automaticamente en el scope.
@@ -218,6 +219,63 @@
               }
               $$ = NULL;
             }
+          | RETURN Exp SEMICOLON 
+            {
+              if (table->ret_type != "" && $2->type->toString() != table->ret_type) {
+                addError(
+                  "Expected return type '\033[1;3m" + 
+                  table->ret_type + "\033[0m' but " +
+                  "'\033[1;3m" + $2->type->toString() + "\033[0m' found."
+                );
+                $$ = new NodeError();
+              } 
+
+              else {
+                string addr;
+                if ($2->type->toString() == "Bool") {
+                  // En caso contrario hay que usar backpatching para realizar una
+                  // asignacion del booleano.
+                  addr = tac->newTemp();
+
+                  // Aplicamos backpatching sobre la truelist para realizar la 
+                  // asignacion de True, y luego saltamos la asignaicon de False.
+                  tac->backpatch($2->truelist, tac->instructions.size());
+                  tac->gen("assign " + addr + " True");
+                  string label = "Bool" + to_string(tac->instructions.size() + 2);
+                  tac->gen("goto " + label);
+
+                  // Aplicamos backpatching sobre la falselist para realizar la 
+                  // asignacion de False, y luego creamos la etiqueta de salto de la
+                  // asignacion a True.
+                  tac->backpatch($2->falselist, tac->instructions.size());
+                  tac->gen("assign " + addr + " False");
+                  tac->gen("@label " + label);
+                }
+                else {
+                  addr = $2->addr;
+                }
+
+                $$ = new NodeReturn($2);
+                tac->gen("return " + addr);
+              }
+            }
+
+          | RETURN SEMICOLON  
+            {
+              if (table->ret_type != "" && "Unit" != table->ret_type) {
+                addError(
+                  "Expected return type '\033[1;3m" + 
+                  table->ret_type + "\033[0m' but " +
+                  "'\033[1;3mUnit\033[0m' found ."
+                );
+                $$ = new NodeError();
+              } 
+
+              else {
+                $$ = new NodeReturn();
+                tac->gen("return 0");
+              }
+            }
           | VarInst SEMICOLON   { $$ = $1; }
           | Conditional         { $$ = $1; }
           | LoopWhile           { $$ = $1; }
@@ -225,6 +283,7 @@
           ;
   Def     : UnionDef            { $$ = $1; }
           | RegDef              { $$ = $1; }
+          | StructDec SEMICOLON { $$ = $1; }
           | RoutDef             { $$ = $1; }
           | RoutDec SEMICOLON   { $$ = $1; }
           ;
@@ -322,7 +381,11 @@
                   string type = $2->toString();
                   $$ = NULL;
 
-                  if (type != "$Error") {
+                  if ($2->incomplete != "") {
+                    addError("Can't define instances of incomplete structures.");
+                  }
+
+                  else if (type != "$Error") {
                     // Por cada variable en la lista de definicion.
                     for (pair<string, ExpressionNode*> vardef : *$3) {
                       ExpressionNode* exp = vardef.second;
@@ -503,6 +566,22 @@
             else {
               $$ = new ArrayType($1, $3);
               $$->danger = $1->danger;
+              $$->incomplete = $1->incomplete;
+            }
+          }
+
+        | Type OPEN_BRACKET CLOSE_BRACKET 
+          { 
+            if ($1->toString() == "$Error") {
+              $$ = predefinedTypes["$Error"];
+            } 
+            else {
+              NodeINT *size = new NodeINT(0);
+              size->addr = tac->newTemp();
+              tac->gen("assign " + size->addr + " 0");
+              $$ = new ArrayType($1, size);
+              $$->danger = $1->danger;
+              $$->incomplete = $1->incomplete;
             }
           }
 
@@ -511,6 +590,7 @@
             if ($2->toString() != "$Error") {
               $$ = new PointerType($2); 
               $$->danger = false;
+              $$->incomplete = $2->incomplete;
             } 
             else {
               $$ = predefinedTypes["$Error"];
@@ -525,7 +605,11 @@
               addError("'\033[1;3m" + *$1 + "\033[0m' wasn't declared.");
               $$ = predefinedTypes["$Error"];
             } 
-            else if (e->category != "Type" && e->category != "Structure") {
+            else if (
+              e->category != "Type" &&
+              e->category != "Structure" && 
+              e->category != "Incomplete Structure"
+              ) {
               addError("'\033[1;3m" + *$1 + "\033[0m' isn't a type.");
               $$ = predefinedTypes["$Error"];
             } 
@@ -535,6 +619,10 @@
               // Verificamos si estamos usando un tipo estructura dentro de la definicion
               // de la estructura.
               if ($$->width == -1) {
+                $$->danger = true;
+              }
+              if (((StructureEntry*) e)->incomplete) {
+                $$->incomplete = e->id;
                 $$->danger = true;
               }
             }
@@ -1678,8 +1766,14 @@
                 if (*$1 != "") {
                   StructureEntry *e = (StructureEntry*) table->lookup(*$1, s);
                   e->def_scope = def_s;
+
                   if ($3 != NULL) {
                     e->width = ((NodeUnionFields*) $3)->max_width;
+                    e->incomplete = ((NodeUnionFields*) $3)->incompletes.size();
+
+                    for (string type : ((NodeUnionFields*) $3)->incompletes) {
+                      table->incompleteTypesList[type].push_back({e, table->scopeStack});
+                    }
                   } 
                   else {
                     e->width = 0;
@@ -1691,12 +1785,48 @@
               }
             ;
 
-  UnionId   : UNION IdDef   
+  UnionId   : UNION ID   
               { 
-                if (*$2 != "") {
-                  int s = table->currentScope();
+                Entry *e = table->lookup(*$2);
+                int s = table->currentScope();
+
+                if (e != NULL && e->scope == s && e->category != "Incomplete Structure") {
+                  addError("Redefinition of '\033[1;3m" + *$2 + "\033[0m'.");
+                  $$ = new string("");
+                } 
+
+                else if (e != NULL && e->scope == s) {
+                  e->category = "Structure";
+                }
+
+                else {
                   Entry *e = new StructureEntry(*$2, s, "Structure");
                   table->insert(e);
+                }
+
+                // Verificamos si hay que completar algunas llamadas a esta funcion 
+                // antes de que se definiera.
+                if (table->incompleteTypesList.count(*$2)) {
+                  int n = table->incompleteTypesList[*$2].size();
+
+                  for (int j = 0; j < n; j++) {
+                    // Verificamos si el scope de definicion esta en la pila de scopes 
+                    // de la llamada.
+                    for (int s : table->incompleteTypesList[*$2][j].second) {
+                      if (s == e->scope) {
+                        table->incompleteTypesList[*$2][j].first->incomplete--;
+                        table->incompleteTypesList[*$2].erase(
+                          table->incompleteTypesList[*$2].begin() + (j--)
+                        );
+                        break;
+                      }
+                    }
+                  }
+
+                  // Verificamos si la lista de esta estructura esta vacia
+                  if (table->incompleteTypesList[*$2].size() == 0) {
+                    table->incompleteTypesList.erase(*$2);
+                  }
                 }
 
                 table->newScope(); 
@@ -1711,8 +1841,16 @@
                   $$ = NULL;
                 } 
 
-                else if ($1->danger) {
+                else if ($1->danger && $1->incomplete == "") {
                   addError("A Union cannot contain itself.");
+                  $$ = NULL;
+                }
+
+                else if ($1->danger) {
+                  addError(
+                    "A Union only can contain incomplete structures wrapers"
+                    " with a pointer."
+                  );
                   $$ = NULL;
                 }
 
@@ -1728,6 +1866,11 @@
                     "",
                     table
                   );
+
+                  if ($1->incomplete != "") {
+                    ((NodeUnionFields*) $$)->incompletes.push_back($1->incomplete);
+                  }
+
                   table->insert(e);
                 }
               }
@@ -1738,8 +1881,16 @@
                   $$ = NULL;
                 } 
 
-                else if ($2->danger) {
+                else if ($2->danger && $2->incomplete == "") {
                   addError("A Union cannot contain itself.");
+                  $$ = NULL;
+                }
+
+                else if ($2->danger) {
+                  addError(
+                    "A Union only can contain incomplete structures wrapers"
+                    " with a pointer."
+                  );
                   $$ = NULL;
                 }
 
@@ -1757,6 +1908,12 @@
                     "",
                     table
                   );
+
+                  ((NodeUnionFields*) $$)->incompletes = ((NodeUnionFields*) $1)->incompletes;
+                  if ($2->incomplete != "") {
+                    ((NodeUnionFields*) $$)->incompletes.push_back($2->incomplete);
+                  }
+
                   table->insert(e);
                 }
               }
@@ -1775,9 +1932,40 @@
                   e->def_scope = def_s;
                   if ($3 != NULL) {
                     e->width = table->offsets.back();
+
+                    e->incomplete = ((NodeUnionFields*) $3)->incompletes.size();
+
+                    for (string type : ((NodeUnionFields*) $3)->incompletes) {
+                      table->incompleteTypesList[type].push_back({e, table->scopeStack});
+                    }
                   }
                   else {
                     e->width = 0;
+                  }
+
+                  // Verificamos si hay que completar algunas llamadas a esta funcion 
+                  // antes de que se definiera.
+                  if (table->incompleteTypesList.count(*$1)) {
+                    int n = table->incompleteTypesList[*$1].size();
+
+                    for (int j = 0; j < n; j++) {
+                      // Verificamos si el scope de definicion esta en la pila de scopes 
+                      // de la llamada.
+                      for (int s : table->incompleteTypesList[*$1][j].second) {
+                        if (s == e->scope) {
+                          table->incompleteTypesList[*$1][j].first->incomplete--;
+                          table->incompleteTypesList[*$1].erase(
+                            table->incompleteTypesList[*$1].begin() + (j--)
+                          );
+                          break;
+                        }
+                      }
+                    }
+
+                    // Verificamos si la lista de esta estructura esta vacia
+                    if (table->incompleteTypesList[*$1].size() == 0) {
+                      table->incompleteTypesList.erase(*$1);
+                    }
                   }
                 }
 
@@ -1786,12 +1974,48 @@
               }
             ;   
 
-  RegId     : REGISTER IdDef 
+  RegId     : REGISTER ID 
               { 
-                if (*$2 != "") {
-                  int s = table->currentScope();
+                Entry *e = table->lookup(*$2);
+                int s = table->currentScope();
+
+                if (e != NULL && e->scope == s && e->category != "Incomplete Structure") {
+                  addError("Redefinition of '\033[1;3m" + *$2 + "\033[0m'.");
+                  $$ = new string("");
+                } 
+
+                else if (e != NULL && e->scope == s) {
+                  e->category = "Structure";
+                }
+
+                else {
                   Entry *e = new StructureEntry(*$2, s, "Structure");
                   table->insert(e);
+                }
+
+                // Verificamos si hay que completar algunas llamadas a esta funcion 
+                // antes de que se definiera.
+                if (table->incompleteTypesList.count(*$2)) {
+                  int n = table->incompleteTypesList[*$2].size();
+
+                  for (int j = 0; j < n; j++) {
+                    // Verificamos si el scope de definicion esta en la pila de scopes 
+                    // de la llamada.
+                    for (int s : table->incompleteTypesList[*$2][j].second) {
+                      if (s == e->scope) {
+                        table->incompleteTypesList[*$2][j].first->incomplete--;
+                        table->incompleteTypesList[*$2].erase(
+                          table->incompleteTypesList[*$2].begin() + (j--)
+                        );
+                        break;
+                      }
+                    }
+                  }
+
+                  // Verificamos si la lista de esta estructura esta vacia
+                  if (table->incompleteTypesList[*$2].size() == 0) {
+                    table->incompleteTypesList.erase(*$2);
+                  }
                 }
 
                 table->newScope(); 
@@ -1800,7 +2024,7 @@
               }
             ; 
 
-  RegBody    : Type IdDef OptAssign SEMICOLON            
+  RegBody   : Type IdDef OptAssign SEMICOLON            
               { 
                 bool cond = *$2 == "" || $1->toString() == "$Error" ||
                   ($3 != NULL && $3->type->toString() == "$Error");
@@ -1809,16 +2033,24 @@
                   $$ = NULL;
                 } 
 
+                else if ($1->danger && $1->incomplete == "") {
+                  addError("A Register cannot contain itself.");
+                  $$ = NULL;
+                }
+
+                else if ($1->danger) {
+                  addError(
+                    "A Register only can contain incomplete structures wrapers"
+                    " with a pointer."
+                  );
+                  $$ = NULL;
+                }
+
                 else if ($3 != NULL && $1->toString() != $3->type->toString()) {
                   addError(
                     "Can't assign a '\033[1;3m" + $3->type->toString() +
                     "\033[0m' to a '\033[1;3m" + $1->toString() + "\033[0m'."
                   );
-                  $$ = NULL;
-                }
-
-                else if ($1->danger) {
-                  addError("A Register cannot contain itself.");
                   $$ = NULL;
                 }
                 
@@ -1835,6 +2067,11 @@
                     table
                   );
                   table->insert(e);
+
+                  if ($1->incomplete != "") {
+                    ((NodeUnionFields*) $$)->incompletes.push_back($1->incomplete);
+                  }
+
                   table->offsets.back() += $1->width; 
                 }
               }
@@ -1857,11 +2094,19 @@
                   $$ = NULL;
                 }
 
-                else if ($2->danger) {
+                else if ($2->danger && $2->incomplete == "") {
                   addError("A Register cannot contain itself.");
                   $$ = NULL;
                 }
-                
+
+                else if ($2->danger) {
+                  addError(
+                    "A Register only can contain incomplete structures wrapers"
+                    " with a pointer."
+                  );
+                  $$ = NULL;
+                }
+
                 else {
                   $$ = new NodeRegFields($1, $2, *$3, $4);
                   int s = table->currentScope();
@@ -1875,20 +2120,37 @@
                     table
                   );
                   table->insert(e);
+
+                  ((NodeUnionFields*) $$)->incompletes = ((NodeUnionFields*) $1)->incompletes;
+                  if ($2->incomplete != "") {
+                    ((NodeUnionFields*) $$)->incompletes.push_back($2->incomplete);
+                  }
+
                   table->offsets.back() += $2->width; 
                 }
               }
             ;
 
 
+/* ======================= STRUCTURE DECLARATION ===================== */
+  StructDec : STRUCTURE IdDef 
+              {
+                if (*$2 != "") {
+                  int s = table->currentScope();
+                  StructureEntry *e = new StructureEntry(*$2, s, "Incomplete Structure");
+                  e->incomplete = true;
+                  table->insert(e);
+                }
+                $$ = NULL;
+              }
+
+
 /* ======================= CONDITIONALS ============================== */
   Conditional : If Cond THEN M I N M OptElsif M OptElse DONE  
                 { 
                   $$ = new NodeConditional($2, $5, $8, $10);
-                  table->exitScope(); 
 
                   tac->backpatch($2->truelist, $4);
-                  tac->backpatch($2->falselist, $7);
 
                   vector<unsigned long long> t;
                   if ($5 != NULL) {
@@ -1899,18 +2161,25 @@
                   }
 
                   if ($8 != NULL && $10 != NULL) {
+                    tac->backpatch($2->falselist, $7);
                     t = merge<unsigned long long>(t, $8->truelist);
-                    t = merge<unsigned long long>(t, $10->nextlist);
                     tac->backpatch($8->falselist, $9);
+                    t = merge<unsigned long long>(t, $10->nextlist);
                   }
                   
                   else if ($8 != NULL) {
+                    tac->backpatch($2->falselist, $7);
                     t = merge<unsigned long long>(t, $8->truelist);
                     t = merge<unsigned long long>(t, $8->falselist);
                   }
 
                   else if ($10 != NULL) {
+                    tac->backpatch($2->falselist, $9);
                     t = merge<unsigned long long>(t, $10->nextlist);
+                  }
+
+                  else {
+                    t = merge<unsigned long long>(t, $2->falselist);
                   }
 
                   // Liberamos la memoria reservada automaticamente en el scope.
@@ -1920,6 +2189,7 @@
                   tac->to_free.pop();
 
                   $$->nextlist = t;
+                  table->exitScope(); 
                 }
               ;
 
@@ -1982,7 +2252,6 @@
 
   Elsif       : ELSIF 
                 { 
-                  table->exitScope();
 
                   // Liberamos la memoria reservada automaticamente en el scope.
                   for (pair<Type*, string> mem : tac->to_free.top()) {
@@ -1991,6 +2260,7 @@
                   tac->to_free.pop();
                   tac->to_free.push({});
 
+                  table->exitScope();
                   table->newScope(); 
                 }
               ;
@@ -2005,7 +2275,6 @@
               ;
   Else        : ELSE  
                 { 
-                  table->exitScope();
 
                   // Liberamos la memoria reservada automaticamente en el scope.
                   for (pair<Type*, string> mem : tac->to_free.top()) {
@@ -2014,6 +2283,7 @@
                   tac->to_free.pop();
                   tac->to_free.push({});
 
+                  table->exitScope();
                   table->newScope(); 
                 }
               ;
@@ -2023,7 +2293,6 @@
   LoopWhile : While W Cond M DO I DONE
               { 
                 $$ = new NodeWhile($3, $6); 
-                table->exitScope();
 
                 // Liberamos la memoria reservada automaticamente en el scope.
                 for (pair<Type*, string> mem : tac->to_free.top()) {
@@ -2042,6 +2311,8 @@
                 // Parcheamos los breaks encontrados.
                 tac->backpatch(tac->breaklist.top(), *$2);
                 tac->breaklist.pop();
+                
+                table->exitScope();
               }
             ; 
 
@@ -2061,8 +2332,6 @@
                   tac->backpatch($3->nextlist, tac->instructions.size());
                 }
 
-                table->exitScope();
-                table->exitScope();
                 // Liberamos la memoria reservada automaticamente en el scope.
                 for (pair<Type*, string> mem : tac->to_free.top()) {
                   freeCompound(mem.first, mem.second);
@@ -2082,6 +2351,9 @@
                 // Parcheamos los breaks encontrados.
                 tac->backpatch(tac->breaklist.top(), $1->label + "_end");
                 tac->breaklist.pop();
+                
+                table->exitScope();
+                table->exitScope();
               }
 
   ForSign   : For OPEN_PAR IdDef SEMICOLON Exp SEMICOLON Exp OptStep CLOSE_PAR 
@@ -2171,8 +2443,6 @@
                 } 
 
                 else {
-                  table->exitScope();
-                  table->exitScope();
 
                   // Liberamos la memoria reservada automaticamente en el scope.
                   for (pair<Type*, string> mem : tac->to_free.top()) {
@@ -2181,6 +2451,9 @@
                   tac->to_free.pop();
 
                   $$ = new NodeRoutineDef($1, $3); 
+                  
+                  table->exitScope();
+                  table->exitScope();
                 }
 
                 table->ret_type = "";
@@ -2197,7 +2470,7 @@
 
   RoutSign  : RoutId OPEN_PAR RoutArgs CLOSE_PAR OptReturn  
               {
-                FunctionEntry *fe;
+                FunctionEntry *fe = NULL;
 
                 if ($3 == NULL || $1->first == "" || $5->toString() == "$Error") {
                   NodeError *err = new NodeError();
@@ -2298,31 +2571,35 @@
                 tac->to_free.push({});
                 table->newScope();
 
-                $$->nextlist = {tac->instructions.size()};
-                tac->gen("goto _");
-                $$->addr = fe->addr;
-                tac->gen("@label " + $$->addr);
+                if (fe != NULL) {
+                  $$->nextlist = {tac->instructions.size()};
+                  tac->gen("goto _");
+                  $$->addr = fe->addr;
+                  tac->gen("@label " + $$->addr);
+                }
               }
             ;
 
   RoutId    : DEF ID 
               {
                 Entry *e = table->lookup(*$2);
+                int s = table->currentScope();
 
-                if (
-                  e != NULL &&
-                  e->scope == table->currentScope() &&
-                  e->category != "Declaration"
-                ) {
+                if (e != NULL && e->scope == s && e->category != "Declaration") {
                   addError("Redefinition of '\033[1;3m" + *$2 + "\033[0m'.");
                   $$ = new pair<string, FunctionEntry*>("", NULL);
                 } 
+
+                else if (e != NULL && e->scope == s && e->category == "Declaration") {
+                  FunctionEntry *fe = (FunctionEntry*) e;
+                  $$ = new pair<string, FunctionEntry*>(*$2, fe);
+                  fe->category = "Function";
+                }
                 
                 else if (e != NULL && e->category == "Declaration") {
                   FunctionEntry *fe_dec = (FunctionEntry*) e;
                   $$ = new pair<string, FunctionEntry*>(*$2, fe_dec); 
                   
-                  int s = table->currentScope();
                   FunctionEntry *fe = new FunctionEntry(*$2, s, "Function");
                   fe->args = fe_dec->args;
                   fe->return_type = fe_dec->return_type; 
@@ -2331,7 +2608,6 @@
 
                 else {
                   $$ = new pair<string, FunctionEntry*>(*$2, NULL);
-                  int s = table->currentScope();
                   Entry *e = new FunctionEntry(*$2, s, "Function");
                   table->insert(e);
                 }
@@ -2397,6 +2673,11 @@
                   $$ = NULL;
                 } 
 
+                else if ($1->incomplete != "") {
+                  addError("Can't define arguments with incomplete types.");
+                  $$ = NULL;
+                }
+
                 else {
                   $$ = new NodeRoutArgDef(NULL, $1, $2, *$3, NULL);
                   $$->currentParams.push_back({*$3, $1->toString(), $2, NULL});
@@ -2418,6 +2699,11 @@
                 if ($1 == NULL || *$5 == "" || $3->toString() == "$Error") {
                   $$ = NULL;
                 } 
+
+                else if ($3->incomplete != "") {
+                  addError("Can't define arguments with incomplete types.");
+                  $$ = NULL;
+                }
 
                 else {
                   $$ = new NodeRoutArgDef(
@@ -2449,6 +2735,11 @@
                 if (type == "$Error" || rtype == "$Error") {
                   $$ = NULL;
                 } 
+
+                else if ($1->incomplete != "") {
+                  addError("Can't define arguments with incomplete types.");
+                  $$ = NULL;
+                }
                 
                 else if (type != rtype) {
                   addError(
@@ -2486,6 +2777,11 @@
                 if (type == "$Error" || rtype == "$Error") {
                   $$ = NULL;
                 } 
+
+                else if ($3->incomplete != "") {
+                  addError("Can't define arguments with incomplete types.");
+                  $$ = NULL;
+                }
                 
                 else if (type != rtype) {
                   addError(
@@ -2528,7 +2824,16 @@
             ; 
   
   OptReturn : /* lambda */                { $$ = predefinedTypes["Unit"]; }
-            | RIGHT_ARROW Type            { $$ = $2; }
+            | RIGHT_ARROW Type 
+              { 
+                if ($2->incomplete != "") {
+                  addError("Can't define function that returns incomplete types.");
+                  $$ = predefinedTypes["$Error"];
+                }
+                else {
+                  $$ = $2;
+                }
+              }
             ; 
   
   Actions   : /* lambda */                { $$ = NULL; }
@@ -2553,52 +2858,6 @@
                     tac->backpatch($1->nextlist, $2);
                   }
                   $$->nextlist = $3->nextlist;
-                }
-              }
-
-            | Actions M RETURN Exp SEMICOLON 
-              {
-                if (table->ret_type != "" && $4->type->toString() != table->ret_type) {
-                  addError(
-                    "Expected return type '\033[1;3m" + 
-                    table->ret_type + "\033[0m' but " +
-                    "'\033[1;3m" + $4->type->toString() + "\033[0m' found."
-                  );
-                  $$ = new NodeError();
-                } 
-
-                else {
-                  $$ = new NodeReturn($4);
-
-                  if ($1 != NULL) {
-                    // Nos aseguramos que la primera instruccion salte a la segunda.
-                    tac->backpatch($1->nextlist, $2);
-                  }
-
-                  tac->gen("return " + $4->addr);
-                }
-              }
-
-            | Actions M RETURN SEMICOLON  
-              {
-                if (table->ret_type != "" && "Unit" != table->ret_type) {
-                  addError(
-                    "Expected return type '\033[1;3m" + 
-                    table->ret_type + "\033[0m' but " +
-                    "'\033[1;3mUnit\033[0m' found ."
-                  );
-                  $$ = new NodeError();
-                } 
-
-                else {
-                  $$ = new NodeReturn();
-
-                  if ($1 != NULL) {
-                    // Nos aseguramos que la primera instruccion salte a la segunda.
-                    tac->backpatch($1->nextlist, $2);
-                  }
-
-                  tac->gen("return 0");
                 }
               }
             ;

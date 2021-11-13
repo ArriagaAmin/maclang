@@ -70,7 +70,6 @@
     this->type = type;
     this->size = size;
     this->is_string = is_string;
-    string t_size = type->toString();
 
     // Si size es un literal, podemos calcular directamente el desplazamiento.
     if (! is_string && size->is_lit) {
@@ -85,8 +84,7 @@
     this->category = "Array";
   }
   string ArrayType::toString(void) {
-    string size = this->is_pointer ? "" : to_string( ((NodeINT*) this->size)->value );
-    return "(" + this->type->toString() + ")[" + size + "]";
+    return "(" + this->type->toString() + ")[]";
   }
   void ArrayType::printTree(vector<bool> *identation) {
     cout << "\033[1;34mType Array\033[0m\n";
@@ -216,7 +214,7 @@
   }
 
 
-  NodeINT::NodeINT(int value, bool defineType) {
+  NodeINT::NodeINT(int value) {
     this->value = value;
     this->type = predefinedTypes["Int"];
     this->is_lvalue = false;

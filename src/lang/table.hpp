@@ -28,6 +28,8 @@ class Entry {
     virtual void print(void) {};
 };
 
+class StructureEntry;
+
 /*
   Symbols Table implementation.
 */
@@ -46,6 +48,12 @@ class SymbolsTable {
     // Diccionario:  Scope -> Entries  que se usara para conseguir las entradas de una
     // estructura
     map<int, vector<Entry*>> scopeEntries;
+    // Mapeo de nombre de tipos a una lista de pares 
+    // <
+    //      Tipo incompleto que hay que completar, 
+    //      copia del scope stack en el momento en que se realizo la llamada
+    // >
+    map< string, vector<pair<StructureEntry*, vector<int>>> > incompleteTypesList;
 
     SymbolsTable(void);
 
@@ -137,6 +145,7 @@ class StructureEntry : public Entry {
     // scope where the entry was defined.
     int def_scope;  
     int width = -1;
+    int incomplete = 0;
 
     StructureEntry(string id, int scope, string category);
 

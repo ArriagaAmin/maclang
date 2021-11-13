@@ -31,14 +31,7 @@ register registro {
   Int numero2;
   Int numero3 = 42;
   Int numero4;
-}
-
-register Node {
-  ^Node parent;
-  ^Node left;
-  ^Node right;
-  String key;
-  Int value;
+  (^registro)[10] r;
 }
 
 # uniones

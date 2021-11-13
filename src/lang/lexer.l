@@ -70,6 +70,7 @@
 "register"                    { return REGISTER; }
 "."                           { return DOT; }
 "union"                       { return UNION; }
+"structure"                   { return STRUCTURE; }
 "^"                           { return POINTER; }
 "new"                         { return NEW; }
 "forget"                      { return FORGET; }

@@ -6,6 +6,7 @@
 #include "ast.hpp"
 #include "table.hpp"
 #include "tac.hpp"
+#include "errors.hpp"
 
 using namespace std;
 

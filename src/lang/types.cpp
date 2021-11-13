@@ -11,7 +11,7 @@ void createTypeGraph(void) {
   // Equivalencias.
   binaryOpGraph["=="] = {
     {{"Bool", "Bool"},    predefinedTypes["Bool"]},
-    {{"Chat", "Chat"},    predefinedTypes["Bool"]},
+    {{"Char", "Char"},    predefinedTypes["Bool"]},
     {{"Int", "Int"},      predefinedTypes["Bool"]},
     {{"Float", "Float"},  predefinedTypes["Bool"]},
     {{"Int", "Float"},    predefinedTypes["Bool"]},
