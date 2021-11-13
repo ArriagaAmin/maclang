@@ -83,15 +83,17 @@ def myfunc(^(^Bool[5]) @ khe, Bool ok, Int a = 1, Char c = '2') => Int {
 
     if (x.y.z > 0) then 
       ^y = 1;
+      break;
     elsif (x.y.z < -50) then 
       ^(p.p) = 0;
     elsif False then 
       let Int a = -1;                                 
     else 
       x = x;
+      exit a + 100;
     done 
 
-    while i < 100 do i = i+++1; done
+    while i < 100 do i = i+++1; break; done
   done
 
   forget ref;
@@ -113,13 +115,16 @@ myfunc(new ^Bool[5], c = 'c', ok = False);
 dec B() => Int;
 
 def A() => Int {
-  while True do # do
+  while False do 
     for (i; 0; 100; 0.1) do
       if 1 < 2 then 
         x = A() + B() * A() % B();
+        break;
         print("Otra iteracion");
       done 
     done 
+    if False then break; done
+    let Int[14] A;
   done
 } 
 

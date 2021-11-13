@@ -87,6 +87,8 @@
 "@"                           { return AT; }
 "=>"                          { return RIGHT_ARROW; }
 "return"                      { return RETURN; }
+"break"                       { return BREAK; }
+"exit"                        { return EXIT; }
 [[:alpha:]_][[:alnum:]_]*     { return ID; }
 [0-9]+                        { yylval.integer = atoi(yytext); return INT; }
 [0-9]+\.[0-9]+                { yylval.flot = atof(yytext); return FLOAT; }

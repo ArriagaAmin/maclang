@@ -78,6 +78,8 @@
 %token REGISTER 
 %token UNION
 %token FORGET 
+%token BREAK
+%token EXIT
 %token IF 
 %token THEN 
 %token ELSIF
@@ -120,11 +122,11 @@
 %type <fcnArgs>       NamedArgs
 %type <t>             Type OptReturn
 %type <boolean>       OptRef
-%type <str>           IdDef UnionId RegId DecId
+%type <str>           IdDef UnionId RegId DecId W
 %type <nS>            S
 %type <varList>       VarDefList
 %type <funcEntry>     RoutId
-%type <integer>       M W
+%type <integer>       M
 
 %%
 
@@ -138,6 +140,12 @@
               for (pair<string, vector<pair<unsigned long long, vector<int>>>> f : tac->functionlist) {
                 addError("Function '\033[1;3m" + f.first + "\033[0m' undefined.");
               }
+
+              // Liberamos la memoria reservada automaticamente en el scope.
+              for (pair<Type*, string> mem : tac->to_free.top()) {
+                freeCompound(mem.first, mem.second);
+              }
+              tac->to_free.pop();
 
               if ($1 != NULL) {
                 tac->backpatch($1->nextlist, tac->instructions.size());
@@ -184,6 +192,31 @@
                 tac->backpatch($1->truelist, tac->instructions.size());
                 tac->backpatch($1->falselist, tac->instructions.size());
               } 
+            }
+          | BREAK SEMICOLON
+            {
+              if (tac->breaklist.size() == 0) {
+                addError("Break instruction must be use in loops.");
+              }
+              else {
+                tac->breaklist.top().push_back(tac->instructions.size());
+                tac->gen("goto _");
+              }
+              $$ = NULL;
+            }
+          | EXIT Exp SEMICOLON 
+            {
+              if ($2->type->toString() != "Int") {
+                // El codigo de salida debe ser entero.
+                addError(
+                  "Exit code must be \033[1;3mInt\033[0m but \033[1;3m" + 
+                  $2->type->toString() + "\033[0m found."
+                );
+              } 
+              else {
+                tac->gen("exit " + $2->addr);
+              }
+              $$ = NULL;
             }
           | VarInst SEMICOLON   { $$ = $1; }
           | Conditional         { $$ = $1; }
@@ -271,7 +304,7 @@
                       // asignacion de True, y luego saltamos la asignaicon de False.
                       tac->backpatch($3->truelist, tac->instructions.size());
                       tac->gen("assign " + $1->addr + " True");
-                      string label = "B" + to_string(tac->instructions.size() + 2);
+                      string label = "Bool" + to_string(tac->instructions.size() + 2);
                       tac->gen("goto " + label);
 
                       // Aplicamos backpatching sobre la falselist para realizar la 
@@ -327,6 +360,10 @@
                             addr = tac->newAddr($2->width);
                             allocConstArray($2, addr);
                           }
+
+                          // Agregamos la direccion de memoria a las entradas que deben
+                          // ser liberadas al salir del scope actual.
+                          tac->to_free.top().push_back({$2, addr});
                         }
                         // Si es un arreglo de longitud variable.
                         else if (type.back() == ']') {
@@ -334,6 +371,10 @@
                             addr = tac->newTemp();
                           }
                           allocVarArray($2, addr);
+
+                          // Agregamos la direccion de memoria a las entradas que deben
+                          // ser liberadas al salir del scope actual.
+                          tac->to_free.top().push_back({$2, addr});
                         }
                         // En cambio si es una estructura excepto un puntero.
                         else if (! predefinedTypes.count(type) && type[0] != '^') {
@@ -346,14 +387,15 @@
                             addr = tac->newAddr($2->width);
                             allocStruct($2, addr);
                           }
+
+                          // Agregamos la direccion de memoria a las entradas que deben
+                          // ser liberadas al salir del scope actual.
+                          tac->to_free.top().push_back({$2, addr});
                         }
                         // En cambio, si no estamos dentro de una funcion
                         else if (table->ret_type == "") {
                           addr = tac->newTemp();
                         }
-
-                        // Declaramos la variable.
-                        tac->gen("@declared " + addr + " " + vardef.first);
 
                         // Almacenamos la entrada.
                         int offset = table->offsets.back();
@@ -394,7 +436,7 @@
                             // Backpatching sobre la truelist.
                             tac->backpatch(exp->truelist, tac->instructions.size());
                             tac->gen("assign " + addr + " True");
-                            string label = "B" + to_string(tac->instructions.size() + 2);
+                            string label = "Bool" + to_string(tac->instructions.size() + 2);
                             // Salto para evitar la asignacion de False.
                             tac->gen("goto " + label);
                             // Backpatching sobre la falselist.
@@ -448,10 +490,18 @@
   Type  : Type OPEN_BRACKET Exp CLOSE_BRACKET 
           { 
             // Verificamos que la expresion interna sea un entero.
-            if ($1->toString() != "$Error" && $3->type->toString() == "Int") {
-              $$ = new ArrayType($1, $3);
-            } else {
+            if ($3->type->toString() != "Int") {
+              addError(
+                "Expected \033[1;3mInt\033[0m but \033[1;3m" + $1->toString() +
+                "\033[0m found."
+              );
               $$ = predefinedTypes["$Error"];
+            }
+            else if ($1->toString() == "$Error") {
+              $$ = predefinedTypes["$Error"];
+            } 
+            else {
+              $$ = new ArrayType($1, $3);
             }
           }
 
@@ -499,12 +549,12 @@
   W     : /* lambda */        
           { 
             // La siguiente instruccion vacia es para evitar repeticion de etiquetas
-            tac->gen("");
-            $$ = tac->instructions.size(); 
-            tac->gen("@label B" + to_string($$));
+            $$ = new string(tac->newLabel()); 
+            tac->gen("@label " + *$$);
           }
 
-  Exp   : Exp EQUIV W Exp 
+  Exp   : 
+          Exp EQUIV W Exp 
           { 
             // Verificamos que los tipos coinciden con la operacion
             Type *t1 = $1->type;
@@ -524,7 +574,7 @@
               $1->addr = tac->newTemp();
               tac->backpatch($1->truelist, tac->instructions.size());
               tac->gen("assign " + $1->addr + " True");
-              label = "B" + to_string(tac->instructions.size() + 2);
+              label = "Equiv" + to_string(tac->instructions.size() + 2);
               tac->gen("goto " + label);
               
               // Usamos backpatching sobre la falselist de la primera expresion para 
@@ -535,13 +585,13 @@
               tac->gen("@label " + label);
 
               // Saltamos a la segunda expresion
-              tac->gen("goto B" + to_string($3));
+              tac->gen("goto " + *$3);
 
               // Repetimos el mismo proceso de la primera expresion.
               $4->addr = tac->newTemp();
               tac->backpatch($4->truelist, tac->instructions.size());
               tac->gen("assign " + $4->addr + " True");
-              label = "B" + to_string(tac->instructions.size() + 2);
+              label = "Equiv" + to_string(tac->instructions.size() + 2);
               tac->gen("goto " + label);
               tac->backpatch($4->falselist, tac->instructions.size());
               tac->gen("assign " + $4->addr + " False");
@@ -554,7 +604,7 @@
             tac->gen("eq test " + $1->addr + " " + $4->addr);
             $$->truelist = {tac->instructions.size()};
             $$->falselist = {tac->instructions.size() + 1};
-            tac->gen("goif test _");
+            tac->gen("goif _ test");
             tac->gen("goto _");
           }
 
@@ -578,7 +628,7 @@
               $1->addr = tac->newTemp();
               tac->backpatch($1->truelist, tac->instructions.size());
               tac->gen("assign " + $1->addr + " True");
-              label = "B" + to_string(tac->instructions.size() + 2);
+              label = "Nequiv" + to_string(tac->instructions.size() + 2);
               tac->gen("goto " + label);
 
               // Usamos backpatching sobre la falselist de la primera expresion para 
@@ -589,13 +639,13 @@
               tac->gen("@label " + label);
 
               // Saltamos a la segunda expresion
-              tac->gen("goto B" + to_string($3));
+              tac->gen("goto " + *$3);
 
               // Repetimos el mismo proceso de la primera expresion.
               $4->addr = tac->newTemp();
               tac->backpatch($4->truelist, tac->instructions.size());
               tac->gen("assign " + $4->addr + " True");
-              label = "B" + to_string(tac->instructions.size() + 2);
+              label = "Nequiv" + to_string(tac->instructions.size() + 2);
               tac->gen("goto " + label);
               tac->backpatch($4->falselist, tac->instructions.size());
               tac->gen("assign " + $4->addr + " False");
@@ -607,7 +657,7 @@
             tac->gen("neq test " + $1->addr + " " + $4->addr);
             $$->truelist = {tac->instructions.size()};
             $$->falselist = {tac->instructions.size() + 1};
-            tac->gen("goif test _");
+            tac->gen("goif _ test");
             tac->gen("goto _");
           }
 
@@ -662,7 +712,7 @@
             tac->gen("lt test " + $1->addr + " " + $3->addr);
             $$->truelist = {tac->instructions.size()};
             $$->falselist = {tac->instructions.size() + 1};
-            tac->gen("goif test _");
+            tac->gen("goif _ test");
             tac->gen("goto _");
           }
 
@@ -678,7 +728,7 @@
             tac->gen("leq test " + $1->addr + " " + $3->addr);
             $$->truelist = {tac->instructions.size()};
             $$->falselist = {tac->instructions.size() + 1};
-            tac->gen("goif test _");
+            tac->gen("goif _ test");
             tac->gen("goto _");
           }
 
@@ -694,7 +744,7 @@
             tac->gen("gt test " + $1->addr + " " + $3->addr);
             $$->truelist = {tac->instructions.size()};
             $$->falselist = {tac->instructions.size() + 1};
-            tac->gen("goif test _");
+            tac->gen("goif _ test");
             tac->gen("goto _"); 
           }
 
@@ -710,7 +760,7 @@
             tac->gen("geq test " + $1->addr + " " + $3->addr);
             $$->truelist = {tac->instructions.size()};
             $$->falselist = {tac->instructions.size() + 1};
-            tac->gen("goif test _");
+            tac->gen("goif _ test");
             tac->gen("goto _");
           }
 
@@ -874,11 +924,12 @@
                 string t = tac->newTemp();
                 $$->addr = tac->newTemp();
                 tac->gen("mult " + $$->addr + " " + $3->addr + " " + to_string(type->width));
+                tac->gen("assign " + $$->addr + " " + $1->addr + "[" + $$->addr + "]");
 
                 // Si el tipo base es booleano, aplicamos el backpatching correspondiente.
                 if (type->toString() == "Bool") {
                   $$->truelist = {tac->instructions.size()};
-                  tac->gen("goif " + $$->addr + " _");
+                  tac->gen("goif _ " + $$->addr);
                   $$->falselist = {tac->instructions.size()};
                   tac->gen("goto _");
                 }
@@ -957,7 +1008,7 @@
                   // Si el campo es booleano agregamos el backpatching correspondiente.
                   if (field->type->toString() == "Bool") {
                     $$->truelist = {tac->instructions.size()};
-                    tac->gen("goif " + $$->addr + " _");
+                    tac->gen("goif _ " + $$->addr);
                     $$->falselist = {tac->instructions.size()};
                     tac->gen("goto _");
                   }
@@ -997,7 +1048,7 @@
               // Si la variable es booleana agregamos el backpatching correspondiente.
               if (ve->type->toString() == "Bool") {
                 $$->truelist = {tac->instructions.size()};
-                tac->gen("goif " + $$->addr + " _");
+                tac->gen("goif _ " + $$->addr);
                 $$->falselist = {tac->instructions.size()};
                 tac->gen("goto _");
               }
@@ -1145,11 +1196,24 @@
                   int size = ((NodeArrayElems*) $2)->current_size;
                   $$ = new NodeArray($2, new ArrayType($2->type, new NodeINT(size)));
 
-                  // Creamos una nueva etiqueta para reservar memoria estaticamente. 
-                  $$->addr = tac->newAddr(size * $2->type->width);
-                  NodeArrayElems *exp = $2;
+                  // Si no estamos en una funcion
+                  if (table->ret_type == "") {
+                    // Creamos una nueva etiqueta para reservar memoria estaticamente
+                    $$->addr = tac->newAddr(size * $2->type->width);
+                  }
+                  else {
+                    // Si nos encontramos dentro de una funcion, el arreglo sera
+                    // almacenado dinamicamente a pesar de ser constante.
+                    $$->addr = "base[" + to_string(table->offsets.back()) + "]";
+                    allocVarArray($$->type, $$->addr);
+
+                    // Agregamos la direccion de memoria a las entradas que deben
+                    // ser liberadas al salir del scope actual.
+                    tac->to_free.top().push_back({$$->type, $$->addr});
+                  }
 
                   // Realizamos la asignacion de cada expresion del arreglo.
+                  NodeArrayElems *exp = $2;
                   while (--size >= 0) {
                     tac->gen(
                       "assign " + $$->addr + "[" + 
@@ -1204,7 +1268,7 @@
                   tac->backpatch($2->truelist, tac->instructions.size());
                   tac->gen("assign " + $2->addr + " True");
 
-                  label = "B" + to_string(tac->instructions.size() + 2);
+                  label = "Bool" + to_string(tac->instructions.size() + 2);
                   tac->gen("goto " + label);
                   tac->backpatch($2->falselist, tac->instructions.size());
                   tac->gen("assign " + $2->addr + " False");
@@ -1255,7 +1319,7 @@
                   tac->backpatch($2->truelist, tac->instructions.size());
                   tac->gen("assign " + $2->addr + " True");
 
-                  label = "B" + to_string(tac->instructions.size() + 2);
+                  label = "Bool" + to_string(tac->instructions.size() + 2);
                   tac->gen("goto " + label);
                   tac->backpatch($2->falselist, tac->instructions.size());
                   tac->gen("assign " + $2->addr + " False");
@@ -1403,7 +1467,7 @@
 
                           if (type->toString() == "Bool") {
                             $$->truelist = {tac->instructions.size()};
-                            tac->gen("goif " + $$->addr + " _");
+                            tac->gen("goif _ " + $$->addr);
                             $$->falselist = {tac->instructions.size()};
                             tac->gen("goto _");
                           }
@@ -1483,7 +1547,7 @@
                           tac->backpatch($1->truelist, tac->instructions.size());
                           tac->gen("assign " + $1->addr + " True");
 
-                          label = "B" + to_string(tac->instructions.size() + 2);
+                          label = "P_args" + to_string(tac->instructions.size() + 2);
                           tac->gen("goto " + label);
                           tac->backpatch($1->falselist, tac->instructions.size());
                           tac->gen("assign " + $1->addr + " False");
@@ -1514,7 +1578,7 @@
                           tac->backpatch($3->truelist, tac->instructions.size());
                           tac->gen("assign " + $3->addr + " True");
 
-                          label = "B" + to_string(tac->instructions.size() + 2);
+                          label = "P_args" + to_string(tac->instructions.size() + 2);
                           tac->gen("goto " + label);
                           tac->backpatch($3->falselist, tac->instructions.size());
                           tac->gen("assign " + $3->addr + " False");
@@ -1543,7 +1607,7 @@
                           tac->backpatch($3->truelist, tac->instructions.size());
                           tac->gen("assign " + $3->addr + " True");
 
-                          label = "B" + to_string(tac->instructions.size() + 2);
+                          label = "N_args" + to_string(tac->instructions.size() + 2);
                           tac->gen("goto " + label);
                           tac->backpatch($3->falselist, tac->instructions.size());
                           tac->gen("assign " + $3->addr + " False");
@@ -1578,7 +1642,7 @@
                           tac->backpatch($5->truelist, tac->instructions.size());
                           tac->gen("assign " + $5->addr + " True");
 
-                          label = "B" + to_string(tac->instructions.size() + 2);
+                          label = "N_args" + to_string(tac->instructions.size() + 2);
                           tac->gen("goto " + label);
                           tac->backpatch($5->falselist, tac->instructions.size());
                           tac->gen("assign " + $5->addr + " False");
@@ -1809,6 +1873,12 @@
                     t = merge<unsigned long long>(t, $10->nextlist);
                   }
 
+                  // Liberamos la memoria reservada automaticamente en el scope.
+                  for (pair<Type*, string> mem : tac->to_free.top()) {
+                    freeCompound(mem.first, mem.second);
+                  }
+                  tac->to_free.pop();
+
                   $$->nextlist = t;
                 }
               ;
@@ -1820,7 +1890,7 @@
                   tac->gen("goto _");
                 }
 
-  Cond        : Exp                                   
+  Cond        : Exp 
                 {
                   if ($1->type->toString() != "$Error" && $1->type->toString() != "Bool") {
                     addError(
@@ -1832,7 +1902,11 @@
                 }
               ;
 
-  If          : IF                              { table->newScope(); }
+  If          : IF 
+                {
+                  tac->to_free.push({});
+                  table->newScope(); 
+                }
               ;
   OptElsif    : /* lambda */                    { $$ = NULL; }
               | Elsifs                          { $$ = $1; }
@@ -1869,6 +1943,14 @@
   Elsif       : ELSIF 
                 { 
                   table->exitScope();
+
+                  // Liberamos la memoria reservada automaticamente en el scope.
+                  for (pair<Type*, string> mem : tac->to_free.top()) {
+                    freeCompound(mem.first, mem.second);
+                  }
+                  tac->to_free.pop();
+                  tac->to_free.push({});
+
                   table->newScope(); 
                 }
               ;
@@ -1881,30 +1963,54 @@
                   }
                 }
               ;
-  Else        : ELSE                             
+  Else        : ELSE  
                 { 
                   table->exitScope();
+
+                  // Liberamos la memoria reservada automaticamente en el scope.
+                  for (pair<Type*, string> mem : tac->to_free.top()) {
+                    freeCompound(mem.first, mem.second);
+                  }
+                  tac->to_free.pop();
+                  tac->to_free.push({});
+
                   table->newScope(); 
                 }
               ;
 
 
 /* ======================= LOOPS ===================================== */
-  LoopWhile : While W Cond M DO I DONE                      
+  LoopWhile : While W Cond M DO I DONE
               { 
                 $$ = new NodeWhile($3, $6); 
                 table->exitScope();
 
+                // Liberamos la memoria reservada automaticamente en el scope.
+                for (pair<Type*, string> mem : tac->to_free.top()) {
+                  freeCompound(mem.first, mem.second);
+                }
+                tac->to_free.pop();
+
                 if ($6 != NULL) {
-                  tac->backpatch($6->nextlist, $2);
+                  tac->backpatch($6->nextlist, *$2);
                 }
                 tac->backpatch($3->truelist, $4);
                 $$->nextlist = $3->falselist;
-                tac->gen("goto B" + to_string($2));
+
+                tac->gen("goto " + *$2);
+
+                // Parcheamos los breaks encontrados.
+                tac->backpatch(tac->breaklist.top(), *$2);
+                tac->breaklist.pop();
               }
             ; 
 
-  While     : WHILE                { table->newScope(); }
+  While     : WHILE 
+              { 
+                tac->to_free.push({});
+                tac->breaklist.push({});
+                table->newScope(); 
+              }
             ;
 
   LoopFor   : ForSign DO I DONE 
@@ -1915,6 +2021,14 @@
                   tac->backpatch($3->nextlist, tac->instructions.size());
                 }
 
+                table->exitScope();
+                table->exitScope();
+                // Liberamos la memoria reservada automaticamente en el scope.
+                for (pair<Type*, string> mem : tac->to_free.top()) {
+                  freeCompound(mem.first, mem.second);
+                }
+                tac->to_free.pop();
+
                 if ($1->step != NULL) {
                   tac->gen("add " + $1->addr + " " + $1->addr + " " + $1->step->addr);
                 }
@@ -1924,7 +2038,10 @@
 
                 tac->gen("goto " + $1->label);
                 tac->gen("@label " + $1->label + "_end");
-                table->exitScope();
+
+                // Parcheamos los breaks encontrados.
+                tac->backpatch(tac->breaklist.top(), $1->label + "_end");
+                tac->breaklist.pop();
               }
 
   ForSign   : For OPEN_PAR IdDef SEMICOLON Exp SEMICOLON Exp OptStep CLOSE_PAR 
@@ -1982,10 +2099,17 @@
                 tac->gen("goif " + $$->label + "_end test");
                 
                 tac->gen("assign " + e->addr + " " + $$->addr);
+
+                tac->to_free.push({});
+                tac->breaklist.push({});
+                table->newScope();
               }
             ;
 
-  For       : FOR                                       { table->newScope(); }
+  For       : FOR  
+              { 
+                table->newScope(); 
+              }
             ;
 
   OptStep   : /* lambda */                              { $$ = NULL; }
@@ -2010,14 +2134,24 @@
                   table->exitScope();
                   table->exitScope();
 
+                  // Liberamos la memoria reservada automaticamente en el scope.
+                  for (pair<Type*, string> mem : tac->to_free.top()) {
+                    freeCompound(mem.first, mem.second);
+                  }
+                  tac->to_free.pop();
+
                   $$ = new NodeRoutineDef($1, $3); 
                 }
 
                 table->ret_type = "";
                 table->offsets.pop_back();
 
-                tac->gen("@endfunction");
-                tac->backpatch($1->nextlist, tac->instructions.size());
+                tac->gen("@label " + $1->addr + "_end");
+                tac->backpatch($1->nextlist, $1->addr + "_end");
+
+                if ($3 != NULL) {
+                  tac->backpatch($3->nextlist, $1->addr + "_end");
+                }
               }
             ; 
 
@@ -2121,12 +2255,13 @@
                   table->ret_type = $5->toString();
                 }
 
+                tac->to_free.push({});
                 table->newScope();
 
                 $$->nextlist = {tac->instructions.size()};
                 tac->gen("goto _");
                 $$->addr = fe->addr;
-                tac->gen("@function " + $$->addr);
+                tac->gen("@label " + $$->addr);
               }
             ;
 
@@ -2357,39 +2492,54 @@
             ; 
   
   Actions   : /* lambda */                { $$ = NULL; }
-            | Actions Action                                
+            | Actions M Action                                
               { 
-                if ($1 == NULL && $2 == NULL) {
+                // Una instruccion puede ser NULL porque dio error o porque no tiene una
+                // representacion en el arbol abtracto, como las declaraciones de variables.
+
+                if ($1 == NULL && $3 == NULL) {
+                  // Si ambas instrucciones hijas son NULL, esta instruccion es NULL.
                   $$ = NULL;
-                }
-
-                else if ($2 == NULL) {
+                } 
+                else if ($3 == NULL) {
+                  // Si la segunda instruccion es NULL, la instruccion padre sera igual 
+                  // a la hija.
                   $$ = $1;
-                }
-
+                } 
                 else {
-                  $$ = new NodeActions($1, $2); 
+                  $$ = new NodeActions($1, $3); 
+                  if ($1 != NULL) {
+                    // Nos aseguramos que la primera instruccion salte a la segunda.
+                    tac->backpatch($1->nextlist, $2);
+                  }
+                  $$->nextlist = $3->nextlist;
                 }
               }
 
-            | Actions RETURN Exp SEMICOLON                  
+            | Actions M RETURN Exp SEMICOLON 
               {
-                if (table->ret_type != "" && $3->type->toString() != table->ret_type) {
+                if (table->ret_type != "" && $4->type->toString() != table->ret_type) {
                   addError(
                     "Expected return type '\033[1;3m" + 
                     table->ret_type + "\033[0m' but " +
-                    "'\033[1;3m" + $3->type->toString() + "\033[0m' found."
+                    "'\033[1;3m" + $4->type->toString() + "\033[0m' found."
                   );
                   $$ = new NodeError();
                 } 
 
                 else {
-                  $$ = new NodeReturn($3);
-                  tac->gen("return " + $3->addr);
+                  $$ = new NodeReturn($4);
+
+                  if ($1 != NULL) {
+                    // Nos aseguramos que la primera instruccion salte a la segunda.
+                    tac->backpatch($1->nextlist, $2);
+                  }
+
+                  tac->gen("return " + $4->addr);
                 }
               }
 
-            | Actions RETURN SEMICOLON                      
+            | Actions M RETURN SEMICOLON  
               {
                 if (table->ret_type != "" && "Unit" != table->ret_type) {
                   addError(
@@ -2402,6 +2552,12 @@
 
                 else {
                   $$ = new NodeReturn();
+
+                  if ($1 != NULL) {
+                    // Nos aseguramos que la primera instruccion salte a la segunda.
+                    tac->backpatch($1->nextlist, $2);
+                  }
+
                   tac->gen("return 0");
                 }
               }
@@ -2514,21 +2670,19 @@ int main(int argc, char **argv) {
   {
     tokens.push("\033[0;33m" + to_string(tok) + ":\033[1;36m " + yytext + "\033[0m\n");
   }
-  fclose(yyin);
   // if were asked just for lexing print the results of it and return
   if (bLexOpt) {
-    if(errors.empty())
+    if(errors.empty()) {
+      printf("TOKENS:\n");
       printQueue(tokens);
-    else
+    }
+    else {
       printQueue(errors);
+    }
+    fclose(yyin);
     return 0;
   }
 
-  // check if file was succesfully opened.
-  if ((yyin = fopen(filename, "r")) == 0) {
-    cout << "There was an error opening the file" << endl;
-    return -1;
-  }
   // reset lines and columns
   yylineno = 1; 
   yycolumn = 1;

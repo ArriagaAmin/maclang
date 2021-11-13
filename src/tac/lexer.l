@@ -33,9 +33,6 @@
 "@staticv"                    { return MI_STATICV; }
 "@string"                     { return MI_STRING; }
 "@label"                      { return MI_LABEL; }
-"@function"                   { return MI_FUNCTION; }
-"@endfunction"                { return MI_ENDFUNCTION; }
-"@declared"                   { return MI_DECLARED; }
 "assign"                      { return I_ASSIGN; }
 "add"                         { return I_ADD; }
 "sub"                         { return I_SUB; }
@@ -56,6 +53,7 @@
 "param"                       { return I_PARAM; }
 "call"                        { return I_CALL; }
 "return"                      { return I_RETURN; }
+"exit"                        { return I_EXIT; }
 "["                           { return OPEN_BRACKET; }
 "]"                           { return CLOSE_BRACKET; }
 "False"                       { return FALSE; }

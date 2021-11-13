@@ -293,3 +293,22 @@ void freeStruct(Type *t, string final_addr) {
   }
 }
 
+/*
+  Verifica el tipo de un elemento y libera su memoria en consecuencia dependiendo de 
+  su tipo
+*/
+void freeCompound(Type *t, string final_addr) {
+  string type = t->toString();
+
+  // Si el tipo es un arreglo o estructura, llamamos a la funcion
+  // para liberar memoria correspondiente
+  if (type.back() == ']' && ! ((ArrayType*) t)->is_pointer) {
+    freeConstArray(t, final_addr);
+  }
+  else if (type.back() == ']') {
+    freeVarArray(t, final_addr);
+  }
+  else if (! predefinedTypes.count(type) && type[0] != '^') {
+    freeStruct(t, final_addr);
+  }
+}

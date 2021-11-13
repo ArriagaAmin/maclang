@@ -28,9 +28,9 @@
 %locations
 %start S
 
-%token MI_STATICV MI_STRING MI_LABEL MI_FUNCTION MI_ENDFUNCTION MI_DECLARED
+%token MI_STATICV MI_STRING MI_LABEL
 %token I_ASSIGN I_ADD I_SUB I_MULT I_DIV I_MOD I_MINUS I_EQ I_NEQ I_LT I_LEQ I_GT I_GEQ 
-%token I_GOTO I_GOIF I_MALLOC I_FREE I_PARAM I_CALL I_RETURN
+%token I_GOTO I_GOIF I_MALLOC I_FREE I_PARAM I_CALL I_RETURN I_EXIT
 %token OPEN_BRACKET CLOSE_BRACKET NL
 
 %token <integer>  INT
@@ -63,27 +63,8 @@
   Text    : /* lambda */
           | T Text 
           ;
-
-  T       : I 
-          | F  
-          ;
-
-  F       : MI_FUNCTION ID NL Inst MI_ENDFUNCTION NL
-            {
-
-            }
-          ;
-
-  Inst    : /* lambda */
-          | I Inst 
-          ;
-
-  I       : NL { /* ignore */ }
+  T       : NL { /* ignore */ }
           | MI_LABEL ID NL
-            {
-
-            }
-          | MI_DECLARED Lvalue ID NL 
             {
 
             }
@@ -164,6 +145,10 @@
               
             }
           | I_RETURN Rvalue NL
+            {
+              
+            }
+          | I_EXIT Rvalue NL
             {
               
             }

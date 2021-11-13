@@ -9,6 +9,9 @@
 
 using namespace std;
 
+// Predefined Types 
+extern map<string, Type*> predefinedTypes;
+
 // Funciones para reservar memoria para tipos compuestos 
 void allocConstArray(Type *t, string final_addr);
 
@@ -22,3 +25,5 @@ void freeConstArray(Type *t, string final_addr);
 void freeVarArray(Type *t, string final_addr);
 
 void freeStruct(Type *t, string final_addr);
+
+void freeCompound(Type *t, string final_addr);

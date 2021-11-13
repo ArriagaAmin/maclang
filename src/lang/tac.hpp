@@ -1,11 +1,14 @@
 #pragma once
 
-#include <vector>
-#include <tuple>
-#include <string>
 #include <iostream>
+#include <vector>
+#include <string>
+#include <tuple>
+#include <stack>
 #include <map>
 #include <set>
+
+#include "ast.hpp"
 
 using namespace std;
 
@@ -21,14 +24,19 @@ private:
 
 public:
     vector<string> instructions;
+    // Almacenamos las direcciones de memoria que fueron reseradas automaticamentes
+    // para liberarlas el final del scope.
+    stack<vector<pair<Type*, string>>> to_free;
     // Mapeo de nombre de funciones a una lista de pares 
     // <
     //      Instruccion donde se hizo la llamada a funcion, 
     //      copia del scope stack en el momento en que se realizo la llamada
     // >
     map< string, vector<pair<unsigned long long, vector<int>>> > functionlist;
+    // Pila de listas de instrucciones que necesitan ser parcheadas
+    stack<vector<unsigned long long>> breaklist;
     
-    TAC() { }
+    TAC() { this->to_free.push({}); }
     string newTemp();
     string newLabel();
     string newFunc();

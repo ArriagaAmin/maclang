@@ -10,12 +10,12 @@
   }
 
   map<string, int> primitiveWidths = {
-    {"Unit",    1},
+    {"Unit",    0},
     {"Bool",    1},
-    {"Char",    4},   // UTF-8 use 4 bytes
-    {"Int",     8},
-    {"Float",   8},
-    {"Pointer", 8},
+    {"Char",    1},   // ASCII
+    {"Int",     1},
+    {"Float",   1},
+    {"Pointer", 1},
     {"$Error",  0}
   };
 
