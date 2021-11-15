@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <vector>
 #include <algorithm>
+#include <map>
 
 using namespace std;
 
@@ -19,6 +20,9 @@ private:
 
     bool InsertElementToDescriptor(unordered_map<string, vector<string>> &descriptors, string key, string element, bool replace = false);
     void RemoveElementFromDescriptors(unordered_map<string, vector<string>> &descriptors, string element, string elementHolder);
+    string FindElementInDescriptors(unordered_map<string, vector<string>> &descriptors, string element);
+    string FindFreeRegister();
+    string RecycleRegister(string instruction);
 public:
     CodeBlock();
     vector<string> GetReg(string instruction); // For now is a string but we need the reference to the structure parsed
