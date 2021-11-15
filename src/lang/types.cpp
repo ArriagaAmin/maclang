@@ -1,5 +1,9 @@
 #include "types.hpp"
 
+bool typecmp(string t1, string t2) {
+	return t1 == t2;
+}
+
 // Esta variable representa un grafo que verifica la correctitud de los tipos para las
 // distintas operaciones.
 map<string, map<pair<string, string>, Type*>> binaryOpGraph;

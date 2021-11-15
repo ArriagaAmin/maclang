@@ -1,4 +1,4 @@
-exec "String.mac";
+execonce "String.mac";
 
 structure Node;
 

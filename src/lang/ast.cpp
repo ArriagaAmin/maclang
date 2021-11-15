@@ -184,7 +184,7 @@
     cout << "\033[1;34mExec \033[0m(\033[1m" + this->filename + "\033[0m)\n";
     if (this->ast != NULL) {
       printIdentation(identation);
-      identation->push_back(true);
+      identation->push_back(false);
       cout << "└── ";
       this->ast->printTree(identation);
       identation->pop_back();
@@ -998,7 +998,7 @@
 
     if (this->rvalue != NULL) {
       printIdentation(identation);
-      identation->push_back(true);
+      identation->push_back(false);
       cout << "└── ";
       this->rvalue->printTree(identation);
       identation->pop_back();

@@ -40,6 +40,7 @@
   typedef struct yy_buffer_state *YY_BUFFER_STATE;
   YY_BUFFER_STATE yy_create_buffer ( FILE *file, int size  );
   void yy_switch_to_buffer ( YY_BUFFER_STATE new_buffer  );
+  void yy_flush_buffer ( YY_BUFFER_STATE b  );
   void yy_delete_buffer ( YY_BUFFER_STATE b  );
   YY_BUFFER_STATE current_buffer(void);
 %}
@@ -112,6 +113,7 @@
 %token RIGHT_ARROW
 %token RETURN
 %token EXEC
+%token EXECONCE
 
 %token <integer>  INT
 %token <flot>     FLOAT 
@@ -139,7 +141,7 @@
 %type <fcpArgs>       PositionalArgs
 %type <fcnArgs>       NamedArgs
 %type <t>             Type OptReturn
-%type <boolean>       OptRef
+%type <boolean>       OptRef Exec
 %type <str>           IdDef UnionId RegId DecId W
 %type <nS>            S
 %type <varList>       VarDefList
@@ -248,7 +250,7 @@
               if ($2->type->toString() == "$Error") {
                 $$ = new NodeError();
               }
-              else if (table->ret_type != "" && $2->type->toString() != table->ret_type) {
+              else if (table->ret_type != "" && ! typecmp($2->type->toString(), table->ret_type)) {
                 addError(
                   "Expected return type '\033[1;3m" + 
                   table->ret_type + "\033[0m' but " +
@@ -303,12 +305,12 @@
                 tac->gen("return 0");
               }
             }
-          | EXEC STRING SEMICOLON
+          | Exec STRING SEMICOLON
             {
               $2->erase(0, 1);
               $2->erase($2->size() - 1);
 
-              if (executed.count(*$2) == 0) {
+              if ($1 || executed.count(*$2) == 0) {
                 // Creamos los auxiliares correspondientes.
                 char* filename_aux = filename;
                 FILE* yyin_aux = yyin;
@@ -333,6 +335,7 @@
                 else {
                   yy_switch_to_buffer(yy_create_buffer(yyin, YY_BUF_SIZE));
                   yyparse();
+                  yy_flush_buffer(current_buffer());
                   yy_delete_buffer(current_buffer());
                 }
 
@@ -346,7 +349,14 @@
                 exec_node = exec_node_aux;
 
                 yy_switch_to_buffer(temp);
-                executed.insert(*$2);
+
+                if (! errors.empty()) {
+                  return 1;
+                }
+
+                if (executed.count(*$2) == 0) {
+                  executed.insert(*$2);
+                }
               } 
               else {
                 $$ = NULL;
@@ -357,6 +367,8 @@
           | LoopWhile           { $$ = $1; }
           | LoopFor             { $$ = $1; }
           ;
+  Exec    : EXEC                { $$ = true; }
+          | EXECONCE            { $$ = false; }
   Def     : UnionDef            { $$ = $1; }
           | RegDef              { $$ = $1; }
           | StructDec SEMICOLON { $$ = $1; }
@@ -416,7 +428,7 @@
                     $$ = NULL;
                   }
 
-                  else if (ltype != rtype) {
+                  else if (! typecmp(ltype, rtype)) {
                     addError(
                       "Can't assign a '\033[1;3m" + rtype +
                       "\033[0m' to a '\033[1;3m" + ltype + "\033[0m'."
@@ -469,7 +481,7 @@
 
                       // Verificamos que el tipo de la definicion y el tipo de la 
                       // expresion (en caso de haberla) son iguales.
-                      if (exp != NULL && type != rtype) {
+                      if (exp != NULL && ! typecmp(type, rtype)) {
                         addError(
                           "Can't assign a '\033[1;3m" + rtype +
                           "\033[0m' to a '\033[1;3m" + type + "\033[0m'."
@@ -1123,6 +1135,11 @@
               );
               $$ = new NodePointer($2, predefinedTypes["$Error"]); 
             } 
+            // O no sea ^Unit
+            else if ($2->type->toString() == "^(Unit)") {
+              addError("'\033[1;3m^(Unit)\033[0m' type can't be desreferenced.");
+              $$ = new NodePointer($2, predefinedTypes["$Error"]); 
+            }
             else {
               Type *type = ((PointerType*) $2->type)->type;
               $$ = new NodePointer($2, type); 
@@ -1275,7 +1292,7 @@
                 $$->type = predefinedTypes["$Error"];
               }
               // O que los tipos de ambas expresiones no coincidan
-              else if (ltype != rtype) {
+              else if (! typecmp(ltype, rtype)) {
                 addError(
                   "Can't assign a '\033[1;3m" + rtype +
                   "\033[0m' to a '\033[1;3m" + ltype + "\033[0m'."
@@ -1419,7 +1436,7 @@
                   size = 0;
                 } 
                 
-                else if (type1 != type2) {
+                else if (! typecmp(type1, type2)) {
                   addError(
                     "All elements of an array must have the same type"
                     ", but found '\033[1;3m" + type1 + "\033[0m' and "
@@ -2996,6 +3013,14 @@ int main(int argc, char **argv) {
   fe->args.push_back({"text", "(Char)[]", false, NULL});
   fe->return_type = predefinedTypes["Unit"];
   fe->addr = "PRINT";
+  fe->def_scope = 0;
+  table->insert(fe);
+
+  // Adding integer to string function.
+  fe = new FunctionEntry("itos", 0, "Function");
+  fe->args.push_back({"n", "Int", false, NULL});
+  fe->return_type = new ArrayType(predefinedTypes["Char"], new NodeINT(1), true);
+  fe->addr = "ITOS";
   fe->def_scope = 0;
   table->insert(fe);
 

@@ -1,4 +1,4 @@
-exec "String.mac";
+execonce "String.mac";
 
 register Hash_entry {
 	^Hash_entry next;
@@ -86,5 +86,21 @@ def Hash_put(^Hash h, String s, Int n) {
 	done
 
 	^he.value = n;
+}
+
+def Hash_print(^Hash h) {
+	let Int i = 0;
+	let ^Hash_entry he;
+
+	while i < ^h.size do 
+		he = ^(^h.table)[i];
+		while ^he.ID[0] != CHARNUL do 
+			print(^he.ID);
+			print(" => ");
+			print(itos(^he.value));
+			he = ^he.next;
+		done 
+		i = i + 1;
+	done 
 }
 

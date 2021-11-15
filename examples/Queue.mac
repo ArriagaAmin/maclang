@@ -1,4 +1,4 @@
-exec "Node.mac";
+execonce "Node.mac";
 
 register Queue {
 	^((^Node)[]) array;

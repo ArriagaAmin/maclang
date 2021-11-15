@@ -14,6 +14,8 @@ extern map<string, Type*> predefinedTypes;
 
 void createTypeGraph(void);
 
+bool typecmp(string t1, string t2);
+
 // verifies types for a binary operator
 Type *verifyBinayOpType(string op, string type1, string type2);
 
