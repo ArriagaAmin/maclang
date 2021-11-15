@@ -1,0 +1,60 @@
+exec "Node.mac";
+
+register Queue {
+	^((^Node)[]) array;
+	Int capacity;
+	Int size;
+	Int head;
+	Int tail;
+}
+
+def Queue_init(Int capacity = 8) => ^Queue {
+	let ^Queue q = new Queue;
+	^q.array = new (^Node)[capacity];
+	^q.capacity = capacity;
+	^q.size = 0;
+	^q.head = 0;
+	^q.tail = 0;
+
+	return q;
+}
+
+def Queue_destroy(^Queue q) {
+	forget ^q.array;
+	forget q;
+}
+
+def Queue_resize(^Queue q) {
+	let ^((^Node)[]) new_array = new (^Node)[2 * ^q.capacity];
+
+	let Int tail = ^q.tail;
+	let Int i = 0;
+	while tail != ^q.head do
+		^new_array[i] = ^(^q.array)[tail];
+		tail = (tail + 1) % ^q.capacity;
+	done 
+
+	forget ^q.array;
+	^q.array = new_array;
+}
+
+def Queue_push(^Queue q, ^Node n) {
+	if ^q.size == ^q.capacity then Queue_resize(q); done 
+
+	^(^q.array)[^q.head] = n;
+	^q.head = (^q.head + 1) % ^q.capacity;
+	^q.size = ^q.size + 1;
+}
+
+def Queue_pop(^Queue q) => ^Node {
+	if ^q.size == 0 then return NodeNUL; done 
+
+	let ^Node n = ^(^q.array)[^q.tail];
+	^q.tail = (^q.tail + 1) % ^q.capacity;
+	^q.size = ^q.size + 1;
+	return n;
+}
+
+def Queue_empty(^Queue q) => Bool {
+	return ^q.size == 0;
+}

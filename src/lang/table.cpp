@@ -112,9 +112,7 @@ void SymbolsTable::erase(string id, int scope) {
 
     if ((e->id != id) || (e->scope != scope)) {
       newQueue.push_front(e);
-    } else {
-      cout << e->id << " " << e->scope << "\n";
-    }
+    } 
   }
 
   this->symTable[id] = newQueue;

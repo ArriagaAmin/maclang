@@ -29,6 +29,12 @@
 
   // add an error to queue
   void pushError(void);
+
+  extern YY_BUFFER_STATE * yy_buffer_stack;
+  extern size_t yy_buffer_stack_top;
+  YY_BUFFER_STATE current_buffer(void) {
+    return yy_buffer_stack ? (yy_buffer_stack)[(yy_buffer_stack_top)] : NULL;
+  }
 %}
 
 %%
@@ -90,6 +96,7 @@
 "return"                      { return RETURN; }
 "break"                       { return BREAK; }
 "exit"                        { return EXIT; }
+"exec"                        { return EXEC; }
 [[:alpha:]_][[:alnum:]_]*     { return ID; }
 [0-9]+                        { yylval.integer = atoi(yytext); return INT; }
 [0-9]+\.[0-9]+                { yylval.flot = atof(yytext); return FLOAT; }

@@ -1,0 +1,90 @@
+exec "String.mac";
+
+register Hash_entry {
+	^Hash_entry next;
+	String ID;
+	Int value;
+}
+
+let ^Hash_entry HashNULL = new Hash_entry;
+^HashNULL.ID = [CHARNUL];
+
+def char2int(Char c) => Int {
+	return 0;
+}
+
+register Hash {
+	^((^Hash_entry)[]) table;
+	Int size;
+	Int hash_val;
+}
+
+def Hash_init(Int size=1024, Int hash_val=31) => ^Hash {
+	let ^Hash h = new Hash;
+	^h.table = new (^Hash_entry)[size];
+	^h.size = size;
+	^h.hash_val = hash_val;
+
+	let Int i = 0;
+	while i < size do 
+		^(^h.table)[i] = HashNULL;
+	done 
+
+	return h;
+}
+
+def Hash_destroy(^Hash h) {
+	let ^Hash_entry he, he_aux;
+
+	let Int i = 0;
+	while i < ^h.size do 
+		he = ^(^h.table)[i];
+		while ! strcmp(^he.ID, STRNUL) do 
+			he_aux = ^he.next;
+			forget he;
+			he = he_aux;
+		done 
+	done 
+
+	forget ^h.table;
+	forget h;
+}
+
+def Hash_value(^Hash h, String s) => Int {
+	let Int val = 0, i = 0;
+
+	while s[i] != CHARNUL do 
+		val = char2int(s[i]) + val * ^h.hash_val ;
+	done
+
+	return val % ^h.size;
+}
+
+def Hash_lookup(^Hash h, String s, Int@ result) => Bool {
+	let ^Hash_entry he = ^(^h.table)[Hash_value(h, s)];
+
+	while ^he.ID[0] != CHARNUL do 
+		if strcmp(^he.ID, s) then 
+			result = ^he.value;
+			return True;
+		else he = ^he.next;
+		done 
+	done 
+
+	return False;
+}
+
+def Hash_put(^Hash h, String s, Int n) {
+	let ^Hash_entry he;
+	let Int hashval;
+
+	if Hash_lookup(h, s, hashval) then
+		he = new Hash_entry;
+		hashval = Hash_value(h, s);
+		^he.next = ^(^h.table)[hashval];
+		^(^h.table)[hashval] = he;
+	done
+
+	^he.value = n;
+}
+

@@ -139,6 +139,17 @@ class Node {
       void printTree(vector<bool> *identation);
   };
 
+  class NodeExec : public Node {
+    protected:
+      string filename;
+      Node *ast;
+
+    public:
+      NodeExec(string filename, Node *ast);
+
+      void printTree(vector<bool> *identation);
+  };
+
   /* Root node. */
   class NodeS {
     protected:

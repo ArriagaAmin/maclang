@@ -1,3 +1,5 @@
+exec "String.mac";
+
 structure Node;
 
 # Listas dinamicas 
@@ -10,9 +12,10 @@ register List {
 register Node {
 	^Node parent;
 	^List childs;
-	Int ID;
+	String ID;
 	Int value;
 }
+
 
 def List_init(Int capacity = 8) => ^List {
 	let ^List l = new List;
@@ -51,7 +54,7 @@ def List_append(^List l, ^Node n) {
 	done
 }
 
-def Node_init(Int ID, Int value) => ^Node {
+def Node_init(String ID, Int value) => ^Node {
 	let ^Node n = new Node;
 	^n.childs = new List;
 	^n.ID = ID;
@@ -64,19 +67,15 @@ def Node_destroy(^Node n) {
 	forget n;
 }
 
-# Verifica que el nodo n esta conectado con un nodo con el id indicado
-def DFS_search(^Node n, Int ID) => Bool {
-	if ^n.ID == ID then 
-		return True; 
-	done 
-
+def Node_add_child(^Node n, ^Node c) {
 	let Int i = 0;
 	while i < ^(^n.childs).size do 
-		if DFS_search(List_get(^n.childs, i), ID) then 
-			return True; 
-		done 
+		if strcmp(^List_get(^n.childs, i).ID, ^c.ID) then 
+			return;
+		done
 	done 
 
-	return False;
+	List_append(^n.childs, c);
 }
 
+let ^Node NodeNUL = Node_init([CHARNUL], -1);

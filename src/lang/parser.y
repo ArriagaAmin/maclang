@@ -10,11 +10,15 @@
   #include "memory.hpp"
   #include "errors.hpp"
 
+  #define YY_BUF_SIZE 32768
+
   using namespace std;
 
   extern int yylineno;
   extern int yycolumn;
   extern char *filename;
+  // open file to extract the tokens
+  extern FILE *yyin;
   extern queue<string> errors;
 
   // AST and TAC 
@@ -23,9 +27,21 @@
 
   // Predefined Types 
   extern map<string, Type*> predefinedTypes;
+  
+  // Indica si nos encontramos en la ejecucion principal.
+  bool __main__ = true;
+  NodeExec *exec_node = NULL;
+  set<string> executed;
 
   // Leblanc-Cook's Symbols Table
   SymbolsTable *table = new SymbolsTable;
+
+  // Flex definitions
+  typedef struct yy_buffer_state *YY_BUFFER_STATE;
+  YY_BUFFER_STATE yy_create_buffer ( FILE *file, int size  );
+  void yy_switch_to_buffer ( YY_BUFFER_STATE new_buffer  );
+  void yy_delete_buffer ( YY_BUFFER_STATE b  );
+  YY_BUFFER_STATE current_buffer(void);
 %}
 
 %define parse.lac full
@@ -95,6 +111,7 @@
 %token AT 
 %token RIGHT_ARROW
 %token RETURN
+%token EXEC
 
 %token <integer>  INT
 %token <flot>     FLOAT 
@@ -134,22 +151,28 @@
 /* ======================= GLOBAL RULES ============================== */
   S       : I 
             { 
-              $$ = new NodeS($1); 
-              ast = $$; 
-
-              // Verificamos que no quedaron llamadas a funciones de solo declaraciones.
-              for (pair<string, vector<pair<unsigned long long, vector<int>>>> f : tac->functionlist) {
-                addError("Function '\033[1;3m" + f.first + "\033[0m' declared but not defined.");
-              }
-
-              // Liberamos la memoria reservada automaticamente en el scope.
-              for (pair<Type*, string> mem : tac->to_free.top()) {
-                freeCompound(mem.first, mem.second);
-              }
-              tac->to_free.pop();
-
               if ($1 != NULL) {
                 tac->backpatch($1->nextlist, tac->instructions.size());
+              }
+
+              if (__main__) {
+                $$ = new NodeS($1); 
+                ast = $$; 
+
+                // Verificamos que no quedaron llamadas a funciones de solo declaraciones.
+                for (pair<string, vector<pair<unsigned long long, vector<int>>>> f : tac->functionlist) {
+                  addError("Function '\033[1;3m" + f.first + "\033[0m' declared but not defined.");
+                }
+
+                // Liberamos la memoria reservada automaticamente en el scope.
+                for (pair<Type*, string> mem : tac->to_free.top()) {
+                  freeCompound(mem.first, mem.second);
+                }
+                tac->to_free.pop();
+              }
+              else {
+                exec_node = new NodeExec(filename, $1);
+                $$ = NULL;
               }
             }
           ;
@@ -182,7 +205,8 @@
   Inst    : Action              { $$ = $1; }
           | Def                 { $$ = $1; }
           ;
-  Action  : Exp SEMICOLON 
+  Action  : 
+          Exp SEMICOLON 
             { 
               // Las acciones son aquellas que ejecutan un calculo y no son puramente
               // definiciones,
@@ -221,7 +245,10 @@
             }
           | RETURN Exp SEMICOLON 
             {
-              if (table->ret_type != "" && $2->type->toString() != table->ret_type) {
+              if ($2->type->toString() == "$Error") {
+                $$ = new NodeError();
+              }
+              else if (table->ret_type != "" && $2->type->toString() != table->ret_type) {
                 addError(
                   "Expected return type '\033[1;3m" + 
                   table->ret_type + "\033[0m' but " +
@@ -274,6 +301,55 @@
               else {
                 $$ = new NodeReturn();
                 tac->gen("return 0");
+              }
+            }
+          | EXEC STRING SEMICOLON
+            {
+              $2->erase(0, 1);
+              $2->erase($2->size() - 1);
+
+              if (executed.count(*$2) == 0) {
+                // Creamos los auxiliares correspondientes.
+                char* filename_aux = filename;
+                FILE* yyin_aux = yyin;
+                NodeExec *exec_node_aux = exec_node;
+                int yylineno_aux = yylineno, yycolumn_aux = yycolumn;
+                bool __main_aux__ = __main__;
+                YY_BUFFER_STATE temp = current_buffer();
+
+                filename = (char*) malloc($2->size() * sizeof(char));
+                strcpy(filename, $2->c_str());
+                yylineno = 1; 
+                yycolumn = 1;
+                __main__ = false;
+
+                // check if file was succesfully opened.
+                if ((yyin = fopen(filename, "r")) == 0) {
+                  addError(
+                    "There was an error executing \033[1;3m" + (string) filename +
+                    "\033[0m."
+                  );
+                }
+                else {
+                  yy_switch_to_buffer(yy_create_buffer(yyin, YY_BUF_SIZE));
+                  yyparse();
+                  yy_delete_buffer(current_buffer());
+                }
+
+                strcpy(filename, filename_aux);
+                yyin = yyin_aux;
+                yylineno = yylineno_aux;
+                yycolumn = yycolumn_aux;
+                __main__ = __main_aux__;
+
+                $$ = exec_node;
+                exec_node = exec_node_aux;
+
+                yy_switch_to_buffer(temp);
+                executed.insert(*$2);
+              } 
+              else {
+                $$ = NULL;
               }
             }
           | VarInst SEMICOLON   { $$ = $1; }
@@ -550,7 +626,8 @@
 
 
 /* ======================= TYPES ===================================== */
-  Type  : Type OPEN_BRACKET Exp CLOSE_BRACKET 
+  Type  : 
+        Type OPEN_BRACKET Exp CLOSE_BRACKET 
           { 
             // Verificamos que la expresion interna sea un entero.
             if ($3->type->toString() != "Int") {
@@ -2436,8 +2513,9 @@
                   NodeError *err = (NodeError*) $1;
                   table->exitScope();
                   table->exitScope();
-                  if (err->errInfo != "")
+                  if (err->errInfo != "") {
                     table->erase(err->errInfo, table->currentScope());
+                  }
 
                   $$ = new NodeError();
                 } 
@@ -2899,8 +2977,6 @@ int main(int argc, char **argv) {
   FunctionEntry *fe;
   // Booleans for options
   bool bLexOpt, bParseOpt, bSymbolsOpt, bTACOpt;
-  // open file to extract the tokens
-  extern FILE *yyin;
 
   // Adding scope 0 elements.
   vector<string> primitives = {"Unit", "Bool", "Char", "Int", "Float", "String"};
@@ -2922,6 +2998,16 @@ int main(int argc, char **argv) {
   fe->addr = "PRINT";
   fe->def_scope = 0;
   table->insert(fe);
+
+  // Constants
+  table->insert(new VarEntry(
+    "CHARNUL", 
+    0, 
+    "Var", 
+    predefinedTypes["Char"], 
+    -1,
+    "CHARNUL"
+  ));
 
 
   // Verify all arguments has been passed

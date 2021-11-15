@@ -176,6 +176,21 @@
     identation->pop_back();
   }
 
+  NodeExec::NodeExec(string filename, Node *ast) {
+    this->filename = filename;
+    this->ast = ast;
+  }
+  void NodeExec::printTree(vector<bool> *identation) {
+    cout << "\033[1;34mExec \033[0m(\033[1m" + this->filename + "\033[0m)\n";
+    if (this->ast != NULL) {
+      printIdentation(identation);
+      identation->push_back(true);
+      cout << "└── ";
+      this->ast->printTree(identation);
+      identation->pop_back();
+    }
+  }
+
 
   NodeS::NodeS(Node *inst) {
     this->inst = inst;
@@ -199,7 +214,7 @@
     this->is_lit = true;
   }
   void NodeBOOL::printTree(vector<bool> *identation) {
-    cout << "BOOL: " << this->value << "\n";
+    cout << "BOOL: \033[1;36m" << (this->value ? "True" : "False") << "\033[0m\n";
   }
 
 
@@ -210,7 +225,7 @@
     this->is_lit = true;
   }
   void NodeCHAR::printTree(vector<bool> *identation) {
-    cout << "CHAR: " << this->value << "\n";
+    cout << "CHAR: \033[1;36m" << this->value << "\033[0m\n";
   }
 
 
@@ -221,7 +236,7 @@
     this->is_lit = true;
   }
   void NodeINT::printTree(vector<bool> *identation) {
-    cout << "INT: " << this->value << "\n";
+    cout << "INT: \033[1;36m" << this->value << "\033[0m\n";
   }
 
 
@@ -232,18 +247,20 @@
     this->is_lit = true;
   }
   void NodeFLOAT::printTree(vector<bool> *identation) {
-    cout << "FLOAT: " << this->value << "\n";
+    cout << "FLOAT: \033[1;36m" << this->value << "\033[0m\n";
   }
 
 
   NodeSTRING::NodeSTRING(string value) {
+    value.erase(0, 1);
+    value[value.size() - 1] = '\0';
     this->value = value;
     this->type = new ArrayType(predefinedTypes["Char"], new NodeINT(value.size()), true);
     this->is_lvalue = false;
     this->is_lit = false;
   }
   void NodeSTRING::printTree(vector<bool> *identation) {
-    cout << "STRING: " << this->value << "\n";
+    cout << "STRING: \033[1;36m" << this->value << "\033[0m\n";
   }
 
 
@@ -309,7 +326,7 @@
     this->is_lit = false;
   }
   void NodeID::printTree(vector<bool> *identation) {
-    cout << "ID: " << this->id << "\n";
+    cout << "ID: \033[1;3m" << this->id << "\033[0m\n";
   }
 
   string NodeID::getId()
@@ -484,7 +501,7 @@
     cout << "\033[1;34mFunction Call\033[0m\n";
 
     printIdentation(identation);
-    cout << "├── ID: " << this->id << "\n";
+    cout << "├── \033[1;3m" << this->id << "\033[0m\n";
 
     if (this->args != NULL) {
       printIdentation(identation);
@@ -584,7 +601,7 @@
     }
 
     printIdentation(identation);
-    cout << "├── ID: " + this->id + "\n";
+    cout << "├── ID: \033[1;3m" + this->id + "\033[0m\n";
 
     printIdentation(identation);
     identation->push_back(false);
@@ -838,7 +855,7 @@
     cout << "\033[1;34mRoutine Sign \033[0m\n";
 
     printIdentation(identation);
-    cout << "├── ID: " << this->id << "\n";
+    cout << "├── ID: \033[1;3m" << this->id << "\033[0m\n";
 
     if (this->args != NULL) {
       printIdentation(identation);
@@ -932,7 +949,7 @@
 
     if (this->rvalue != NULL) {
       printIdentation(identation);
-      cout << "├── ID: " << this->id << "\n";
+      cout << "├── ID: \033[1;3m" << this->id << "\033[0m\n";
 
       printIdentation(identation);
       cout << "├── =\n";
@@ -945,7 +962,7 @@
 
     } else {
       printIdentation(identation);
-      cout << "└── ID: " << this->id << "\n"; 
+      cout << "└── ID: \033[1;3m" << this->id << "\033[0m\n"; 
     }
   }
 
@@ -982,11 +999,11 @@
     if (this->rvalue != NULL) {
       printIdentation(identation);
       identation->push_back(true);
-      cout << "├── ";
+      cout << "└── ";
       this->rvalue->printTree(identation);
       identation->pop_back();
     } else {
       printIdentation(identation);
-      cout << "├── Unit\n";
+      cout << "└── Unit\n";
     }
   }

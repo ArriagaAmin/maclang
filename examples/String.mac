@@ -1,0 +1,18 @@
+
+let String STRNUL = [CHARNUL];
+
+def strlen(String S) => Int {
+	let Int i = 0;
+	while S[i] != CHARNUL do i = i + 1; done 
+	return i;
+}
+
+def strcmp(String A, String B) => Bool {
+	let Int i = 0;
+
+	while A[i] != CHARNUL && A[i] == B[i] do 
+		i = i + 1; 
+	done
+
+	return A[i] == CHARNUL && B[i] == CHARNUL;
+}
