@@ -99,6 +99,8 @@ class Node {
       bool is_lvalue;
       // Indica si la expresion es una constante de uno de los tipos basicos.
       bool is_lit;
+      // Indica si es una variable.
+      bool is_var = false;
 
       ExpressionNode(void) {};
       

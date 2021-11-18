@@ -1532,6 +1532,7 @@
                       else {
                         Type *type = NULL;
                         Entry *e;
+                        vector<pair<string, string>> refs;
 
                         if ((e = table->lookup(*$1)) == NULL) {
                           addError("'\033[1;3m" + *$1 + "\033[0m' wasn't declared.");
@@ -1545,6 +1546,7 @@
                         
                         else {
                           FunctionEntry *fe = (FunctionEntry*) e;
+                          VarEntry *ve;
                           bool correctTypes = true;
                           string type_str;
 
@@ -1572,6 +1574,22 @@
                                 correctTypes = false;
                               }
 
+                              if (! $3->positionalArgs[i]->is_var && get<2>(arg)) {
+                                addError(
+                                  "Argument '\033[1;3m" + get<0>(arg) + 
+                                  "\033[0m' " + "is passed by reference, but a variable "
+                                  "was not passed."
+                                );
+                                correctTypes = false;
+                              }
+                              else if (get<2>(arg) && predefinedTypes.count(type_str)) {
+                                ve = (VarEntry*) table->lookup(get<0>(arg), fe->def_scope);
+                                refs.push_back({
+                                  $3->positionalArgs[i]->addr,
+                                  "lastbase[" + to_string(ve->offset) + "]"
+                                });
+                              }
+
                               tac->gen("param " + $3->positionalArgs[i]->addr);
                             } 
                             
@@ -1585,8 +1603,26 @@
                                   "\033[0m' but '\033[1;3m" + type_str + 
                                   "\033[0m' found."
                                 );
+
                                 correctTypes = false;
                               }
+
+                              if (! $3->namedArgs[get<0>(arg)]->is_var && get<2>(arg)) {
+                                addError(
+                                  "Argument '\033[1;3m" + get<0>(arg) + 
+                                  "\033[0m' " + "is passed by reference, but a variable "
+                                  "was not passed."
+                                );
+                                correctTypes = false;
+                              }
+                              else if (get<2>(arg) && predefinedTypes.count(type_str)) {
+                                ve = (VarEntry*) table->lookup(get<0>(arg), fe->def_scope);
+                                refs.push_back({
+                                  $3->namedArgs[get<0>(arg)]->addr,
+                                  "lastbase[" + to_string(ve->offset) + "]"
+                                });
+                              }
+
                               $3->keywords.erase(get<0>(arg));
 
                               tac->gen("param " + $3->namedArgs[get<0>(arg)]->addr);
@@ -1653,6 +1689,11 @@
                               "call " + $$->addr + " " + fe->addr + " " + 
                               to_string(fe->args.size())
                             );
+                          }
+
+                          // Realizamos las asignaciones por referencia correspondientes.
+                          for (pair<string, string> assign : refs) {
+                            tac->gen("assign " + assign.first + " " + assign.second);
                           }
 
                           if (type->toString() == "Bool") {
@@ -2555,11 +2596,16 @@
                 table->offsets.pop_back();
 
                 tac->gen("@label " + $1->addr + "_end");
-                tac->backpatch($1->nextlist, $1->addr + "_end");
-
                 if ($3 != NULL) {
                   tac->backpatch($3->nextlist, $1->addr + "_end");
                 }
+                tac->gen("assign lastbase base");
+                tac->gen("@endfunction");
+
+                tac->gen("@label " + $1->addr + "_out");
+                tac->backpatch($1->nextlist, $1->addr + "_out");
+
+
               }
             ; 
 
@@ -2670,7 +2716,7 @@
                   $$->nextlist = {tac->instructions.size()};
                   tac->gen("goto _");
                   $$->addr = fe->addr;
-                  tac->gen("@label " + $$->addr);
+                  tac->gen("@function " + $$->addr);
                 }
               }
             ;

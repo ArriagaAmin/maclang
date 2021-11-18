@@ -324,6 +324,7 @@
     this->type = type;
     this->is_lvalue = true;
     this->is_lit = false;
+    this->is_var= true;
   }
   void NodeID::printTree(vector<bool> *identation) {
     cout << "ID: \033[1;3m" << this->id << "\033[0m\n";
