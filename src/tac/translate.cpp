@@ -135,7 +135,7 @@ string CodeBlock::FindFreeRegister()
     return "";
 }
 
-string CodeBlock::RecycleRegister(string instruction)
+string CodeBlock::RecycleRegister(T_Instruction instruction)
 {
     // Vamos a recorrer todos los registros e ir verificando cual es el mas viable
     // para reciclar y utilizarlo
@@ -149,7 +149,7 @@ string CodeBlock::RecycleRegister(string instruction)
     
     for (pair<string, vector<string>> currentRegister : registersDescriptor) 
     {
-        bool isSafe = false;
+        //bool isSafe = false;
         int currentSpills = 0;
 
         vector<string> descriptor = currentRegister.second;
@@ -158,17 +158,23 @@ string CodeBlock::RecycleRegister(string instruction)
         {
             // Primero se verifica que el valor actual este en algun otro lado
             if(variablesDescriptor[element].size() > 1)
-                isSafe = true;
-            
-            if(isSafe)
-                break;
+                // Es seguro el registro
+                continue;
             
             // Verificar que el valor actual sea el resultado y si lo es que no sea operando
+            if(element.compare(instruction.result) && 
+                find(instruction.operators.begin(), instruction.operators.end(), element) != instruction.operators.end())
+                // Es seguro el registro
+                continue;
 
             // Verificar que el valor actual no tenga usos posteriores
 
             // Si aun este registro no es seguro
-            instructions.push_back("sw " + element + ", " + currentRegister.first);
+            text.push_back("sw " + element + ", " + currentRegister.first);
+
+            // Mantener descriptores
+            Availability(element, element);
+            
             currentSpills += 1;
         }
 
@@ -188,97 +194,106 @@ string CodeBlock::RecycleRegister(string instruction)
     return bestReg;
 }
 
-vector<string> CodeBlock::GetReg(string instruction)
+vector<string> CodeBlock::GetReg(T_Instruction instruction, bool isCopy)
 {
-    // Depende de la instruccion la forma en la que se escogen los registros
     vector<string> registers;
-    
-    string op = "y"; //Placeholder
 
-    // Primero se verifica que el operando este guardada en algun registro
-    string reg = FindElementInDescriptors(registersDescriptor, op);
-    if(!reg.empty())
-        registers.push_back(reg);
-    
-    // Si no estaba en un registro verificamos si hay registros libres
-    reg = FindFreeRegister();
+    for (string currentOp : instruction.operators)
+    {
+        // Primero se verifica que el operando este guardada en algun registro
+        string reg = FindElementInDescriptors(registersDescriptor, currentOp);
+        if(!reg.empty())
+        {
+            registers.push_back(reg);
+            continue;
+        }
+        
+        // Si no estaba en un registro verificamos si hay registros libres
+        reg = FindFreeRegister();
 
-    if(!reg.empty())
+        if(!reg.empty())
+        {
+            registers.push_back(reg);
+            continue;
+        }
+        
+        // Si no se cumple nada los casos simples, pasamos a los casos complejos
+        // No hay registros disponibles y el operando no esta en ninguno
+        reg = RecycleRegister(instruction);
         registers.push_back(reg);
+    }
     
-    // Si no se cumple nada los casos simples, pasamos a los casos complejos
-    // No hay registros disponibles y el operando no esta en ninguno
-    reg = RecycleRegister(instruction);
-    registers.push_back(reg);
+    bool resultRegAdded = false;
+
+    // Ahora se escoge el registro para el resultado
+    if(isCopy)
+    {
+        string resultReg = registers[0];
+        registers.insert(registers.begin(), resultReg);
+        resultRegAdded = true;
+    }
+
+    if(!resultRegAdded)
+    {
+        // Buscar registro que SOLO contenga al resultado
+        string reg = FindElementInDescriptors(registersDescriptor, instruction.result);
+        if(!reg.empty())
+        {
+            if(GetRegisterDescriptor(reg).size() < 2)
+            {
+                registers.insert(registers.begin(), reg);
+                resultRegAdded = true;
+            }
+        }
+    }
+
+    // Si los operandos no tienen usos posteriores se usa alguno de esos registros
     
     return registers;
 }
 
-void CodeBlock::Translate(string instruction)
+void CodeBlock::Translate(T_Instruction instruction)
 {
-    // Por ahora simplemente se hara un esbozo de los tipos de traducciones
+    // Verificamos si es una instruccion de copia para luego actualizar los descriptores
+    bool isCopy = instruction.name.compare("assign") ? true : false;
     
-    /* ---------- Operaciones generales x := y + z ----------- */
-    // Placeholders
-    string result = "x";
-    string op1 = "y";
-    string op2 = "z";
-    vector<string> currentRegisters = GetReg(instruction);
+    vector<string> opRegisters = GetReg(instruction, isCopy);
+    int opIndex = 1;
 
-    // Verificamos para el primer operador
-    string firstRegister = currentRegisters[1];
-    vector<string> firstRegDescriptor = GetRegisterDescriptor(firstRegister);
-    if ( find(firstRegDescriptor.begin(), firstRegDescriptor.end(), op1) == firstRegDescriptor.end() )
+    for (string currentOp : instruction.operators)
     {
-        // Buscar el y' mas economico
-        string econLocation = FindOptimalLocation(GetVariableDescriptor(op1));
-        instructions.push_back("lw " + firstRegister + ", " + econLocation);
+        // Verificamos el operando
+        string currentReg = opRegisters[opIndex];
+        vector<string> regDescriptor = GetRegisterDescriptor(currentReg);
+        if ( find(regDescriptor.begin(), regDescriptor.end(), currentOp) != regDescriptor.end() )
+        {
+            // Buscar el y' mas economico
+            string econLocation = FindOptimalLocation(GetVariableDescriptor(currentOp));
+            text.push_back("lw " + currentReg + ", " + econLocation);
 
-        // Mantener descriptores
-        Assignment(firstRegister, op1, true);
-        Availability(op1, firstRegister);
-    }
+            // Mantener descriptores
+            Assignment(currentReg, currentOp, true);
+            Availability(currentOp, currentReg);
 
-    // Verificamos para el segundo operador
-    string secondRegister = currentRegisters[2];
-    vector<string> secondRegDescriptor = GetRegisterDescriptor(secondRegister);
-    if ( find(secondRegDescriptor.begin(), secondRegDescriptor.end(), op2) == secondRegDescriptor.end() )
-    {
-        // Buscar el z' mas economico
-        string econLocation = FindOptimalLocation(GetVariableDescriptor(op2));
-        instructions.push_back("lw " + secondRegister + ", " + econLocation);
-
-        // Mantener descriptores
-        Assignment(secondRegister, op2, true);
-        Availability(op2, secondRegister);
+            if(isCopy)
+            {
+                Assignment(currentReg, instruction.result);
+                Availability(instruction.result, currentReg, true);
+            }
+        }    
+        opIndex++;
     }
 
     // Emitir codigo dependiendo del operador
-    instructions.push_back("add " + currentRegisters[0] + ", " + firstRegister + ", " + secondRegister);
+    string emit = instTypes.at(instruction.name) + " ";
+    for (string reg : opRegisters)
+    {
+        emit += reg + ", ";
+    }
+    text.push_back(emit);
 
     // Mantener descriptor
-    Assignment(currentRegisters[0], result, true);
-    Availability(result, currentRegisters[0], true);
-    RemoveElementFromDescriptors(variablesDescriptor, currentRegisters[0], result);
-
-    /* ---------- Operaciones de copia x := y ----------- */
-    op1 = "y";
-    vector<string> currentRegisters = GetReg(instruction);
-    string copyRegister = currentRegisters[1];
-    vector<string> copyDescriptor = GetRegisterDescriptor(copyRegister);
-    if ( find(copyDescriptor.begin(), copyDescriptor.end(), op1) == firstRegDescriptor.end() )
-    {
-        // Buscar el y' mas economico
-        string econLocation = FindOptimalLocation(GetVariableDescriptor(op1));
-        instructions.push_back("lw " + firstRegister + ", " + econLocation);
-
-        // Mantener descriptores
-        Assignment(copyRegister, op1, true);
-        Availability(op1, copyRegister);
-
-        Assignment(copyRegister, result);
-        Availability(result, copyRegister, true);
-    }
-
-
+    Assignment(opRegisters[0], instruction.result, true);
+    Availability(instruction.result, opRegisters[0], true);
+    RemoveElementFromDescriptors(variablesDescriptor, opRegisters[0], instruction.result);
 }
