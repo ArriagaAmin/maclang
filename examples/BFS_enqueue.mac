@@ -1,10 +1,10 @@
-while ! Queue_empty(q) do 
-	n = Queue_pop(q);
+while ! NodeQueue_empty(q) do 
+	n = NodeQueue_pop(q);
 	Hash_lookup(h, ^(^n.parent).ID, d);
 	Hash_put(h, ^n.ID, d+1);
 
 	i = 0;
 	while i < ^(^n.childs).size do 
-		Queue_push(q, List_get(^n.childs, i));
+		NodeQueue_push(q, List_get(^n.childs, i));
 	done 
 done

@@ -1,0 +1,34 @@
+execonce "Math.mac";
+execonce "String.mac";
+
+let Int LINE_SIZE = 512;
+let Int INT_SIZE = 16;
+
+let Char[LINE_SIZE] result, input;
+let Char[INT_SIZE] nstr, factstr;
+let Int n, fact;
+let Bool rec;
+
+while True do 
+	print("Indique el numero entero no negativo: ");
+	read(input);
+	n = stoi(input);
+	print("El metodo para calcular el factorial debe ser iterativo? [Y/n] ");
+	read(input);
+	rec = strcmp(input, "n") == 0 || strcmp(input, "N") == 0;
+
+	if rec then fact = factRec(n);
+	else fact = factIter(n);
+	done 
+
+	itos(nstr, n);
+	itos(factstr, fact);
+	strconc([nstr, "! = ", factstr, nl], 4, result);
+	print(result);
+
+	print("Desea calcular otro factorial? [Y/n] ");
+	read(input);
+	if strcmp(input, "n") == 0 || strcmp(input, "N") == 0 then 
+		print("Hasta luego!");
+	done 
+done

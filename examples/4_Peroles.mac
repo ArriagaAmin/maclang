@@ -1,0 +1,149 @@
+execonce "String.mac";
+
+union perolValue {
+	Bool b;
+	Char c;
+	Int i;
+	Float f;
+}
+
+register Perol {
+	Int tipo;
+	perolValue val;
+}
+
+dec holandSort(Perol[] peroles, Int N);
+
+let Int LINE_SIZE = 512;
+
+let Perol[20] peroles;
+let Char[LINE_SIZE] buffer;
+let Int N, i;
+
+
+while True do 
+	print("Desea organizar los peroles? [Y\n] ");
+	read(buffer);
+	if strcmp(buffer, "n") == 0 || strcmp(buffer, "N") == 0 then 
+		print("Hasta luego!");
+	done 
+
+	print("Indique el numero de peroles a organizar: ");
+	read(buffer);
+	N = stoi(buffer);
+
+	if N > 20 then 
+		print("No se pueden organizar mas de 20 peroles.");
+		print(nl);
+		continue;
+	done
+
+	i = 0;
+	while i < N do 
+		print("Indique el tipo del perol: ");
+		print(nl);
+		print("1. Booleano");
+		print(nl);
+		print("2. Caracter");
+		print(nl);
+		print("3. Entero");
+		print(nl);
+		print("4. De punto flotante");
+		print(nl);
+		read(buffer);
+		N = stoi(buffer);
+		peroles[i].tipo = N;
+
+		if N == 1 then 
+			print("El valor del perol es True? [Y/n] ");
+			read(buffer);
+			peroles[i].val.b = strcmp(buffer, "n") == 0 || strcmp(buffer, "N") == 0;
+
+		elsif N == 2 then 
+			print("Indique el caracter: ");
+			read(buffer);
+			peroles[i].val.c = buffer[0];
+
+		elsif N == 3 then 
+			print("Indique el entero: ");
+			read(buffer);
+			peroles[i].val.i = stoi(buffer);
+
+		elsif N == 4 then 
+			print("Indique el flotante: ");
+			read(buffer);
+			peroles[i].val.f = stof(buffer);
+
+		else 
+			print("Tipo invalido");
+			print(nl);
+			i = i - 1;
+		done 
+		i = i + 1;
+	done
+
+	holandSort(peroles, N);
+
+	print(nl);
+	print("Imprimimos los peroles ordenados:");
+	print(nl);
+	i = 0;
+	while i < N do 
+		if peroles[i].tipo == 1 then 
+			print("BOOL: ");
+			if peroles[i].val.b then print("True"); done
+			print("False");
+
+		elsif peroles[i].tipo == 2 then 
+			print("CHAR: ");
+			print([peroles[i].val.c]);
+
+		elsif peroles[i].tipo == 3 then 
+			print("INT: ");
+			itos(buffer, peroles[i].val.i);
+			print(buffer);
+
+		else 
+			print("FLOAT: ");
+			ftos(buffer, peroles[i].val.f);
+			print(buffer);
+		done 
+
+		print(nl);
+		i = i + 1;	
+	done
+done
+
+
+def holandSort(Perol[] peroles, Int N) {
+	let Int l = 0, m = 0, r = N-1;
+	let Perol aux;
+
+	while m <= r do 
+		if peroles[m].tipo == 1 then 
+			aux = peroles[m];
+			peroles[m] = peroles[l];
+			peroles[l] = aux;
+			l = l + 1;
+			m = m + 1;
+		elsif peroles[m].tipo == 4 then 
+			aux = peroles[m];
+			peroles[m] = peroles[r];
+			peroles[r] = aux;
+			r = r - 1;
+		else 
+			m = m + 1;
+		done
+	done  
+
+	while l <= r do 
+		if peroles[l].tipo == 2 then 
+			l = l + 1;
+		else
+			aux = peroles[l];
+			peroles[l] = peroles[r];
+			peroles[r] = aux;
+			r = r - 1;
+		done
+	done
+}

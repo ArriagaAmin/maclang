@@ -95,6 +95,7 @@
 "=>"                          { return RIGHT_ARROW; }
 "return"                      { return RETURN; }
 "break"                       { return BREAK; }
+"continue"                    { return CONTINUE; }
 "exit"                        { return EXIT; }
 "exec"                        { return EXEC; }
 "execonce"                    { return EXECONCE; }
@@ -107,7 +108,21 @@
                               }
 [\t]                          { yycolumn++; /* ignore tab */ }
 [ ]                           { /* ignore whitespace */ }
-\'.\'                         { yylval.ch = yytext[1]; return CHAR; }
+
+
+\'.\'                         { yylval.integer = yytext[1]; return CHAR; }
+\'\\\'\'                      { yylval.integer = '\'';      return CHAR; }
+\'\\\"\'                      { yylval.integer = '"' ;      return CHAR; }
+\'\\\\\'                      { yylval.integer = '\\';      return CHAR; }
+\'\\a\'                       { yylval.integer = '\a';      return CHAR; }
+\'\\b\'                       { yylval.integer = '\b';      return CHAR; }
+\'\\f\'                       { yylval.integer = '\f';      return CHAR; }
+\'\\n\'                       { yylval.integer = '\n';      return CHAR; }
+\'\\r\'                       { yylval.integer = '\r';      return CHAR; }
+\'\\t\'                       { yylval.integer = '\t';      return CHAR; }
+\'\\v\'                       { yylval.integer = '\v';      return CHAR; }
+\'\\([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\' { yylval.integer = atoi(&yytext[2]); return CHAR; }
+
 \"(?:[^"\\\n]|\\.)*\"         { return STRING; }
 \n                            { yycolumn = 1; /* ignore new line characters */ } 
 .                             { 

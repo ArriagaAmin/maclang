@@ -27,6 +27,9 @@
 
   // Predefined Types 
   extern map<string, Type*> predefinedTypes;
+
+  // Crea las funciones y variables del scope0.
+  void scope0(void);
   
   // Indica si nos encontramos en la ejecucion principal.
   bool __main__ = true;
@@ -52,7 +55,6 @@
   int                                   integer;
   float                                 flot;
   bool                                  boolean;
-  char                                  ch;
   string                                *str;
   Node                                  *ast;
   NodeS                                 *nS;
@@ -97,6 +99,7 @@
 %token STRUCTURE
 %token FORGET 
 %token BREAK
+%token CONTINUE
 %token EXIT
 %token IF 
 %token THEN 
@@ -117,7 +120,7 @@
 
 %token <integer>  INT
 %token <flot>     FLOAT 
-%token <ch>       CHAR
+%token <integer>  CHAR
 %token <str>      STRING 
 %token <boolean>  TRUE 
 %token <boolean>  FALSE
@@ -227,6 +230,17 @@
               }
               else {
                 tac->breaklist.top().push_back(tac->instructions.size());
+                tac->gen("goto _");
+              }
+              $$ = NULL;
+            }
+          | CONTINUE SEMICOLON
+            {
+              if (tac->continuelist.size() == 0) {
+                addError("Continue instruction must be use in loops.");
+              }
+              else {
+                tac->continuelist.top().push_back(tac->instructions.size());
                 tac->gen("goto _");
               }
               $$ = NULL;
@@ -414,10 +428,10 @@
                   }
                 }
 
-              | Exp ASSIGNMENT Exp 
+              | Exp M ASSIGNMENT Exp 
                 { 
                   string ltype = $1->type->toString();
-                  string rtype = $3->type->toString();
+                  string rtype = $4->type->toString();
 
                   if (ltype == "$Error" || rtype == "$Error") {
                     $$ = NULL;
@@ -437,19 +451,24 @@
                   } 
 
                   else {
-                    $$ = new NodeAssign($1, $3);
+                    $$ = new NodeAssign($1, $4);
 
                     if (rtype != "Bool") {
                       // Si el rtype no es booleano, se hace la asignacion comun.
-                      tac->gen("assign " + $1->addr + " " + $3->addr);
+                      tac->gen("assign " + $1->addr + " " + $4->addr);
                     }
                     else {
+                      // Eliminamos las dos instrucciones que debieron haber surgido por 
+                      // tener un lvalue booleano.
+                      tac->instructions[$2 - 2] = "";
+                      tac->instructions[$2 - 1] = "";
+
                       // En caso contrario hay que usar backpatching para realizar una
                       // asignacion del booleano.
 
                       // Aplicamos backpatching sobre la truelist para realizar la 
                       // asignacion de True, y luego saltamos la asignaicon de False.
-                      tac->backpatch($3->truelist, tac->instructions.size());
+                      tac->backpatch($4->truelist, tac->instructions.size());
                       tac->gen("assign " + $1->addr + " True");
                       string label = "Bool" + to_string(tac->instructions.size() + 2);
                       tac->gen("goto " + label);
@@ -457,7 +476,7 @@
                       // Aplicamos backpatching sobre la falselist para realizar la 
                       // asignacion de False, y luego creamos la etiqueta de salto de la
                       // asignacion a True.
-                      tac->backpatch($3->falselist, tac->instructions.size());
+                      tac->backpatch($4->falselist, tac->instructions.size());
                       tac->gen("assign " + $1->addr + " False");
                       tac->gen("@label " + label);
                     }
@@ -665,9 +684,9 @@
               $$ = predefinedTypes["$Error"];
             } 
             else {
-              NodeINT *size = new NodeINT(0);
+              NodeINT *size = new NodeINT(1);
               size->addr = tac->newTemp();
-              tac->gen("assign " + size->addr + " 0");
+              tac->gen("assign " + size->addr + " 1");
               $$ = new ArrayType($1, size);
               $$->danger = $1->danger;
               $$->incomplete = $1->incomplete;
@@ -739,7 +758,7 @@
           }
 
   Exp   : 
-          Exp EQUIV W Exp 
+        Exp EQUIV W Exp 
           { 
             // Verificamos que los tipos coinciden con la operacion
             Type *t1 = $1->type;
@@ -1109,7 +1128,7 @@
                 string t = tac->newTemp();
                 $$->addr = tac->newTemp();
                 tac->gen("mult " + $$->addr + " " + $3->addr + " " + to_string(type->width));
-                tac->gen("assign " + $$->addr + " " + $1->addr + "[" + $$->addr + "]");
+                $$->addr = $1->addr + "[" + $$->addr + "]";
 
                 // Si el tipo base es booleano, aplicamos el backpatching correspondiente.
                 if (type->toString() == "Bool") {
@@ -1146,6 +1165,14 @@
               // La desreferenciacion es equivalente al acceso de memoria sin 
               // desplazamiento
               $$->addr = $2->addr + "[0]";
+
+              // Si el tipo base es booleano, aplicamos el backpatching correspondiente.
+                if (type->toString() == "Bool") {
+                  $$->truelist = {tac->instructions.size()};
+                  tac->gen("goif _ " + $$->addr);
+                  $$->falselist = {tac->instructions.size()};
+                  tac->gen("goto _");
+                }
             }
           }
 
@@ -1273,10 +1300,10 @@
             }
           }
 
-        | OPEN_PAR Exp ASSIGNMENT Exp CLOSE_PAR         
+        | OPEN_PAR Exp M ASSIGNMENT Exp CLOSE_PAR         
             { 
               string ltype = $2->type->toString();
-              string rtype = $4->type->toString();
+              string rtype = $5->type->toString();
 
               // Verificamos que alguna de las expresiones no sea erronea.
               if (ltype == "$Error" || rtype == "$Error") {
@@ -1302,29 +1329,35 @@
               } 
               
               else {
-                $$ = new NodeAssign($2, $4); 
-                $$->type = $4->type;
+                $$ = new NodeAssign($2, $5); 
+                $$->type = $5->type;
 
                 if (rtype != "Bool") {
                   // Si la expresion no es booleana, se realiza la asignacion al L-Value
                   // y a la expresion que retorna la asignacion.
                   $$->addr = tac->newTemp();
-                  tac->gen("assign " + $2->addr + " " + $4->addr);
-                  tac->gen("assign " + $$->addr + " " + $4->addr);
+                  tac->gen("assign " + $2->addr + " " + $5->addr);
+                  tac->gen("assign " + $$->addr + " " + $5->addr);
                 }
                 else {
+                  // Eliminamos las dos instrucciones que debieron haber surgido por 
+                  // tener un lvalue booleano.
+                  tac->instructions[$3 - 2] = "";
+                  tac->instructions[$3 - 1] = "";
+
                   // En caso contrario tenemos que usar backpatching para hacer la 
                   // asignacion correspondiente.
-                  tac->backpatch($4->truelist, tac->instructions.size());
+                  tac->backpatch($5->truelist, tac->instructions.size());
                   tac->gen("assign " + $2->addr + " True");
                   $$->truelist = {tac->instructions.size()};
                   tac->gen("goto _");
 
-                  tac->backpatch($4->falselist, tac->instructions.size());
+                  tac->backpatch($5->falselist, tac->instructions.size());
                   tac->gen("assign " + $2->addr + " False");
                   $$->falselist = {tac->instructions.size()};
                   tac->gen("goto _");
                 }
+
               }
             }
 
@@ -1352,7 +1385,8 @@
           { 
             $$ = new NodeCHAR($1);
             $$->addr = tac->newTemp();
-            tac->gen("assign " + $$->addr + " '" + $1 + "'"); 
+            int c = $1;
+            tac->gen("assign " + $$->addr + " " + to_string(c)); 
           }
 
         | INT
@@ -1574,15 +1608,15 @@
                                 correctTypes = false;
                               }
 
-                              if (! $3->positionalArgs[i]->is_var && get<2>(arg)) {
+                              if (! $3->positionalArgs[i]->is_lvalue && get<2>(arg)) {
                                 addError(
                                   "Argument '\033[1;3m" + get<0>(arg) + 
-                                  "\033[0m' " + "is passed by reference, but a variable "
+                                  "\033[0m' " + "is passed by reference, but a L-Value "
                                   "was not passed."
                                 );
                                 correctTypes = false;
                               }
-                              else if (get<2>(arg) && predefinedTypes.count(type_str)) {
+                              else if (get<2>(arg)) {
                                 ve = (VarEntry*) table->lookup(get<0>(arg), fe->def_scope);
                                 refs.push_back({
                                   $3->positionalArgs[i]->addr,
@@ -1607,15 +1641,15 @@
                                 correctTypes = false;
                               }
 
-                              if (! $3->namedArgs[get<0>(arg)]->is_var && get<2>(arg)) {
+                              if (! $3->namedArgs[get<0>(arg)]->is_lvalue && get<2>(arg)) {
                                 addError(
                                   "Argument '\033[1;3m" + get<0>(arg) + 
-                                  "\033[0m' " + "is passed by reference, but a variable "
+                                  "\033[0m' " + "is passed by reference, but a L-Value "
                                   "was not passed."
                                 );
                                 correctTypes = false;
                               }
-                              else if (get<2>(arg) && predefinedTypes.count(type_str)) {
+                              else if (get<2>(arg)) {
                                 ve = (VarEntry*) table->lookup(get<0>(arg), fe->def_scope);
                                 refs.push_back({
                                   $3->namedArgs[get<0>(arg)]->addr,
@@ -2439,13 +2473,17 @@
                   tac->backpatch($6->nextlist, *$2);
                 }
                 tac->backpatch($3->truelist, $4);
-                $$->nextlist = $3->falselist;
+                $$->nextlist = merge<unsigned long long>(
+                  $3->falselist, 
+                  tac->breaklist.top()
+                );
+                tac->breaklist.pop();
 
                 tac->gen("goto " + *$2);
 
-                // Parcheamos los breaks encontrados.
-                tac->backpatch(tac->breaklist.top(), *$2);
-                tac->breaklist.pop();
+                // Parcheamos los continues encontrados.
+                tac->backpatch(tac->continuelist.top(), *$2);
+                tac->continuelist.pop();
                 
                 table->exitScope();
               }
@@ -2455,6 +2493,7 @@
               { 
                 tac->to_free.push({});
                 tac->breaklist.push({});
+                tac->continuelist.push({});
                 table->newScope(); 
               }
             ;
@@ -2464,8 +2503,18 @@
                 $$ = new NodeFor($1, $3);
 
                 if ($3 != NULL) {
-                  tac->backpatch($3->nextlist, tac->instructions.size());
+                  tac->backpatch(
+                    merge<unsigned long long>(
+                      $3->nextlist, 
+                      tac->continuelist.top()
+                    ), 
+                    tac->instructions.size()
+                  );
                 }
+                else {
+                  tac->backpatch(tac->continuelist.top(), tac->instructions.size());
+                }
+                tac->continuelist.pop();
 
                 // Liberamos la memoria reservada automaticamente en el scope.
                 for (pair<Type*, string> mem : tac->to_free.top()) {
@@ -2549,6 +2598,7 @@
 
                 tac->to_free.push({});
                 tac->breaklist.push({});
+                tac->continuelist.push({});
                 table->newScope();
               }
             ;
@@ -2565,7 +2615,7 @@
 
 
 /* ======================= SUBROUTINES DEFINITION ==================== */
-  RoutDef   : RoutSign OPEN_C_BRACE Actions CLOSE_C_BRACE   
+  RoutDef   : RoutSign M OPEN_C_BRACE Actions CLOSE_C_BRACE   
               { 
                 if ($1->is_error) {
                   NodeError *err = (NodeError*) $1;
@@ -2579,26 +2629,30 @@
                 } 
 
                 else {
-
-                  // Liberamos la memoria reservada automaticamente en el scope.
-                  for (pair<Type*, string> mem : tac->to_free.top()) {
-                    freeCompound(mem.first, mem.second);
-                  }
-                  tac->to_free.pop();
-
-                  $$ = new NodeRoutineDef($1, $3); 
+                  $$ = new NodeRoutineDef($1, $4); 
                   
                   table->exitScope();
                   table->exitScope();
                 }
 
                 table->ret_type = "";
+                tac->backpatch(
+                  {(unsigned long long) $2 - 1}, 
+                  to_string(table->offsets.back())
+                );
                 table->offsets.pop_back();
 
                 tac->gen("@label " + $1->addr + "_end");
-                if ($3 != NULL) {
-                  tac->backpatch($3->nextlist, $1->addr + "_end");
+                if ($4 != NULL) {
+                  tac->backpatch($4->nextlist, $1->addr + "_end");
                 }
+
+                // Liberamos la memoria reservada automaticamente en el scope.
+                for (pair<Type*, string> mem : tac->to_free.top()) {
+                  freeCompound(mem.first, mem.second);
+                }
+                tac->to_free.pop();
+
                 tac->gen("assign lastbase base");
                 tac->gen("@endfunction");
 
@@ -2716,7 +2770,7 @@
                   $$->nextlist = {tac->instructions.size()};
                   tac->gen("goto _");
                   $$->addr = fe->addr;
-                  tac->gen("@function " + $$->addr);
+                  tac->gen("@function " + $$->addr + " _");
                 }
               }
             ;
@@ -3007,18 +3061,20 @@
 /* ======================= SUBROUTINES DECLARATION =================== */
   RoutDec   : DecId OPEN_PAR RoutArgs CLOSE_PAR OptReturn 
               {
+                int s1 = table->currentScope();
                 table->exitScope();
 
                 if ($3 != NULL && *$1 != "" && $5->toString() != "$Error") {
-                  int s = table->currentScope();
+                  int s2 = table->currentScope();
                   FunctionDeclarationEntry *e = new FunctionDeclarationEntry(
                     *$1, 
-                    s,
+                    s2,
                     "Declaration",
                     $3->params,
                     $5
                   );
                   e->addr = "";
+                  e->def_scope = s1; 
                   table->insert(e);
                 }
                 
@@ -3037,49 +3093,11 @@
 %%
 
 int main(int argc, char **argv) {
-  FunctionEntry *fe;
   // Booleans for options
   bool bLexOpt, bParseOpt, bSymbolsOpt, bTACOpt;
 
-  // Adding scope 0 elements.
-  vector<string> primitives = {"Unit", "Bool", "Char", "Int", "Float", "String"};
-  for (string t : primitives) {
-    table->insert(new PrimitiveEntry(t));
-  }
-
-  // Adding "read" function.
-  fe = new FunctionEntry("read", 0, "Function");
-  fe->return_type = new ArrayType(predefinedTypes["Char"], new NodeINT(1), true);
-  fe->addr = "READ";
-  fe->def_scope = 0;
-  table->insert(fe);
-
-  // Adding "print" function.
-  fe = new FunctionEntry("print", 0, "Function");
-  fe->args.push_back({"text", "(Char)[]", false, NULL});
-  fe->return_type = predefinedTypes["Unit"];
-  fe->addr = "PRINT";
-  fe->def_scope = 0;
-  table->insert(fe);
-
-  // Adding integer to string function.
-  fe = new FunctionEntry("itos", 0, "Function");
-  fe->args.push_back({"n", "Int", false, NULL});
-  fe->return_type = new ArrayType(predefinedTypes["Char"], new NodeINT(1), true);
-  fe->addr = "ITOS";
-  fe->def_scope = 0;
-  table->insert(fe);
-
-  // Constants
-  table->insert(new VarEntry(
-    "CHARNUL", 
-    0, 
-    "Var", 
-    predefinedTypes["Char"], 
-    -1,
-    "CHARNUL"
-  ));
-
+  // Creamos las entradas del scope 0
+  scope0();
 
   // Verify all arguments has been passed
   if (argc != 3) {
@@ -3166,4 +3184,91 @@ int main(int argc, char **argv) {
   }
 
   return 0;
+}
+
+void scope0(void) {
+  // Basic Types.
+  vector<string> primitives = {"Unit", "Bool", "Char", "Int", "Float", "String"};
+  for (string t : primitives) {
+    table->insert(new PrimitiveEntry(t));
+  }
+
+  // FUNCTIONS.
+  FunctionEntry *fe;
+
+  // Adding "read" function.
+  fe = new FunctionEntry("read", 0, "Function");
+  fe->args.push_back({"text", "(Char)[]", false, NULL});
+  fe->return_type = predefinedTypes["Unit"];
+  fe->addr = "READ";
+  fe->def_scope = 0;
+  table->insert(fe);
+
+  // Adding "print" function.
+  fe = new FunctionEntry("print", 0, "Function");
+  fe->args.push_back({"text", "(Char)[]", false, NULL});
+  fe->return_type = predefinedTypes["Unit"];
+  fe->addr = "PRINT";
+  fe->def_scope = 0;
+  table->insert(fe);
+
+  // Adding integer to string function.
+  fe = new FunctionEntry("itos", 0, "Function");
+  fe->args.push_back({"text", "(Char)[]", false, NULL});
+  fe->args.push_back({"n", "Int", false, NULL});
+  fe->return_type = predefinedTypes["Unit"];
+  fe->addr = "ITOS";
+  fe->def_scope = 0;
+  table->insert(fe);
+
+  // Adding float to string function.
+  fe = new FunctionEntry("ftos", 0, "Function");
+  fe->args.push_back({"text", "(Char)[]", false, NULL});
+  fe->args.push_back({"n", "Float", false, NULL});
+  fe->return_type = predefinedTypes["Unit"];
+  fe->addr = "FTOS";
+  fe->def_scope = 0;
+  table->insert(fe);
+
+  // Adding string to integer function.
+  fe = new FunctionEntry("stoi", 0, "Function");
+  fe->args.push_back({"text", "(Char)[]", false, NULL});
+  fe->return_type = predefinedTypes["Int"];
+  fe->addr = "STOI";
+  fe->def_scope = 0;
+  table->insert(fe);
+
+  // Adding float to integer function.
+  fe = new FunctionEntry("ftoi", 0, "Function");
+  fe->args.push_back({"n", "Float", false, NULL});
+  fe->return_type = predefinedTypes["Int"];
+  fe->addr = "FTOI";
+  fe->def_scope = 0;
+  table->insert(fe);
+
+  // Adding char to integer function.
+  fe = new FunctionEntry("ctoi", 0, "Function");
+  fe->args.push_back({"c", "Char", false, NULL});
+  fe->return_type = predefinedTypes["Int"];
+  fe->addr = "CTOI";
+  fe->def_scope = 0;
+  table->insert(fe);
+
+  // Adding string to float function.
+  fe = new FunctionEntry("stof", 0, "Function");
+  fe->args.push_back({"text", "(Char)[]", false, NULL});
+  fe->return_type = predefinedTypes["Float"];
+  fe->addr = "STOF";
+  fe->def_scope = 0;
+  table->insert(fe);
+
+  // Adding integer to float function.
+  fe = new FunctionEntry("itof", 0, "Function");
+  fe->args.push_back({"n", "Int", false, NULL});
+  fe->return_type = predefinedTypes["Float"];
+  fe->addr = "ITOF";
+  fe->def_scope = 0;
+  table->insert(fe);
+
+  // VARIABLES
 }

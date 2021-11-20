@@ -1,0 +1,51 @@
+execonce "String.mac";
+
+let Int LINE_SIZE = 1024;
+
+let Char[LINE_SIZE] buffer;
+let Int N;
+
+dec abs(Int n) => Int;
+dec par(Int n) => Bool;
+dec impar(Int n) => Bool;
+
+while True do 
+	print("Desea determinar la paridad de un numero? [Y/n] ");
+	read(buffer);
+	if strcmp(buffer, "n") == 0 || strcmp(buffer, "N") == 0 then 
+		print("Gracias por usar nuestros utiles servicios de calidad!");
+	done 
+
+	print("Indique el numero: ");
+	read(buffer);
+	N = abs(stoi(buffer));
+
+	if par(N) then 
+		print("El numero es par! Quien lo diria?");
+		print(nl);
+	else 
+		print("Wow! El numero es impar, no me lo esperaba.");
+		print(nl);
+	done 
+done
+
+
+def abs(Int n) => Int {
+	if n < 0 then return -n;
+	else return n;
+	done 
+}
+
+def par(Int n) => Bool {
+	if n == 0 then return True;
+	elsif n == 1 then return False; 
+	else return impar(n-1);
+	done
+}
+
+def impar(Int n) => Bool {
+	if n == 0 then return False;
+	elsif n == 1 then return True; 
+	else return par(n-1);
+	done
+}

@@ -29,8 +29,9 @@ void createTypeGraph(void) {
   };
   binaryOpGraph["&&"] = binaryOpGraph["||"];
 
-  // Comparacion numerica,
+  // Ordenamiento,
   binaryOpGraph["<"]  = {
+    {{"Char", "Char"},    predefinedTypes["Bool"]},
     {{"Int", "Int"},      predefinedTypes["Bool"]},
     {{"Float", "Float"},  predefinedTypes["Bool"]},
     {{"Int", "Float"},    predefinedTypes["Bool"]},

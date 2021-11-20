@@ -3,15 +3,11 @@ execonce "String.mac";
 register Hash_entry {
 	^Hash_entry next;
 	String ID;
-	Int value;
+	Float value;
 }
 
 let ^Hash_entry HashNULL = new Hash_entry;
-^HashNULL.ID = [CHARNUL];
-
-def char2int(Char c) => Int {
-	return 0;
-}
+^HashNULL.ID = ['\0'];
 
 register Hash {
 	^((^Hash_entry)[]) table;
@@ -39,7 +35,7 @@ def Hash_destroy(^Hash h) {
 	let Int i = 0;
 	while i < ^h.size do 
 		he = ^(^h.table)[i];
-		while ! strcmp(^he.ID, STRNUL) do 
+		while strcmp(^he.ID, STRNUL) != 0 do 
 			he_aux = ^he.next;
 			forget he;
 			he = he_aux;
@@ -53,18 +49,18 @@ def Hash_destroy(^Hash h) {
 def Hash_value(^Hash h, String s) => Int {
 	let Int val = 0, i = 0;
 
-	while s[i] != CHARNUL do 
-		val = char2int(s[i]) + val * ^h.hash_val ;
+	while s[i] != '\0' do 
+		val = ctoi(s[i]) + val * ^h.hash_val ;
 	done
 
 	return val % ^h.size;
 }
 
-def Hash_lookup(^Hash h, String s, Int@ result) => Bool {
+def Hash_lookup(^Hash h, String s, Float@ result) => Bool {
 	let ^Hash_entry he = ^(^h.table)[Hash_value(h, s)];
 
-	while ^he.ID[0] != CHARNUL do 
-		if strcmp(^he.ID, s) then 
+	while ^he.ID[0] != '\0' do 
+		if strcmp(^he.ID, s) == 0 then 
 			result = ^he.value;
 			return True;
 		else he = ^he.next;
@@ -74,11 +70,12 @@ def Hash_lookup(^Hash h, String s, Int@ result) => Bool {
 	return False;
 }
 
-def Hash_put(^Hash h, String s, Int n) {
+def Hash_put(^Hash h, String s, Float n) {
 	let ^Hash_entry he;
 	let Int hashval;
+	let Float f;
 
-	if Hash_lookup(h, s, hashval) then
+	if Hash_lookup(h, s, f) then
 		he = new Hash_entry;
 		hashval = Hash_value(h, s);
 		^he.next = ^(^h.table)[hashval];
@@ -91,13 +88,15 @@ def Hash_put(^Hash h, String s, Int n) {
 def Hash_print(^Hash h) {
 	let Int i = 0;
 	let ^Hash_entry he;
+	let Char[32] fstr;
 
 	while i < ^h.size do 
 		he = ^(^h.table)[i];
-		while ^he.ID[0] != CHARNUL do 
+		while ^he.ID[0] != '\0' do 
 			print(^he.ID);
 			print(" => ");
-			print(itos(^he.value));
+			ftos(fstr, ^he.value);
+			print(fstr);
 			he = ^he.next;
 		done 
 		i = i + 1;

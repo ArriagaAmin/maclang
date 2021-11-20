@@ -1,18 +1,97 @@
 
-let String STRNUL = [CHARNUL];
+let String STRNUL = ['\0'];
+let String nl = ['\n'];
 
-def strlen(String S) => Int {
+def strlen(String S, Char c='\0') => Int {
 	let Int i = 0;
-	while S[i] != CHARNUL do i = i + 1; done 
+	while S[i] != c do i = i + 1; done 
 	return i;
 }
 
-def strcmp(String A, String B) => Bool {
+def strcmp(String A, String B) => Int {
 	let Int i = 0;
 
-	while A[i] != CHARNUL && A[i] == B[i] do 
+	while A[i] != '\0' && A[i] == B[i] do 
 		i = i + 1; 
 	done
 
-	return A[i] == CHARNUL && B[i] == CHARNUL;
+	if A[i] > B[i] then return 1;
+	elsif B[i] > A[i] then return -1;
+	else return 0;
+	done
+}
+
+def strcpy(String A, String B) {
+	let Int n = strlen(B) + 1;
+	let Int i = 0;
+
+	while i < n do 
+		A[i] = B[i];
+		i = i + 1;
+	done
+}
+
+def strconc(String[] S, Int N, String R) => String {
+	let Int i = 0, j = 0, k, n;
+	
+	while i < N do 
+		n = strlen(S[i]);
+		k = 0;
+
+		while k < n do 
+			R[j] = S[i][k];
+			k = k + 1;
+			j = j + 1;
+		done 
+
+		i = i + 1;
+	done 
+
+	R[j] = '\0';
+}
+
+def strtok(String S, String[] T, Char c) => Int {
+	let Int i = 0, j = 0, t = 0, N = strlen(S);
+	let Bool sep = True;
+
+	while S[i] != '\0' do 
+		if S[i] == c && ! sep then
+			sep = True;
+			T[t][j] = '\0';
+			t = t + 1;
+			j = 0;
+		elsif S[i] != c then 
+			sep = False;
+			T[t][j] = S[i];
+			j = j + 1;
+		done 
+		i = i + 1;
+	done
+
+	if ! sep then 
+		T[t][j] = '\0';
+		t = t + 1;
+	done
+
+	return t;
+}	
+
+def isFloat(String S) => Bool {
+	let Bool dot = False, decimal = False;
+	let Int N = strlen(S), i = 0;
+
+	while i < N do 
+		if S[i] == '.' && ! dot then 
+			dot = True;
+		elsif S[i] == '.' then 
+			return False; 
+		elsif S[i] < '0' || S[i] > '9' then 
+			return False;
+		elsif dot && ! decimal then 
+			decimal = True;
+		done 
+		i = i + 1;
+	done 
+
+	return dot && decimal;
 }

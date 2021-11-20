@@ -1,0 +1,343 @@
+execonce "String.mac";
+execonce "Hash.mac";
+
+let Int BUF_SIZE   = 33792;
+let Int N_TOKENS   = 1024; 
+let Int TOKEN_SIZE = 32;
+
+register E {
+	Char[TOKEN_SIZE] in;
+	Char[TOKEN_SIZE] out;
+}
+
+register ADR {
+	Char[TOKEN_SIZE][N_TOKENS] entry;
+	Int entryIndex = 0;
+	Int entrySize;
+	(^E)[N_TOKENS] stack;
+	Int stackIndex = 0;
+	Int l = -1;
+}
+
+# SYMBOLS TABLE
+let ^Hash table = Hash_init();
+let String abc = "abcdefghijklmnopqrstuvwxyz";
+let Int i = 0, N = strlen(abc);
+while i < N do 
+	Hash_put(table, [abc[i]], 0.0);
+done
+
+dec ADR_S(^ADR analyzer, String output);
+
+let Char[BUF_SIZE] buffer;
+let Char[TOKEN_SIZE] output;
+let Int tokens;
+let ^ADR analyzer = new ADR;
+
+while True do 
+	print("calc> ");
+	read(buffer);
+
+	if strcmp(buffer, "quit") == 0 then 
+		break;
+	done
+
+	tokens = strtok(buffer, ^analyzer.entry, ' ');
+	strcpy(^analyzer.entry[tokens], "$");
+
+	ADR_S(analyzer, output);
+
+	if strlen(output) > 0 then 
+		print(output);
+		print(nl);
+	done 
+done
+
+forget analyzer;
+
+${
+	S  ->  I $
+	I  ->  E 
+	    |  CHAR = E
+	E  ->  T + E 
+	    |  T - E 
+	    |  T
+	T  ->  N * T
+	    |  N / T
+	    |  N 
+	N  ->  FLOAT
+	    |  CHAR
+	    |  ( E )
+}$
+
+def ADR_shift(^ADR analyzer, String token) => Bool {
+	if strcmp(token, ^analyzer.entry[^analyzer.entryIndex]) == 0 then 
+		^analyzer.entryIndex = ^analyzer.entryIndex + 1;
+		return True;
+	done 
+	return False;
+}
+
+def ADR_LA(^ADR analyzer, Int k=0) => String {
+	if ^analyzer.entryIndex + k < ^analyzer.entrySize then 
+		return ^analyzer.entry[^analyzer.entryIndex + k];
+	done 
+	return STRNUL;
+}
+
+def ADR_push(^ADR analyzer) {
+	if ^analyzer.stackIndex >= N_TOKENS then 
+		print("Numero maximo de tokens alcanzado");
+		print(nl);
+		exit 1;
+	done 
+	^analyzer.stack[(^analyzer.stackIndex = ^analyzer.stackIndex + 1)] = new E;
+}
+
+def ADR_pop(^ADR analyzer) {
+	forget ^analyzer.stack[^analyzer.stackIndex - 1];
+	^analyzer.stackIndex = ^analyzer.stackIndex - 1;
+}
+
+def ADR_freeEntry(^ADR analyzer) {
+	while ^analyzer.entryIndex > 0 do 
+		ADR_pop(analyzer);
+	done
+}
+
+dec ADR_I(^ADR analyzer) => Bool;
+dec ADR_E(^ADR analyzer) => Bool;
+dec ADR_T(^ADR analyzer) => Bool;
+dec ADR_N(^ADR analyzer) => Bool;
+
+def ADR_S(^ADR analyzer, String output) {
+	let String la = ADR_LA(analyzer);
+
+	if ('0' <= la[0] && la[0] <= '9') || ('a' <= la[0] && la[0] <= 'z') || strcmp(la, "(") == 0 then 
+		ADR_push(analyzer);
+
+		if ! ADR_I(analyzer) then 
+			ADR_freeEntry(analyzer);
+			output[0] = '\0';
+		done 
+
+		if ! ADR_shift(analyzer, "$") then 
+			print("No se pudo reconocer la expresion.");
+			print(nl);
+			ADR_freeEntry(analyzer);
+			output[0] = '\0';
+		done 
+
+		strcpy(output, ^(^analyzer.stack[^analyzer.stackIndex - 1]).out);
+		ADR_pop(analyzer);
+	
+	else
+		print("No se pudo reconocer la expresion.");
+		print(nl);
+		ADR_freeEntry(analyzer);
+		output[0] = '\0';
+	done
+}
+
+def ADR_I(^ADR analyzer) => Bool {
+	let String la = ADR_LA(analyzer), la1 = ADR_LA(analyzer, 1);
+	let Float f;
+
+	if 'a' <= la[0] && la[0] <= 'z' && strlen(la) == 1 && strcmp(la1, "=") == 0 then 
+		# I -> CHAR = E 
+		ADR_shift(analyzer, la);
+		ADR_shift(analyzer, la1);
+		ADR_push(analyzer);
+		
+		if ! ADR_E(analyzer) then 
+			return False;
+		done
+
+		f = stof(^(^analyzer.stack[^analyzer.stackIndex - 1]).out);
+		strcpy(
+			^(^analyzer.stack[^analyzer.stackIndex - 2]).out,
+			^(^analyzer.stack[^analyzer.stackIndex - 1]).out
+		);
+		Hash_put(table, la, f);
+
+		ADR_pop(analyzer);
+
+	elsif ('0' <= la[0] && la[0] <= '9') || ('a' <= la[0] && la[0] <= 'z') || strcmp(la, "(") == 0 then 
+		# I -> E
+		ADR_push(analyzer);
+		
+		if ! ADR_E(analyzer) then 
+			return False;
+		done
+
+		strcpy(
+			^(^analyzer.stack[^analyzer.stackIndex - 2]).out,
+			^(^analyzer.stack[^analyzer.stackIndex - 1]).out
+		);
+		ADR_pop(analyzer);
+
+	else 
+		print("No se pudo reconocer la expresion.");
+		print(nl);
+		return False;
+	done
+
+	return True;
+}
+
+def ADR_E(^ADR analyzer) => Bool {
+	let String la = ADR_LA(analyzer);
+	let Float f;
+
+	if ('0' <= la[0] && la[0] <= '9') || ('a' <= la[0] && la[0] <= 'z') || strcmp(la, "(") == 0 then 
+		# E -> T
+		ADR_push(analyzer);
+		
+		if ! ADR_T(analyzer) then 
+			return False;
+		done
+
+		strcpy(
+			^(^analyzer.stack[^analyzer.stackIndex - 2]).out,
+			^(^analyzer.stack[^analyzer.stackIndex - 1]).out
+		);
+		ADR_pop(analyzer);
+
+		la = ADR_LA(analyzer);
+
+		if strcmp(la, "+") == 0 || strcmp(la, "-") == 0 then 
+			ADR_push(analyzer);
+			ADR_shift(analyzer, la);
+		
+			if ! ADR_E(analyzer) then 
+				return False;
+			done
+
+			if strcmp(la, "+") == 0 then 
+				# E -> T + E
+				f = stof(^(^analyzer.stack[^analyzer.stackIndex - 2]).out) +
+					stof(^(^analyzer.stack[^analyzer.stackIndex - 1]).out);
+			else 
+				# E -> T - E;
+				f = stof(^(^analyzer.stack[^analyzer.stackIndex - 2]).out) -
+					stof(^(^analyzer.stack[^analyzer.stackIndex - 1]).out);
+			done 
+
+			ftos(^(^analyzer.stack[^analyzer.stackIndex - 2]).out, f);
+			ADR_pop(analyzer);
+		done
+
+	else 
+		print("No se pudo reconocer la expresion.");
+		print(nl);
+		return False;
+	done
+
+	return True;
+}
+
+def ADR_T(^ADR analyzer) => Bool {
+	let String la = ADR_LA(analyzer);
+	let Float f;
+
+	if ('0' <= la[0] && la[0] <= '9') || ('a' <= la[0] && la[0] <= 'z') || strcmp(la, "(") == 0 then 
+		# T -> N
+		ADR_push(analyzer);
+		
+		if ! ADR_N(analyzer) then 
+			return False;
+		done
+
+		strcpy(
+			^(^analyzer.stack[^analyzer.stackIndex - 2]).out,
+			^(^analyzer.stack[^analyzer.stackIndex - 1]).out
+		);
+		ADR_pop(analyzer);
+
+		la = ADR_LA(analyzer);
+
+		if strcmp(la, "*") == 0 || strcmp(la, "/") == 0 then 
+			ADR_push(analyzer);
+			ADR_shift(analyzer, la);
+		
+			if ! ADR_T(analyzer) then 
+				return False;
+			done
+
+			if strcmp(la, "+") == 0 then 
+				# T -> N * T
+				f = stof(^(^analyzer.stack[^analyzer.stackIndex - 2]).out) *
+					stof(^(^analyzer.stack[^analyzer.stackIndex - 1]).out);
+			else 
+				# T -> N / T;
+				if stof(^(^analyzer.stack[^analyzer.stackIndex - 1]).out) == 0 then 
+					print("No se puede dividir entre 0.");
+					print(nl);
+					return False;
+				done
+				f = stof(^(^analyzer.stack[^analyzer.stackIndex - 2]).out) /
+					stof(^(^analyzer.stack[^analyzer.stackIndex - 1]).out);
+			done 
+
+			ftos(^(^analyzer.stack[^analyzer.stackIndex - 2]).out, f);
+			ADR_pop(analyzer);
+		done
+
+	else 
+		print("No se pudo reconocer la expresion.");
+		print(nl);
+		return False;
+	done
+
+	return True;
+}
+
+def ADR_N(^ADR analyzer) => Bool {
+	let String la = ADR_LA(analyzer);
+
+	if strcmp(la, "(") == 0 then 
+		# N -> ( E )
+		ADR_shift(analyzer, "(");
+		ADR_push(analyzer);
+		
+		if ! ADR_E(analyzer) then 
+			return False;
+		done
+
+		if ! ADR_shift(analyzer, ")") then
+			print("No se pudo reconocer la expresion.");
+			print(nl);
+			return False;
+		done 
+
+		strcpy(
+			^(^analyzer.stack[^analyzer.stackIndex - 2]).out,
+			^(^analyzer.stack[^analyzer.stackIndex - 1]).out
+		);
+		ADR_pop(analyzer);
+
+	elsif isFloat(la) then 
+		# N -> FLOAT
+		ADR_shift(analyzer, la);
+		strcpy(^(^analyzer.stack[^analyzer.stackIndex - 2]).out, la);
+		ADR_pop(analyzer);
+
+	elsif 'a' <= la[0] && la[0] <= 'z' && strlen(la) == 1 then 
+		# N -> CHAR 
+		let Float f;
+		ADR_shift(analyzer, la);
+		Hash_lookup(table, la, f);
+		ftos(^(^analyzer.stack[^analyzer.stackIndex - 2]).out, f);
+		ADR_pop(analyzer);
+
+	else 
+		print("No se pudo reconocer la expresion.");
+		print(nl);
+		return False;
+	done 
+
+	return True;
+}
+
+
+

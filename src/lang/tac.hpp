@@ -35,6 +35,7 @@ public:
     map< string, vector<pair<unsigned long long, vector<int>>> > functionlist;
     // Pila de listas de instrucciones que necesitan ser parcheadas
     stack<vector<unsigned long long>> breaklist;
+    stack<vector<unsigned long long>> continuelist;
     
     TAC() { this->to_free.push({}); }
     string newTemp();

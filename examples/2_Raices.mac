@@ -1,0 +1,32 @@
+execonce "Math.mac";
+execonce "String.mac";
+
+let Int LINE_SIZE = 512;
+let Int FLOAT_SIZE = 32;
+
+let Char[LINE_SIZE] input, result;
+let Char[FLOAT_SIZE] nstr, sqrtstr;
+let Float n;
+
+while True do 
+	print("Indique el numero en punto flotante no negativo: ");
+	read(input);
+	n = stof(input);
+
+	ftos(nstr, n);
+	ftos(sqrtstr, sqrt(n));
+	strconc(["sqrt(", nstr, ") = ", sqrtstr, nl], 5, result);
+	print(result);
+
+	print("Desea calcular otra raiz? [Y/n] ");
+	read(input);
+	if strcmp(input, "n") == 0 || strcmp(input, "N") == 0 then 
+		print("Hasta luego!");
+	done 
+done
+
+
+
+
+
+	

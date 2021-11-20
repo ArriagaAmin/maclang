@@ -1,16 +1,16 @@
 execonce "Node.mac";
 execonce "Hash.mac";
-execonce "Queue.mac";
+execonce "NodeQueue.mac";
 
 # Verifica que el nodo n esta conectado con un nodo con el id indicado
 def BFS_search(^Node n) => ^Hash {
 	let ^Hash h = Hash_init();
 	let Int d = 0, i;
-	let ^Queue q = Queue_init();
+	let ^NodeQueue q = NodeQueue_init();
 
 	Hash_put(h, ^NodeNUL.ID, -1);
 	^n.parent = NodeNUL;
-	Queue_push(q, n);
+	NodeQueue_push(q, n);
 
 	exec "BFS_enqueue.mac";
 

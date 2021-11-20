@@ -13,7 +13,7 @@ register Node {
 	^Node parent;
 	^List childs;
 	String ID;
-	Int value;
+	Float value;
 }
 
 
@@ -54,7 +54,7 @@ def List_append(^List l, ^Node n) {
 	done
 }
 
-def Node_init(String ID, Int value) => ^Node {
+def Node_init(String ID, Float value) => ^Node {
 	let ^Node n = new Node;
 	^n.childs = new List;
 	^n.ID = ID;
@@ -70,7 +70,7 @@ def Node_destroy(^Node n) {
 def Node_add_child(^Node n, ^Node c) {
 	let Int i = 0;
 	while i < ^(^n.childs).size do 
-		if strcmp(^List_get(^n.childs, i).ID, ^c.ID) then 
+		if strcmp(^List_get(^n.childs, i).ID, ^c.ID) == 0 then 
 			return;
 		done
 	done 
@@ -78,4 +78,4 @@ def Node_add_child(^Node n, ^Node c) {
 	List_append(^n.childs, c);
 }
 
-let ^Node NodeNUL = Node_init([CHARNUL], -1);
+let ^Node NodeNUL = Node_init(['\0'], -1);

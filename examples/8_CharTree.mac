@@ -1,0 +1,364 @@
+execonce "String.mac";
+
+register CharNode {
+	Char key;
+	Bool colour;
+	(^CharNode)[2] child;
+	^CharNode parent;
+	Int count = 0;
+}
+
+dec CharNode_cmp(^CharNode M, ^CharNode N) => Bool;
+
+register CharTree {
+	^CharNode root;
+}
+
+dec CharTree_init() => ^CharTree;
+dec CharTree_destroy(^CharTree T);
+dec CharTree_search(^CharTree T, Char c) => ^CharNode;
+dec CharTree_insert(^CharTree T, Char c);
+dec CharTree_erase(^CharTree T, Char c) => Bool;
+dec CharTree_print(^CharTree T);
+
+
+let ^CharNode NIL = new CharNode;
+^NIL.key = '\0';
+
+let Int LINE_SIZE = 512;
+let Char[LINE_SIZE] buffer;
+let Int option;
+let ^CharTree T = CharTree_init();
+let ^CharNode N;
+
+while True do 
+	print("Menu principal. Escoja una de las siguientes opciones: ");
+	print(nl);
+	print("1. Insertar un valor en el arbol. ");
+	print(nl);
+	print("2. Eliminar un valor del arbol. ");
+	print(nl);
+	print("3. Buscar un valor en el arbol. ");
+	print(nl);
+	print("4. Mostrar arbol. ");
+	print(nl);
+	print("5. Salir. ");
+	print(nl);
+	read(buffer);
+	option = stoi(buffer);
+
+	if option == 1 then 
+		print("Indique el caracter a insertar: ");
+		read(buffer);
+		CharTree_insert(T, buffer[0]);
+
+	elsif option == 2 then 
+		print("Indique el caracter a borrar: ");
+		read(buffer);
+		if ! CharTree_erase(T, buffer[0]) then 
+			print("El caracter ");
+			print([buffer[0]]);
+			print(" no se encuentra en el arbol.");
+			print(nl);
+		done
+
+	elsif option == 3 then 
+		print("Indique el caracter a buscar: ");
+		read(buffer);
+		N = CharTree_search(T, buffer[0]);
+		if CharNode_cmp(N, NIL) then 
+			print("El caracter ");
+			print([buffer[0]]);
+			print(" no se encuentra en el arbol.");
+			print(nl);
+		else 
+			print("El caracter ");
+			print([buffer[0]]);
+			print(" se encuentra ");
+			itos(buffer, ^N.count);
+			print(buffer);
+			print(" veces en el arbol.");
+			print(nl);
+		done 
+
+	elsif option == 4 then 
+		CharTree_print(T);
+
+	elsif option == 5 then 
+		print("Hasta pronto!");
+		print(nl);
+		CharTree_destroy(T);
+		break;
+
+	else 
+		print("Opcion invalida");
+		print(nl);
+	done
+done
+
+# ================= CHARNODE OPERATIONS ================= #
+def CharNode_init(^CharNode parent, Char c) => ^CharNode {
+	let ^CharNode node = new CharNode;
+	^node.parent = parent;
+	^node.key = c;
+	^node.count = 1;
+	^node.child[0] = NIL;
+	^node.child[1] = NIL;
+	^node.colour = True;
+	return node;
+}
+
+def CharNode_destroy(^CharNode N) {
+	forget N;
+}
+
+def CharNode_cmp(^CharNode M, ^CharNode N) => Bool {
+	return ^M.key == ^N.key;
+}
+
+def CharNode_destroyAll(^CharNode N) {
+	if CharNode_cmp(N, NIL) then 
+		return;
+	done
+	if ! CharNode_cmp(^N.child[0], NIL) then 
+		CharNode_destroyAll(^N.child[0]);
+	done 
+	if ! CharNode_cmp(^N.child[1], NIL) then 
+		CharNode_destroyAll(^N.child[1]);
+	done 
+	forget N;
+}
+
+def CharNode_minimum(^CharNode N) => ^CharNode {
+	if CharNode_cmp(^N.child[0], NIL) then 
+		return N;
+	done 
+	return CharNode_minimum(^N.child[0]);
+}
+
+def CharNode_removeMin(^CharNode N) => ^CharNode {
+	if CharNode_cmp(^N.child[0], NIL) then 
+		let ^CharNode n = ^N.child[1];
+		^N.child[1] = NIL;
+		return n;
+	done
+
+	^N.child[0] = CharNode_removeMin(^N.child[0]);
+	return N;
+}
+
+def CharNode_print(^CharNode N, Int level) {
+	let Int i = 0;
+	let Char[32] buffer;
+
+	while i < level do print("    "); done 
+
+	if CharNode_cmp(N, NIL) then
+		print("-");
+		print(nl);
+	else
+		print(['(', ^N.key, ',', ' ']);
+		stoi(buffer, ^N.count);
+		print(buffer);
+		print([')', '\n']);
+		CharNode_print(^N.child[0], level+1);
+		CharNode_print(^N.child[1], level+1);
+	done
+}
+
+
+# ================= CHARTREE OPERATIONS ================= #
+def CharTree_init() => ^CharTree {
+	let ^CharTree T = new CharTree;
+	^T.root = NIL;
+	return T;
+}
+
+def CharTree_destroy(^CharTree T) {
+	CharNode_destroyAll(^T.root);
+	forget T;
+}
+
+def CharTree_rotate(^CharTree T, ^CharNode N, Int dir) => ^CharNode {
+	let ^CharNode G = ^N.parent, S = ^N.child[1-dir], C;
+	C = ^S.child[dir];
+	^N.child[1-dir] = C;
+
+	if ! CharNode_cmp(C, NIL) then 
+		^C.parent = N; 
+	done 
+	^S.child[dir] = N;
+	^N.parent = S;
+	^S.parent = G;
+
+	if ! CharNode_cmp(G, NIL) then 
+		if CharNode_cmp(N, ^G.child[1]) then 
+			^G.child[1] = S;
+		else 
+			^G.child[0] = S;
+		done
+	else 
+		^T.root = S;
+	done 
+
+	return S;
+}
+
+def CharTree_rotateLeft(^CharTree T, ^CharNode N) => ^CharNode {
+	return CharTree_rotate(T, N, 0);
+}
+
+def CharTree_rotateRight(^CharTree T, ^CharNode N) => ^CharNode {
+	return CharTree_rotate(T, N, 1);
+}
+
+def CharTree_push(^CharTree T, Char c) => ^CharNode {
+	if CharNode_cmp(^T.root, NIL) then 
+		^T.root = CharNode_init(NIL, c);
+		return ^T.root;
+	done 
+
+	let ^CharNode N = ^T.root;
+	let Bool find = True;
+
+	while ^N.key != c do 
+		if ^N.key < c && ! CharNode_cmp(^N.child[1], NIL) then 
+			N = ^N.child[1];
+		elsif ^N.key < c then 
+			find = False;
+			break;
+		elsif ! CharNode_cmp(^N.child[0], NIL) then 
+			N = ^N.child[0];
+		else 
+			find = False;
+			break;
+		done
+	done 
+
+	if find then
+		^N.count = ^N.count + 1; 
+		return N; 
+	elsif ^N.key < c then 
+		^N.child[1] = CharNode_init(N, c);
+		return ^N.child[1];
+	else 
+		^N.child[0] = CharNode_init(N, c);
+		return ^N.child[0];
+	done
+}
+
+def CharTree_remove(^CharNode N, Char c) => ^CharNode {
+	let ^CharNode n;
+
+	if CharNode_cmp(N, NIL) then return NIL; done 
+
+	if c < ^N.key then 
+		^N.child[0] = CharTree_remove(^N.child[0], c);
+		return N;
+	elsif c > ^N.key then 
+		^N.child[1] = CharTree_remove(^N.child[1], c);
+		return N;
+	else
+		if CharNode_cmp(^N.child[0], NIL) then
+			n = ^N.child[1];
+			^N.child[1] = NIL;
+			CharNode_destroy(N);
+			return n;
+		done
+
+		if CharNode_cmp(^N.child[1], NIL) then
+			n = ^N.child[0];
+			^N.child[0] = NIL;
+			CharNode_destroy(N);
+			return n;
+		done
+
+		n = CharNode_minimum(^N.child[1]);
+		^n.child[1] = CharNode_removeMin(^N.child[1]);
+		^n.child[0] = ^N.child[0];
+		CharNode_destroy(N);
+		return n;
+	done
+}
+
+# MAIN OPERATIONS
+def CharTree_search(^CharTree T, Char c) => ^CharNode {
+	if CharNode_cmp(^T.root, NIL) then 
+		return NIL;
+	done 
+
+	let ^CharNode N = ^T.root;
+
+	while ^N.key != c && ! CharNode_cmp(N, NIL) do 
+		if ^N.key < c then 
+			N = ^N.child[1];
+		else
+			N = ^N.child[0];
+		done
+	done 
+
+	return N;
+}
+
+def CharTree_insert(^CharTree T, Char c) {
+	let ^CharNode x = CharTree_push(T, c), y;
+
+	if ^x.count == 1 then return; done 
+
+	while ! CharNode_cmp(x, ^T.root) && ^(^x.parent).colour do 
+		if CharNode_cmp(^x.parent, ^(^(^x.parent).parent).child[0]) then 
+			y = ^(^(^x.parent).parent).child[1];
+			if ^y.colour then
+				^(^x.parent).colour = False;
+				^y.colour = False;
+				^(^(^x.parent).parent).colour = True;
+				x = ^(^x.parent).parent;
+			else 
+				if CharNode_cmp(x, ^(^x.parent).child[1]) then
+					x = ^x.parent;
+					CharTree_rotateLeft(T, x);
+				done
+
+				^(^x.parent).colour = False;
+				^(^(^x.parent).parent).colour = True;
+				CharTree_rotateRight(T, ^(^x.parent).parent);
+			done 
+		else 
+			y = ^(^(^x.parent).parent).child[0];
+			if ^y.colour then
+				^(^x.parent).colour = False;
+				^y.colour = False;
+				^(^(^x.parent).parent).colour = True;
+				x = ^(^x.parent).parent;
+			else 
+				if CharNode_cmp(x, ^(^x.parent).child[0]) then
+					x = ^x.parent;
+					CharTree_rotateRight(T, x);
+				done
+
+				^(^x.parent).colour = False;
+				^(^(^x.parent).parent).colour = True;
+				CharTree_rotateLeft(T, ^(^x.parent).parent);
+			done 
+		done
+	done 
+	^(^T.root).colour = False;
+}
+
+def CharTree_erase(^CharTree T, Char c) => Bool {
+	let ^CharNode x = CharTree_search(T, c);
+
+	if CharNode_cmp(x, NIL) then 
+		return False; 
+	done 
+	if ^x.count > 1 then 
+		^x.count = ^x.count - 1;
+		return True;
+	done
+
+	^T.root = CharTree_remove(^T.root, c);
+}
+
+def CharTree_print(^CharTree T) {
+	CharNode_print(^T.root, 0);
+}
