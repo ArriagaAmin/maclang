@@ -685,8 +685,6 @@
             } 
             else {
               NodeINT *size = new NodeINT(1);
-              size->addr = tac->newTemp();
-              tac->gen("assign " + size->addr + " 1");
               $$ = new ArrayType($1, size);
               $$->danger = $1->danger;
               $$->incomplete = $1->incomplete;
@@ -2674,8 +2672,6 @@
 
                 tac->gen("@label " + $1->addr + "_out");
                 tac->backpatch($1->nextlist, $1->addr + "_out");
-
-
               }
             ; 
 

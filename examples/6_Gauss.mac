@@ -1,4 +1,4 @@
-execonce "String.mac";
+execonce "examples/String.mac";
 
 dec gauss(Float[][] M, Int N) => Bool;
 
@@ -13,6 +13,7 @@ while True do
 	read(buffer);
 	if strcmp(buffer, "n") == 0 || strcmp(buffer, "N") == 0 then 
 		print("Hasta luego!");
+		break;
 	done 
 
 	print("Indique el numero de ecuaciones. Debe ser entre 1 y 10: ");

@@ -1,4 +1,3 @@
-
 let String STRNUL = ['\0'];
 let String nl = ['\n'];
 
@@ -31,7 +30,7 @@ def strcpy(String A, String B) {
 	done
 }
 
-def strconc(String[] S, Int N, String R) => String {
+def strconc(String[] S, Int N, String R) {
 	let Int i = 0, j = 0, k, n;
 	
 	while i < N do 
