@@ -13,9 +13,9 @@
     {"Unit",    0},
     {"Bool",    1},
     {"Char",    1},   // ASCII
-    {"Int",     1},
-    {"Float",   1},
-    {"Pointer", 1},
+    {"Int",     4},
+    {"Float",   4},
+    {"Pointer", 4},
     {"$Error",  0}
   };
 

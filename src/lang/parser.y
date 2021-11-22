@@ -508,12 +508,20 @@
                       } 
 
                       else {
-                        int s = table->currentScope();
+                        int s = table->currentScope(), offset;
                         string addr;
+
+                        // Calculamos el offset.
+                        offset = table->offsets.back();
+                        if ($2->width != 1) {
+                          int diff = (offset % 4) * (4 - offset % 4);
+                          offset += diff;
+                          table->offsets.back() += diff;
+                        }
 
                         // Verificamos si nos encontramos dentro de una funcion.
                         if (table->ret_type != "") {
-                          addr = "base[" + to_string(table->offsets.back()) + "]";
+                          addr = "base[" + to_string(offset) + "]";
                         }
 
                         // En caso de que el tipo sea un arreglo o estructura (registro
@@ -568,17 +576,9 @@
                         }
 
                         // Almacenamos la entrada.
-                        int offset = table->offsets.back();
                         Entry *e;
                         if(type.back() != ']') {
-                          e = new VarEntry(
-                            vardef.first, 
-                            s, 
-                            "Var", 
-                            $2, 
-                            offset,
-                            addr
-                          );
+                          e = new VarEntry(vardef.first, s, "Var", $2, offset, addr);
                         }
                         else{
                           ArrayType *current = (ArrayType*) $2;
@@ -1422,13 +1422,29 @@
 
                   // Si no estamos en una funcion
                   if (table->ret_type == "") {
+                    // Calculamos el offset.
+                    int offset = table->offsets.back();
+                    if ($2->type->width != 1) {
+                      int diff = (offset % 4) * (4 - offset % 4);
+                      offset += diff;
+                      table->offsets.back() += diff;
+                    }
+                    table->offsets.back() += size * $2->type->width;
+
                     // Creamos una nueva etiqueta para reservar memoria estaticamente
                     $$->addr = tac->newAddr(size * $2->type->width);
                   }
                   else {
+                    // Calculamos el offset.
+                    int offset = table->offsets.back();
+                    int diff = (offset % 4) * (4 - offset % 4);
+                    offset += diff;
+                    table->offsets.back() += diff;
+                    table->offsets.back() += predefinedTypes["Pointer"]->width;
+
                     // Si nos encontramos dentro de una funcion, el arreglo sera
                     // almacenado dinamicamente a pesar de ser constante.
-                    $$->addr = "base[" + to_string(table->offsets.back()) + "]";
+                    $$->addr = "base[" + to_string(offset) + "]";
                     allocVarArray($$->type, $$->addr);
 
                     // Agregamos la direccion de memoria a las entradas que deben
@@ -2226,22 +2242,22 @@
                 else {
                   $$ = new NodeRegFields(NULL, $1, *$2, $3);
                   int s = table->currentScope();
-                  Entry *e = new VarEntry(
-                    *$2, 
-                    s, 
-                    "Field", 
-                    $1, 
-                    table->offsets.back(),
-                    "",
-                    table
-                  );
+
+                  // Calculamos el offset.
+                  int offset = table->offsets.back();
+                  if ($1->width != 1) {
+                    int diff = (offset % 4) * (4 - offset % 4);
+                    offset += diff;
+                    table->offsets.back() += diff;
+                  }
+                  table->offsets.back() += $1->width;
+
+                  Entry *e = new VarEntry(*$2, s, "Field", $1, offset, "", table);
                   table->insert(e);
 
                   if ($1->incomplete != "") {
                     ((NodeUnionFields*) $$)->incompletes.push_back($1->incomplete);
                   }
-
-                  table->offsets.back() += $1->width; 
                 }
               }
 
@@ -2279,23 +2295,23 @@
                 else {
                   $$ = new NodeRegFields($1, $2, *$3, $4);
                   int s = table->currentScope();
-                  Entry *e = new VarEntry(
-                    *$3, 
-                    s, 
-                    "Field", 
-                    $2, 
-                    table->offsets.back(),
-                    "",
-                    table
-                  );
+
+                  // Calculamos el offset.
+                  int offset = table->offsets.back();
+                  if ($2->width != 1) {
+                    int diff = (offset % 4) * (4 - offset % 4);
+                    offset += diff;
+                    table->offsets.back() += diff;
+                  }
+                  table->offsets.back() += $2->width;
+
+                  Entry *e = new VarEntry(*$3, s, "Field", $2, offset, "", table);
                   table->insert(e);
 
                   ((NodeUnionFields*) $$)->incompletes = ((NodeUnionFields*) $1)->incompletes;
                   if ($2->incomplete != "") {
                     ((NodeUnionFields*) $$)->incompletes.push_back($2->incomplete);
                   }
-
-                  table->offsets.back() += $2->width; 
                 }
               }
             ;
@@ -2548,16 +2564,16 @@
 
                 int s = table->currentScope();
                 Type *t = predefinedTypes["Float"];
-                VarEntry *e = new VarEntry(
-                  *$3, 
-                  s, 
-                  "Var", 
-                  t, 
-                  table->offsets.back(),
-                  tac->newTemp()
-                );
-                table->insert(e); 
+
+                // Calculamos el offset.
+                int offset = table->offsets.back();
+                int diff = (offset % 4) * (4 - offset % 4);
+                offset += diff;
+                table->offsets.back() += diff;
                 table->offsets.back() += predefinedTypes["Float"]->width;
+
+                VarEntry *e = new VarEntry(*$3, s, "Var", t, offset, tac->newTemp());
+                table->insert(e); 
 
                 if (type1 != "$Error" && type1 != "Float" && type1 != "Int") {
                   addError(
@@ -2878,15 +2894,18 @@
                   $$->currentParams.push_back({*$3, $1->toString(), $2, NULL});
 
                   int s = table->currentScope();
-                  Entry *e = new VarEntry(
-                    *$3, 
-                    s, 
-                    "Var", 
-                    $1, 
-                    table->offsets.back()
-                  );
+
+                  // Calculamos el offset.
+                  int offset = table->offsets.back();
+                  if ($1->width != 1) {
+                    int diff = (offset % 4) * (4 - offset % 4);
+                    offset += diff;
+                    table->offsets.back() += diff;
+                  }
+                  table->offsets.back() += $1->width;
+
+                  Entry *e = new VarEntry(*$3, s, "Var", $1, offset);
                   table->insert(e);
-                  table->offsets.back() += $1->width; 
                 }
               }
             | MandArgs COMMA Type OptRef IdDef              
@@ -2909,15 +2928,18 @@
                   $$->currentParams.push_back({*$5, $3->toString(), $4, NULL});
 
                   int s = table->currentScope();
-                  Entry *e = new VarEntry(
-                    *$5, 
-                    s, 
-                    "Var", 
-                    $3, 
-                    table->offsets.back()
-                  );
+
+                  // Calculamos el offset.
+                  int offset = table->offsets.back();
+                  if ($3->width != 1) {
+                    int diff = (offset % 4) * (4 - offset % 4);
+                    offset += diff;
+                    table->offsets.back() += diff;
+                  }
+                  table->offsets.back() += $3->width;
+
+                  Entry *e = new VarEntry(*$5, s, "Var", $3, offset);
                   table->insert(e);
-                  table->offsets.back() += $3->width; 
                 }
               }
             ;   
@@ -2953,15 +2975,18 @@
                   $$->currentParams.push_back({*$3, type, $2, (ExpressionNode*) $5});
 
                   int s = table->currentScope();
-                  Entry *e = new VarEntry(
-                    *$3, 
-                    s, 
-                    "Var",
-                    $1, 
-                    table->offsets.back()
-                  );
+
+                  // Calculamos el offset.
+                  int offset = table->offsets.back();
+                  if ($1->width != 1) {
+                    int diff = (offset % 4) * (4 - offset % 4);
+                    offset += diff;
+                    table->offsets.back() += diff;
+                  }
+                  table->offsets.back() += $1->width;
+
+                  Entry *e = new VarEntry(*$3, s, "Var",$1, offset);
                   table->insert(e);
-                  table->offsets.back() += $1->width; 
                 }
               }
 
@@ -3000,15 +3025,18 @@
                   $$->currentParams.push_back({*$5, type, $4, (ExpressionNode*) $7});
 
                   int s = table->currentScope();
-                  Entry *e = new VarEntry(
-                    *$5, 
-                    s, 
-                    "Var", 
-                    $3, 
-                    table->offsets.back()
-                  );
+
+                  // Calculamos el offset.
+                  int offset = table->offsets.back();
+                  if ($3->width != 1) {
+                    int diff = (offset % 4) * (4 - offset % 4);
+                    offset += diff;
+                    table->offsets.back() += diff;
+                  }
+                  table->offsets.back() += $3->width;
+
+                  Entry *e = new VarEntry(*$5, s, "Var", $3, offset);
                   table->insert(e);
-                  table->offsets.back() += $3->width; 
                 }
               }
 
