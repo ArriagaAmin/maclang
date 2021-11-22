@@ -513,8 +513,8 @@
 
                         // Calculamos el offset.
                         offset = table->offsets.back();
-                        if ($2->width != 1) {
-                          int diff = (offset % 4) * (4 - offset % 4);
+                        if ($2-> width != 1 && offset % 4 != 0) {
+                          int diff = 4 - offset % 4;
                           offset += diff;
                           table->offsets.back() += diff;
                         }
@@ -1422,8 +1422,8 @@
                   if (table->ret_type == "") {
                     // Calculamos el offset.
                     int offset = table->offsets.back();
-                    if ($2->type->width != 1) {
-                      int diff = (offset % 4) * (4 - offset % 4);
+                    if ($2->type-> width != 1 && offset % 4 != 0) {
+                      int diff = 4 - offset % 4;
                       offset += diff;
                       table->offsets.back() += diff;
                     }
@@ -1435,10 +1435,9 @@
                   else {
                     // Calculamos el offset.
                     int offset = table->offsets.back();
-                    int diff = (offset % 4) * (4 - offset % 4);
+                    int diff = offset % 4 == 0 ? 0 : 4 - offset % 4;
                     offset += diff;
-                    table->offsets.back() += diff;
-                    table->offsets.back() += predefinedTypes["Pointer"]->width;
+                    table->offsets.back() += diff + 4;
 
                     // Si nos encontramos dentro de una funcion, el arreglo sera
                     // almacenado dinamicamente a pesar de ser constante.
@@ -2243,8 +2242,8 @@
 
                   // Calculamos el offset.
                   int offset = table->offsets.back();
-                  if ($1->width != 1) {
-                    int diff = (offset % 4) * (4 - offset % 4);
+                  if ($1-> width != 1 && offset % 4 != 0) {
+                    int diff = 4 - offset % 4;
                     offset += diff;
                     table->offsets.back() += diff;
                   }
@@ -2296,8 +2295,8 @@
 
                   // Calculamos el offset.
                   int offset = table->offsets.back();
-                  if ($2->width != 1) {
-                    int diff = (offset % 4) * (4 - offset % 4);
+                  if ($2-> width != 1 && offset % 4 != 0) {
+                    int diff = 4 - offset % 4;
                     offset += diff;
                     table->offsets.back() += diff;
                   }
@@ -2565,7 +2564,7 @@
 
                 // Calculamos el offset.
                 int offset = table->offsets.back();
-                int diff = (offset % 4) * (4 - offset % 4);
+                int diff = offset % 4 == 0 ? 0 : 4 - offset % 4;
                 offset += diff;
                 table->offsets.back() += diff;
                 table->offsets.back() += predefinedTypes["Float"]->width;
@@ -2893,8 +2892,8 @@
 
                   // Calculamos el offset.
                   int offset = table->offsets.back();
-                  if ($1->width != 1) {
-                    int diff = (offset % 4) * (4 - offset % 4);
+                  if ($1-> width != 1 && offset % 4 != 0) {
+                    int diff = 4 - offset % 4;
                     offset += diff;
                     table->offsets.back() += diff;
                   }
@@ -2927,8 +2926,8 @@
 
                   // Calculamos el offset.
                   int offset = table->offsets.back();
-                  if ($3->width != 1) {
-                    int diff = (offset % 4) * (4 - offset % 4);
+                  if ($3-> width != 1 && offset % 4 != 0) {
+                    int diff = 4 - offset % 4;
                     offset += diff;
                     table->offsets.back() += diff;
                   }
@@ -2974,8 +2973,8 @@
 
                   // Calculamos el offset.
                   int offset = table->offsets.back();
-                  if ($1->width != 1) {
-                    int diff = (offset % 4) * (4 - offset % 4);
+                  if ($1-> width != 1 && offset % 4 != 0) {
+                    int diff = 4 - offset % 4;
                     offset += diff;
                     table->offsets.back() += diff;
                   }
@@ -3024,8 +3023,8 @@
 
                   // Calculamos el offset.
                   int offset = table->offsets.back();
-                  if ($3->width != 1) {
-                    int diff = (offset % 4) * (4 - offset % 4);
+                  if ($3-> width != 1 && offset % 4 != 0) {
+                    int diff = 4 - offset % 4;
                     offset += diff;
                     table->offsets.back() += diff;
                   }
