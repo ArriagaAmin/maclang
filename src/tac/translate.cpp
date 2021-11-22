@@ -53,7 +53,7 @@ bool CodeBlock::InsertVariable(string var)
     return true;
 }
 
-bool CodeBlock::InsertElementToDescriptor(unordered_map<string, vector<string>> &descriptors, string key, string element, bool replace = false)
+bool CodeBlock::InsertElementToDescriptor(unordered_map<string, vector<string>> &descriptors, string key, string element, bool replace)
 {
     auto found = descriptors.find(key);
 
@@ -68,9 +68,7 @@ bool CodeBlock::InsertElementToDescriptor(unordered_map<string, vector<string>> 
 }
 
 void CodeBlock::RemoveElementFromDescriptors(unordered_map<string, vector<string>> &descriptors, string element, string elementHolder)
-{
-    unordered_map<string, vector<string>>::iterator it = descriptors.begin();
-    
+{   
     for (pair<string, vector<string>> currentDescriptor : descriptors) 
     {
         if(currentDescriptor.first.compare(elementHolder))
@@ -109,9 +107,7 @@ string CodeBlock::FindOptimalLocation(vector<string> const &descriptor)
 }
 
 string CodeBlock::FindElementInDescriptors(unordered_map<string, vector<string>> &descriptors, string element)
-{
-    unordered_map<string, vector<string>>::iterator it = descriptors.begin();
-    
+{   
     for (pair<string, vector<string>> currentDescriptor : descriptors) 
     {
         vector<string> currentElements = currentDescriptor.second;
@@ -124,7 +120,6 @@ string CodeBlock::FindElementInDescriptors(unordered_map<string, vector<string>>
 
 string CodeBlock::FindFreeRegister()
 {
-    unordered_map<string, vector<string>>::iterator it = registersDescriptor.begin();
     
     for (pair<string, vector<string>> currentRegister : registersDescriptor) 
     {
@@ -141,8 +136,6 @@ string CodeBlock::RecycleRegister(T_Instruction instruction)
     // para reciclar y utilizarlo
 
     string bestReg = "";
-
-    unordered_map<string, vector<string>>::iterator it = registersDescriptor.begin();
 
     // Contadores de spills
     map<string, int> spills;
@@ -182,7 +175,6 @@ string CodeBlock::RecycleRegister(T_Instruction instruction)
     }
 
     // Ahora se verifica cual registro tiene el menor numero de spills
-    map<string, int>::iterator it = spills.begin();
     int current = INT32_MAX;
     
     for (pair<string, int> currentRegister : spills) 
@@ -197,6 +189,10 @@ string CodeBlock::RecycleRegister(T_Instruction instruction)
 vector<string> CodeBlock::GetReg(T_Instruction instruction, bool isCopy)
 {
     vector<string> registers;
+
+    // AGREGAR BUSCAR REGISTRO PARA GOIF Y GOIFNOT
+
+    // AGREGAR FUNCIONES
 
     for (string currentOp : instruction.operators)
     {
@@ -254,7 +250,56 @@ vector<string> CodeBlock::GetReg(T_Instruction instruction, bool isCopy)
 
 void CodeBlock::Translate(T_Instruction instruction)
 {
-    // Verificamos si es una instruccion de copia para luego actualizar los descriptores
+    // Verificamos primero si es una meta instruccion para procesarla
+    if(instruction.name[0] == '@')
+    {
+        TranslateMetaIntruction(instruction);
+        return;
+    }
+
+    // Instrucciones de branch
+    if(instruction.name[0] == 'g')
+    {
+        if(instruction.name.compare("goto"))
+        {
+            if(instruction.name.find("_out") != std::string::npos)
+                return;
+            
+            text.push_back(instTypes[instruction.name] + " " + instruction.result);
+        }
+        else
+        {
+            vector<string> reg = GetReg(instruction);
+            text.push_back(instTypes[instruction.name] + " " + reg[0] + ", " + instruction.result);
+        }
+        return;
+    }
+
+    // Instrucciones para llamada de funciones
+    if(instruction.name.compare("param"))
+    {
+        vector<string> reg = GetReg(instruction);
+        text.push_back(instTypes[instruction.name] + " " + reg[0] + ", 0($sp)");
+        text.push_back("addi $sp, $sp, -4"); // El tamano depende de lo que se le este pasando
+        return;
+    }
+
+    if(instruction.name.compare("call"))
+    {
+        // Falta usar el numero de parametros
+        text.push_back(instTypes[instruction.name] + instruction.result);
+        return;
+    }
+
+    // Instrucciones para funciones
+
+    // Instrucciones de operadores
+    TranslateOperationInstruction(instruction);
+}
+
+void CodeBlock::TranslateOperationInstruction(T_Instruction instruction)
+{
+        // Verificamos si es una instruccion de copia para luego actualizar los descriptores
     bool isCopy = instruction.name.compare("assign") ? true : false;
     
     vector<string> opRegisters = GetReg(instruction, isCopy);
@@ -285,7 +330,7 @@ void CodeBlock::Translate(T_Instruction instruction)
     }
 
     // Emitir codigo dependiendo del operador
-    string emit = instTypes.at(instruction.name) + " ";
+    string emit = instTypes[instruction.name] + " ";
     for (string reg : opRegisters)
     {
         emit += reg + ", ";
@@ -296,4 +341,26 @@ void CodeBlock::Translate(T_Instruction instruction)
     Assignment(opRegisters[0], instruction.result, true);
     Availability(instruction.result, opRegisters[0], true);
     RemoveElementFromDescriptors(variablesDescriptor, opRegisters[0], instruction.result);
+}
+
+void CodeBlock::TranslateMetaIntruction(T_Instruction instruction)
+{
+    if(instruction.name.compare("@label"))
+    {
+        text.push_back(instruction.result + ": ");
+        return;
+    }
+
+    if(instruction.name.compare("@string"))
+    {
+        string instructionType = instTypes[instruction.name];
+        data.push_back(instruction.result + ": " + instructionType + " " + instruction.operators[0]);
+        return;
+    }
+    
+    if(instruction.name.compare("@staticv"))
+    {
+        data.push_back(instruction.result + ": " + instruction.operators[0]);
+        return;
+    }
 }

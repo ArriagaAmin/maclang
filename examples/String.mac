@@ -1,4 +1,3 @@
-
 let String STRNUL = ['\0'];
 let String nl = ['\n'];
 

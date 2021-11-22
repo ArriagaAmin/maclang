@@ -11,7 +11,7 @@ using namespace std;
 const unsigned NUMBER_OF_REGISTERS = 23;
 
 // TODAVIA FALTAN MUCHAS INSTRUCCIONES
-const unordered_map<string, string> instTypes = {
+unordered_map<string, string> instTypes = {
     {"assign", "move"},
     {"add", "add"},
     {"sub", "sub"},
@@ -23,9 +23,11 @@ const unordered_map<string, string> instTypes = {
     {"or", "or"},
     {"not", "not"},
     {"goto", "b"},
-    {"goif", "beq"}, //Esto depende del if
+    {"goif", "bnez"},
+    {"goifnot", "bez"},
     {"param", "sw"},
-    {"call", "jal"}
+    {"call", "jal"},
+    {"@string", ".asciiz"}
 };
 
 struct T_Instruction
@@ -35,6 +37,12 @@ struct T_Instruction
     vector<string> operators;
 };
 
+struct T_Block
+{
+    vector<T_Instruction> instructions;
+};
+
+
 class CodeBlock
 {
 private:
@@ -42,6 +50,7 @@ private:
     unordered_map<string, vector<string>> variablesDescriptor;
     vector<string> data;
     vector<string> text;
+    vector<string> functions;
 
     bool InsertElementToDescriptor(unordered_map<string, vector<string>> &descriptors, string key, string element, bool replace = false);
     void RemoveElementFromDescriptors(unordered_map<string, vector<string>> &descriptors, string element, string elementHolder);
@@ -49,13 +58,15 @@ private:
     string FindFreeRegister();
     string RecycleRegister(T_Instruction instruction);
     
-    vector<string> GetReg(T_Instruction instruction, bool isCopy);
+    vector<string> GetReg(T_Instruction instruction, bool isCopy = false);
     string FindOptimalLocation(vector<string> const &descriptor);
     bool Assignment(string reg, string var, bool replace = false);
     bool Availability(string var, string location, bool replace = false);
 public:
     CodeBlock();
     void Translate(T_Instruction instruction);
+    void TranslateMetaIntruction(T_Instruction instruction);
+    void TranslateOperationInstruction(T_Instruction instruction);
     bool InsertRegister(string reg);
     bool InsertVariable(string var);
     vector<string> GetRegisterDescriptor(string key);
