@@ -1348,7 +1348,11 @@
                 // arreglo.
                 if ($2->type->toString() != "$Error") {
                   int size = ((NodeArrayElems*) $2)->current_size;
-                  Type *t = new ArrayType($2->type, new NodeINT(size));
+
+                  ExpressionNode *nsize = new NodeINT(size);
+                  nsize->addr = tac->newTemp();
+                  tac->gen("assign " + nsize->addr + " " + to_string(size));
+                  Type *t = new ArrayType($2->type, nsize);
                   $$ = new NodeArray($2, t);
 
                   int offset = table->newOffset(t);
