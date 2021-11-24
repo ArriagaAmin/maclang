@@ -3056,7 +3056,7 @@ void scope0(void) {
 
   // Adding "read" function.
   fe = new FunctionEntry("read", 0, "Function");
-  fe->args.push_back({"text", "(Char)[]", false, NULL});
+  fe->args.push_back({"text", "(Char)[]", true, NULL});
   fe->return_type = predefinedTypes["Unit"];
   fe->addr = "READ";
   fe->def_scope = 0;
@@ -3064,7 +3064,7 @@ void scope0(void) {
 
   // Adding "print" function.
   fe = new FunctionEntry("print", 0, "Function");
-  fe->args.push_back({"text", "(Char)[]", false, NULL});
+  fe->args.push_back({"text", "(Char)[]", true, NULL});
   fe->return_type = predefinedTypes["Unit"];
   fe->addr = "PRINT";
   fe->def_scope = 0;
@@ -3072,7 +3072,7 @@ void scope0(void) {
 
   // Adding integer to string function.
   fe = new FunctionEntry("itos", 0, "Function");
-  fe->args.push_back({"text", "(Char)[]", false, NULL});
+  fe->args.push_back({"text", "(Char)[]", true, NULL});
   fe->args.push_back({"n", "Int", false, NULL});
   fe->return_type = predefinedTypes["Unit"];
   fe->addr = "ITOS";
@@ -3081,7 +3081,7 @@ void scope0(void) {
 
   // Adding float to string function.
   fe = new FunctionEntry("ftos", 0, "Function");
-  fe->args.push_back({"text", "(Char)[]", false, NULL});
+  fe->args.push_back({"text", "(Char)[]", true, NULL});
   fe->args.push_back({"n", "Float", false, NULL});
   fe->return_type = predefinedTypes["Unit"];
   fe->addr = "FTOS";
@@ -3090,7 +3090,7 @@ void scope0(void) {
 
   // Adding string to integer function.
   fe = new FunctionEntry("stoi", 0, "Function");
-  fe->args.push_back({"text", "(Char)[]", false, NULL});
+  fe->args.push_back({"text", "(Char)[]", true, NULL});
   fe->return_type = predefinedTypes["Int"];
   fe->addr = "STOI";
   fe->def_scope = 0;
@@ -3114,7 +3114,7 @@ void scope0(void) {
 
   // Adding string to float function.
   fe = new FunctionEntry("stof", 0, "Function");
-  fe->args.push_back({"text", "(Char)[]", false, NULL});
+  fe->args.push_back({"text", "(Char)[]", true, NULL});
   fe->return_type = predefinedTypes["Float"];
   fe->addr = "STOF";
   fe->def_scope = 0;
