@@ -80,3 +80,23 @@ void TAC::print(void) {
         cout << "@label B" << index << "\n";
     }
 }
+
+void TAC::genTACinstr(string instr, string addrl, string addr1, string addr2) {
+    string addr1_aux, addr2_aux;
+
+    if (addr1.back() == ']') {
+        addr1_aux = this->newTemp();
+        this->gen("assign " + addr1_aux + " " + addr1);
+    }
+    else {
+        addr1_aux = addr1;
+    }
+    if (addr2.back() == ']') {
+        addr2_aux = this->newTemp();
+        this->gen("assign " + addr2_aux + " " + addr2);
+    }
+    else {
+        addr2_aux = addr2;
+    }
+    this->gen(instr + " " + addrl + " " + addr1_aux + " " + addr2_aux);
+}

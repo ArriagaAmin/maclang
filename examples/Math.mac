@@ -30,10 +30,10 @@ def abs(Float x) => Float {
 	done 
 }
 
-def sqrt(Float P) => Float {
+def sqrt(Float P, Float prec=0.000001) => Float {
 	let Float x = P, dif = 1.0, aux;
 
-	while dif > 0.000001 do 
+	while dif > prec do 
 		aux = x;
 		x = (x + P / x) / 2;
 		dif = abs(x - aux);

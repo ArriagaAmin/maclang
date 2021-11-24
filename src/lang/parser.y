@@ -255,21 +255,23 @@
             }
           | RETURN Exp SEMICOLON 
             {
-              if ($2->type->toString() == "$Error") {
+              string type = $2->type->toString();
+
+              if (type == "$Error") {
                 $$ = new NodeError();
               }
-              else if (table->ret_type != "" && ! typecmp($2->type->toString(), table->ret_type)) {
+              else if (table->ret_type != "" && ! typecmp(table->ret_type, type)) {
                 addError(
                   "Expected return type '\033[1;3m" + 
                   table->ret_type + "\033[0m' but " +
-                  "'\033[1;3m" + $2->type->toString() + "\033[0m' found."
+                  "'\033[1;3m" + type + "\033[0m' found."
                 );
                 $$ = new NodeError();
               } 
 
               else {
                 string addr;
-                if ($2->type->toString() == "Bool") {
+                if (type == "Bool") {
                   // En caso contrario hay que usar backpatching para realizar una
                   // asignacion del booleano.
                   addr = tac->newTemp();
@@ -293,6 +295,7 @@
                 }
 
                 $$ = new NodeReturn($2);
+                tac->gen("assign lastbase base");
                 tac->gen("return " + addr);
               }
             }
@@ -310,6 +313,7 @@
 
               else {
                 $$ = new NodeReturn();
+                tac->gen("assign lastbase base");
                 tac->gen("return 0");
               }
             }
@@ -445,9 +449,19 @@
                   else {
                     $$ = new NodeAssign($1, $4);
 
+                    string raddr;
+                    if ($4->addr.back() == ']' && $1->addr.back() == ']') {
+                      raddr = tac->newTemp();
+                      tac->gen("assign " + raddr + " " + $4->addr);
+                    }
+                    else {
+                      raddr = $4->addr;
+                    }
+
+
                     if (rtype != "Bool") {
                       // Si el rtype no es booleano, se hace la asignacion comun.
-                      tac->gen("assign " + $1->addr + " " + $4->addr);
+                      tac->gen("assign " + $1->addr + " " + raddr);
                     }
                     else {
                       // Eliminamos las dos instrucciones que debieron haber surgido por 
@@ -542,9 +556,18 @@
                           );
 
                           if (rtype != "Bool") {
+                            string raddr;
+                            if (addr.back() == ']' && exp->addr.back() == ']') {
+                              raddr = tac->newTemp();
+                              tac->gen("assign " + raddr + " " + exp->addr);
+                            }
+                            else {
+                              raddr = exp->addr;
+                            }
+
                             // Si la expresion no es booleana, se realiza una asignacion 
                             // comun.
-                            tac->gen("assign " + addr + " " + exp->addr);
+                            tac->gen("assign " + addr + " " + raddr);
                           }
                           else {
                             // En caso contrario se utiliza backpatching para realizar
@@ -682,7 +705,6 @@
           }
 
         | OPEN_PAR Type CLOSE_PAR             { $$ = $2; }
-        | T_UNIT                              { $$ = predefinedTypes["Unit"]; }
         | T_BOOL                              { $$ = predefinedTypes["Bool"]; }
         | T_CHAR                              { $$ = predefinedTypes["Char"]; }
         | T_INT                               { $$ = predefinedTypes["Int"]; }
@@ -706,9 +728,15 @@
         Exp EQUIV W Exp 
           { 
             // Verificamos que los tipos coinciden con la operacion
-            Type *t1 = $1->type;
-            Type *t2 = $4->type;
-            Type *type = verifyBinayOpType(*$2, t1->toString(), t2->toString());
+            Type *t1 = $1->type, *t2 = $4->type, *type;
+
+            if (t1->toString()[0] == '^' && t2->toString()[0] == '^') {
+              type = predefinedTypes["Bool"];
+            }
+            else {
+              type = verifyBinayOpType(*$2, t1->toString(), t2->toString());
+            }
+
             $$ = new NodeBinaryOperator($1, *$2, $4, type); 
 
             if (t1->toString() == "Bool" && t2->toString() == "Bool") {
@@ -748,9 +776,10 @@
 
             }
 
+            tac->genTACinstr("eq", "test", $1->addr, $4->addr);
+
             // Como el resultado es booleano, creamos la truelist y falselist 
             // correspondiente.
-            tac->gen("eq test " + $1->addr + " " + $4->addr);
             $$->truelist = {tac->instructions.size()};
             $$->falselist = {tac->instructions.size() + 1};
             tac->gen("goif _ test");
@@ -801,9 +830,10 @@
               tac->gen("@label " + label);
             }
 
+            tac->genTACinstr("neq", "test", $1->addr, $4->addr);
+
             // Como el resultado es booleano, creamos la truelist y falselist 
             // correspondiente.
-            tac->gen("neq test " + $1->addr + " " + $4->addr);
             $$->truelist = {tac->instructions.size()};
             $$->falselist = {tac->instructions.size() + 1};
             tac->gen("goif _ test");
@@ -857,8 +887,9 @@
             Type *type = verifyBinayOpType(*$2, t1->toString(), t2->toString());
             $$ = new NodeBinaryOperator($1, *$2, $3, type);  
 
+            tac->genTACinstr("lt", "test", $1->addr, $3->addr);
+
             // Aplicamos backpatching.
-            tac->gen("lt test " + $1->addr + " " + $3->addr);
             $$->truelist = {tac->instructions.size()};
             $$->falselist = {tac->instructions.size() + 1};
             tac->gen("goif _ test");
@@ -873,8 +904,9 @@
             Type *type = verifyBinayOpType(*$2, t1->toString(), t2->toString());
             $$ = new NodeBinaryOperator($1, *$2, $3, type); 
 
+            tac->genTACinstr("leq", "test", $1->addr, $3->addr);
+
             // Aplicamos backpatching.
-            tac->gen("leq test " + $1->addr + " " + $3->addr);
             $$->truelist = {tac->instructions.size()};
             $$->falselist = {tac->instructions.size() + 1};
             tac->gen("goif _ test");
@@ -889,8 +921,9 @@
             Type *type = verifyBinayOpType(*$2, t1->toString(), t2->toString());
             $$ = new NodeBinaryOperator($1, *$2, $3, type); 
 
+            tac->genTACinstr("gt", "test", $1->addr, $3->addr);
+
             // Aplicamos backpatching.
-            tac->gen("gt test " + $1->addr + " " + $3->addr);
             $$->truelist = {tac->instructions.size()};
             $$->falselist = {tac->instructions.size() + 1};
             tac->gen("goif _ test");
@@ -905,8 +938,9 @@
             Type *type = verifyBinayOpType(*$2, t1->toString(), t2->toString());
             $$ = new NodeBinaryOperator($1, *$2, $3, type); 
 
+            tac->genTACinstr("geq", "test", $1->addr, $3->addr);
+
             // Aplicamos backpatching.
-            tac->gen("geq test " + $1->addr + " " + $3->addr);
             $$->truelist = {tac->instructions.size()};
             $$->falselist = {tac->instructions.size() + 1};
             tac->gen("goif _ test");
@@ -923,7 +957,7 @@
 
             // Agregamos las instrucciones del TAC.
             $$->addr = tac->newTemp();
-            tac->gen("add " + $$->addr + " " + $1->addr + " " + $3->addr);
+            tac->genTACinstr("add", $$->addr, $1->addr, $3->addr);
           }
 
         | Exp MINUS Exp 
@@ -936,7 +970,7 @@
 
             // Agregamos las instrucciones del TAC.
             $$->addr = tac->newTemp();
-            tac->gen("sub " + $$->addr + " " + $1->addr + " " + $3->addr);
+            tac->genTACinstr("sub", $$->addr, $1->addr, $3->addr);
           }
 
         | Exp ASTERISK Exp 
@@ -949,7 +983,7 @@
 
             // Agregamos las instrucciones del TAC.
             $$->addr = tac->newTemp();
-            tac->gen("mult " + $$->addr + " " + $1->addr + " " + $3->addr);
+            tac->genTACinstr("mult", $$->addr, $1->addr, $3->addr);
           }
 
         | Exp DIV Exp 
@@ -962,7 +996,7 @@
 
             // Agregamos las instrucciones del TAC.
             $$->addr = tac->newTemp();
-            tac->gen("div " + $$->addr + " " + $1->addr + " " + $3->addr);
+            tac->genTACinstr("div", $$->addr, $1->addr, $3->addr);
           }
 
         | Exp MODULE Exp 
@@ -975,7 +1009,7 @@
 
             // Agregamos las instrucciones del TAC.
             $$->addr = tac->newTemp();
-            tac->gen("mod " + $$->addr + " " + $1->addr + " " + $3->addr);
+            tac->genTACinstr("mod", $$->addr, $1->addr, $3->addr);
           }
 
         | MINUS Exp  
@@ -1006,22 +1040,40 @@
 
             // Generamos el codigo TAC para la exponencial.
             $$->addr = tac->newTemp();
+            string addr1 = tac->newTemp(), addr2 = tac->newTemp();
+            tac->gen("assign " + addr1 + " " + $1->addr);
+            tac->gen("assign " + addr2 + " " + $3->addr);
+
             // Inicializamos el resultado en 1
             tac->gen("assign " + $$->addr + " 1");
 
             // Creamos una etiqueta para el loop
             string loop_name = tac->newLabel();
-            tac->gen("@label " + loop_name);
 
-            // Verificamos si el exponente es menor o igual a 0, en ese caso salimos del
-            // bucle
-            tac->gen("leq test " + $3->addr + " 0");
+            // Verificamos si el exponente es negativo o positivo y realizamos el salto
+            // correspondiente
+            tac->gen("lt test " + addr2 + " 0");
+            // Si es negativo, saltamos a la version negativa del exponente.
+            tac->gen("goif " + loop_name + "_neg test");
+            
+            // Version positiva del exponente
+            tac->gen("@label " + loop_name + "_pos");
+            // Verificamos si el exponente es igual a 0, en ese caso salimos del bucle
+            tac->gen("eq test " + addr2 + " 0");
             tac->gen("goif " + loop_name + "_end test");
-
             // Siguiente iteracion
-            tac->gen("mult " + $$->addr + " " + $$->addr + " " + $1->addr);
-            tac->gen("sub " + $3->addr + " " + $3->addr + " 1");
-            tac->gen("goto " + loop_name);
+            tac->gen("mult " + $$->addr + " " + $$->addr + " " + addr1);
+            tac->gen("sub " + addr2 + " " + addr2 + " 1");
+            tac->gen("goto " + loop_name + "_pos");
+
+            // Version negativa del exponente
+            tac->gen("@label " + loop_name + "_neg");
+            // Siguiente iteracion
+            tac->gen("div " + $$->addr + " " + $$->addr + " " + addr1);
+            tac->gen("add " + addr2 + " " + addr2 + " 1");
+            // Verificamos si el exponente es igual a 0, en ese caso salimos del bucle
+            tac->gen("neq test " + addr2 + " 0");
+            tac->gen("goif " + loop_name + "_neg test");
 
             // Final del ciclo
             tac->gen("@label " + loop_name + "_end");
@@ -1058,10 +1110,25 @@
               Type *type = ((ArrayType*) $1->type)->type;
               $$ = new NodeArrayAccess($1, $3, type);
 
-              string t = tac->newTemp();
+              string arraddr, raddr;
+              if ($1->addr.back() == ']') {
+                arraddr = tac->newTemp();
+                tac->gen("assign " + arraddr + " " + $1->addr);
+              }
+              else {
+                arraddr = $1->addr;
+              }
+              if ($3->addr.back() == ']') {
+                raddr = tac->newTemp();
+                tac->gen("assign " + raddr + " " + $3->addr);
+              }
+              else {
+                raddr = $3->addr;
+              }
+
               $$->addr = tac->newTemp();
-              tac->gen("mult " + $$->addr + " " + $3->addr + " " + to_string(type->width));
-              $$->addr = $1->addr + "[" + $$->addr + "]";
+              tac->gen("mult " + $$->addr + " " + to_string(type->width) + " " + raddr);
+              $$->addr = arraddr + "[" + $$->addr + "]";
 
               // Si el tipo base es booleano, aplicamos el backpatching correspondiente.
               if (type->toString() == "Bool") {
@@ -1075,28 +1142,36 @@
         | POINTER Exp  
           { 
             // Verificamos que el tipo base no sea erroneo.
-            if ($2->type->toString() == "$Error") {
+            string type = $2->type->toString();
+            if (type == "$Error") {
               $$ = new NodePointer($2, predefinedTypes["$Error"]);
             } 
             // O no sea un puntero.
             else if ($2->type->category != "Pointer") {
-              addError(
-                "'\033[1;3m" + $2->type->toString() + 
-                "\033[0m' type can't be desreferenced."
-              );
+              addError("'\033[1;3m" + type + "\033[0m' type can't be desreferenced.");
               $$ = new NodePointer($2, predefinedTypes["$Error"]); 
             } 
             // O no sea ^Unit
-            else if ($2->type->toString() == "^(Unit)") {
-              addError("'\033[1;3m^(Unit)\033[0m' type can't be desreferenced.");
+            else if (type == "^(Unit)") {
+              addError("\033[1;3mNULL\033[0m can't be desreferenced.");
               $$ = new NodePointer($2, predefinedTypes["$Error"]); 
             }
             else {
               Type *type = ((PointerType*) $2->type)->type;
               $$ = new NodePointer($2, type); 
+
+              string raddr;
+              if ($2->addr.back() == ']') {
+                raddr = tac->newTemp();
+                tac->gen("assign " + raddr + " " + $2->addr);
+              }
+              else {
+                raddr = $2->addr;
+              }
+
               // La desreferenciacion es equivalente al acceso de memoria sin 
               // desplazamiento
-              $$->addr = $2->addr + "[0]";
+              $$->addr = raddr + "[0]";
 
               // Si el tipo base es booleano, aplicamos el backpatching correspondiente.
                 if (type->toString() == "Bool") {
@@ -1150,9 +1225,18 @@
                 else {
                   $$ = new NodeDot($1, *$3, field->type);
 
+                  string raddr;
+                  if ($1->addr.back() == ']') {
+                    raddr = tac->newTemp();
+                    tac->gen("assign " + raddr + " " + $1->addr);
+                  }
+                  else {
+                    raddr = $1->addr;
+                  }
+
                   // El acceso a campo es equivalente al acceso a memoria desplazado
                   // por el offset del campo.
-                  $$->addr = $1->addr + "[" + to_string(field->offset) + "]";
+                  $$->addr = raddr + "[" + to_string(field->offset) + "]";
 
                   // Si el campo es booleano agregamos el backpatching correspondiente.
                   if (field->type->toString() == "Bool") {
@@ -1263,11 +1347,20 @@
                 $$->type = $5->type;
 
                 if (rtype != "Bool") {
+                  string raddr;
+                  if ($2->addr.back() == ']' && $5->addr.back() == ']') {
+                    raddr = tac->newTemp();
+                    tac->gen("assign " + raddr + " " + $5->addr);
+                  }
+                  else {
+                    raddr = $5->addr;
+                  }
+
                   // Si la expresion no es booleana, se realiza la asignacion al L-Value
                   // y a la expresion que retorna la asignacion.
                   $$->addr = tac->newTemp();
-                  tac->gen("assign " + $2->addr + " " + $5->addr);
-                  tac->gen("assign " + $$->addr + " " + $5->addr);
+                  tac->gen("assign " + $2->addr + " " + raddr);
+                  tac->gen("assign " + $$->addr + " " + raddr);
                 }
                 else {
                   // Eliminamos las dos instrucciones que debieron haber surgido por 
@@ -1346,7 +1439,15 @@
               { 
                 // Verificamos que no hubo errores en las expresiones que conforman el
                 // arreglo.
-                if ($2->type->toString() != "$Error") {
+                string type = $2->type->toString();
+                if (type == "^(Unit)") {
+                  addError("All elements of the array cannot be \033[1;3mNULL\033[0m.");
+                  $$ = new NodeArray($2, predefinedTypes["$Error"]); 
+                }
+                else if (type == "$Error") {
+                  $$ = new NodeArray($2, predefinedTypes["$Error"]); 
+                }
+                else {
                   int size = ((NodeArrayElems*) $2)->current_size;
 
                   ExpressionNode *nsize = new NodeINT(size);
@@ -1372,18 +1473,33 @@
 
                   // Realizamos la asignacion de cada expresion del arreglo.
                   NodeArrayElems *exp = $2;
+                  string raddr, laddr;
+
+                  if ($$->addr.back() == ']') {
+                    laddr = tac->newTemp();
+                    tac->gen("assign " + laddr + " " + $$->addr);
+                  }
+                  else {
+                    laddr = $$->addr;
+                  }
+
                   while (--size >= 0) {
+                    if (exp->rvalue->addr.back() == ']') {
+                      raddr = tac->newTemp();
+                      tac->gen("assign " + raddr + " " + exp->rvalue->addr);
+                    }
+                    else {
+                      raddr = exp->rvalue->addr;
+                    }
+                    
                     tac->gen(
-                      "assign " + $$->addr + "[" + 
-                      to_string(size * $2->type->width) + "] " + exp->rvalue->addr
+                      "assign " + laddr + "[" + 
+                      to_string(size * $2->type->width) + "] " + raddr
                     );
                     exp = exp->head;
                   }
 
                 } 
-                else {
-                  $$ = new NodeArray($2, predefinedTypes["$Error"]); 
-                }
               }
             ;
 
@@ -1404,7 +1520,7 @@
                   size = 0;
                 } 
                 
-                else if (! typecmp(type1, type2)) {
+                else if (! typecmp(type1, type2) && ! typecmp(type2, type1)) {
                   addError(
                     "All elements of an array must have the same type"
                     ", but found '\033[1;3m" + type1 + "\033[0m' and "
@@ -1415,7 +1531,12 @@
                 } 
 
                 else {
-                  type = $2->type;
+                  if (type1 != "" && type2 == "^(Unit)") {
+                    type = $1->type;
+                  } 
+                  else {
+                    type = $2->type;
+                  }
                   size = $1->current_size + 1;
                 }
 
@@ -1562,11 +1683,19 @@
                                   "lastbase[" + to_string(ve->offset) + "]"
                                 });
                               }
-                              // Si el pase no es por referencia y es un tipo arreglo
+                              // Si el pase no es por referencia, es un tipo arreglo y no
+                              // es un string literal
                               else if (! get<2>(arg) && type_str.back() == ']') {
-                                // Creamos una copia del arreglo
-                                addr = tac->newTemp();
-                                copyArray($3->positionalArgs[i]->type, addr, $3->positionalArgs[i]->addr);
+                                ArrayType *at = (ArrayType*) $3->positionalArgs[i]->type;
+                                if (! at->is_string) {
+                                  // Creamos una copia del arreglo
+                                  addr = tac->newTemp();
+                                  copyArray(
+                                    $3->positionalArgs[i]->type, 
+                                    addr, 
+                                    $3->positionalArgs[i]->addr
+                                  );
+                                }
                               }
                               // Si el pase no es por referencia y es una estructura
                               else if (! get<2>(arg) && ! predefinedTypes.count(type_str) && type_str[0] != '^') {
@@ -1613,9 +1742,12 @@
                               }
                               // Si el pase no es por referencia y es un tipo arreglo
                               else if (! get<2>(arg) && type_str.back() == ']') {
-                                // Creamos una copia del arreglo
-                                addr = tac->newTemp();
-                                copyArray($3->positionalArgs[i]->type, addr, $3->positionalArgs[i]->addr);
+                                ArrayType *at = (ArrayType*) $3->namedArgs[get<0>(arg)]->type;
+                                if (! at->is_string) {
+                                  // Creamos una copia del arreglo
+                                  addr = tac->newTemp();
+                                  copyArray($3->positionalArgs[i]->type, addr, $3->positionalArgs[i]->addr);
+                                }
                               }
                               // Si el pase no es por referencia y es una estructura
                               else if (! get<2>(arg) && ! predefinedTypes.count(type_str) && type_str[0] != '^') {
@@ -1693,8 +1825,17 @@
                           }
 
                           // Realizamos las asignaciones por referencia correspondientes.
+                          string raddr;
                           for (pair<string, string> assign : refs) {
-                            tac->gen("assign " + assign.first + " " + assign.second);
+                            if (assign.second.back() == ']') {
+                              raddr = tac->newTemp();
+                              tac->gen("assign " + raddr + " " + assign.second);
+                            }
+                            else {
+                              raddr = assign.second;
+                            }
+
+                            tac->gen("assign " + assign.first + " " + raddr);
                           }
 
                           if (type->toString() == "Bool") {
@@ -1779,7 +1920,7 @@
                           tac->backpatch($1->truelist, tac->instructions.size());
                           tac->gen("assign " + $1->addr + " True");
 
-                          label = "P_args" + to_string(tac->instructions.size() + 2);
+                          label = "Pos_args" + to_string(tac->instructions.size() + 2);
                           tac->gen("goto " + label);
                           tac->backpatch($1->falselist, tac->instructions.size());
                           tac->gen("assign " + $1->addr + " False");
@@ -1810,7 +1951,7 @@
                           tac->backpatch($3->truelist, tac->instructions.size());
                           tac->gen("assign " + $3->addr + " True");
 
-                          label = "P_args" + to_string(tac->instructions.size() + 2);
+                          label = "Pos_args" + to_string(tac->instructions.size() + 2);
                           tac->gen("goto " + label);
                           tac->backpatch($3->falselist, tac->instructions.size());
                           tac->gen("assign " + $3->addr + " False");
@@ -1839,7 +1980,7 @@
                           tac->backpatch($3->truelist, tac->instructions.size());
                           tac->gen("assign " + $3->addr + " True");
 
-                          label = "N_args" + to_string(tac->instructions.size() + 2);
+                          label = "Named_args" + to_string(tac->instructions.size() + 2);
                           tac->gen("goto " + label);
                           tac->backpatch($3->falselist, tac->instructions.size());
                           tac->gen("assign " + $3->addr + " False");
@@ -1874,7 +2015,7 @@
                           tac->backpatch($5->truelist, tac->instructions.size());
                           tac->gen("assign " + $5->addr + " True");
 
-                          label = "N_args" + to_string(tac->instructions.size() + 2);
+                          label = "Named_args" + to_string(tac->instructions.size() + 2);
                           tac->gen("goto " + label);
                           tac->backpatch($5->falselist, tac->instructions.size());
                           tac->gen("assign " + $5->addr + " False");
@@ -2444,7 +2585,7 @@
                 string type3 = $8 == NULL ? "" : $8->type->toString();
 
                 int s = table->currentScope();
-                Type *t = predefinedTypes["Float"];
+                Type *t = predefinedTypes["Int"];
 
                 // Calculamos el offset.
                 int offset = table->newOffset(t);
@@ -2452,27 +2593,24 @@
                 VarEntry *e = new VarEntry(*$3, s, "Var", t, offset, tac->newTemp());
                 table->insert(e); 
 
-                if (type1 != "$Error" && type1 != "Float" && type1 != "Int") {
+                if (type1 != "$Error" && type1 != "Int") {
                   addError(
                     "Initial value in a for loop must be "
-                    "'\033[1;3mInt\033[0m' or '\033[1;3mFloat\033[0m' "
-                    "but '\033[1;3m" + type1 + "\033[0m' found."
+                    "'\033[1;3mInt\033[0m' but '\033[1;3m" + type1 + "\033[0m' found."
                   );
                 }
 
-                if (type2 != "$Error" && type2 != "Float" && type2 != "Int") {
+                if (type2 != "$Error" && type2 != "Int") {
                   addError(
                     "End value in a for loop must be "
-                    "'\033[1;3mInt\033[0m' or '\033[1;3mFloat\033[0m' "
-                    "but '\033[1;3m" + type2 + "\033[0m' found."
+                    "'\033[1;3mInt\033[0m' but '\033[1;3m" + type2 + "\033[0m' found."
                   );
                 }
 
-                if ($8 != NULL && type3 != "$Error" && type3 != "Float" && type3 != "Int") {
+                if ($8 != NULL && type3 != "$Error" && type3 != "Int") {
                   addError(
                     "Step value in a for loop must be "
-                    "'\033[1;3mInt\033[0m' or '\033[1;3mFloat\033[0m' "
-                    "but '\033[1;3m" + type3 + "\033[0m' found."
+                    "'\033[1;3mInt\033[0m' but '\033[1;3m" + type3 + "\033[0m' found."
                   );
                 }
 
@@ -2525,21 +2663,20 @@
                   
                   table->exitScope();
                   table->exitScope();
+                  tac->backpatch(
+                    {(unsigned long long) $2 - 1}, 
+                    to_string(table->offsets.back())
+                  );
                 }
 
                 table->ret_type = "";
-                tac->backpatch(
-                  {(unsigned long long) $2 - 1}, 
-                  to_string(table->offsets.back())
-                );
                 table->offsets.pop_back();
 
-                tac->gen("@label " + $1->addr + "_end");
                 if ($4 != NULL) {
                   tac->backpatch($4->nextlist, $1->addr + "_end");
                 }
 
-                tac->gen("assign lastbase base");
+                tac->gen("@label " + $1->addr + "_end");
                 tac->gen("@endfunction");
 
                 tac->gen("@label " + $1->addr + "_out");
@@ -2887,6 +3024,10 @@
                   $$ = $2;
                 }
               }
+            | RIGHT_ARROW T_UNIT 
+              {
+                $$ = predefinedTypes["Unit"];
+              }
             ; 
   
   Actions   : /* lambda */                { $$ = NULL; }
@@ -3129,4 +3270,8 @@ void scope0(void) {
   table->insert(fe);
 
   // VARIABLES
+  VarEntry *ve;
+
+  ve = new VarEntry("NULL", 0, "Var", new PointerType(predefinedTypes["Unit"]), 0, "0");
+  table->insert(ve);
 }

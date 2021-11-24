@@ -7,7 +7,7 @@ void allocArray(Type *t, string final_addr) {
   extern TAC *tac;
   extern map<string, Type*> predefinedTypes;
   ArrayType *at = (ArrayType*) t;
-  string type;
+  string type, typesize_addr;
 
   // Si el arreglo corresponde a un string, no hay que hacer nada.
   if (at->is_string) {
@@ -17,10 +17,18 @@ void allocArray(Type *t, string final_addr) {
   // Obtenemos el tipo interno
   t = at->type;
 
+  if (at->size->addr.back() == ']') {
+    typesize_addr = tac->newTemp();
+    tac->gen("assign " + typesize_addr + " " + at->size->addr);
+  }
+  else {
+    typesize_addr = at->size->addr;
+  }
+
   // Obtenemos la longitud del hiper arreglo y lo reservamos
   string size_addr = tac->newTemp();
   tac->gen("assign " + size_addr + " " + to_string(t->width));
-  tac->gen("mult " + size_addr + " " + size_addr + " " + at->size->addr);
+  tac->gen("mult " + size_addr + " " + size_addr + " " + typesize_addr);
   tac->gen("malloc " + final_addr + " " + size_addr);
 
   // Si el tipo base del hiper arreglo no es primitivo ni puntero, es decir, es una
@@ -29,17 +37,25 @@ void allocArray(Type *t, string final_addr) {
   if (type.back() == ']' || (! predefinedTypes.count(type) && type[0] != '^')) {
 
     // Creamos un bucle en el que se reserva memoria para cada elemento del hiper arreglo.
-    string label = tac->newLabel();
+    string label = tac->newLabel(), final_addr_aux;
     tac->gen("@label " + label);
     tac->gen("sub " + size_addr + " " + size_addr + " " + to_string(t->width));
     tac->gen("lt test " + size_addr + " 0");
     tac->gen("goif " + label + "_end test");
 
-    if (type.back() == ']') {
-      allocArray(t, final_addr + "[" + size_addr + "]");
+    if (final_addr.back() == ']') {
+      final_addr_aux = tac->newTemp();
+      tac->gen("assign " + final_addr_aux + " " + final_addr);
     }
     else {
-      allocStruct(t, final_addr + "[" + size_addr + "]");
+      final_addr_aux = final_addr;
+    }
+
+    if (type.back() == ']') {
+      allocArray(t, final_addr_aux + "[" + size_addr + "]");
+    }
+    else {
+      allocStruct(t, final_addr_aux + "[" + size_addr + "]");
     }
 
     tac->gen("goto " + label);
@@ -67,7 +83,15 @@ void allocStruct(Type *t, string final_addr) {
   // Si la estructura define algun campo.
   if (table->scopeEntries.count(scope)) {
     VarEntry *ve;
-    string type;
+    string type, final_addr_aux;
+
+    if (final_addr.back() == ']') {
+      final_addr_aux = tac->newTemp();
+      tac->gen("assign " + final_addr_aux + " " + final_addr);
+    }
+    else {
+      final_addr_aux = final_addr;
+    }
 
     // Por cada campo de la estructura.
     for (Entry *e : table->scopeEntries[scope]) {
@@ -76,11 +100,11 @@ void allocStruct(Type *t, string final_addr) {
 
       // Reservamos la memoria necesaria para los campos que son arreglos.
       if (type.back() == ']') {
-        allocArray(ve->type, final_addr + "[" + to_string(ve->offset) + "]");
+        allocArray(ve->type, final_addr_aux + "[" + to_string(ve->offset) + "]");
       }
       // Y para los campos que son otras estructuras.
       else if (! predefinedTypes.count(type) && type[0] != '^') {
-        allocStruct(ve->type, final_addr + "[" + to_string(ve->offset) + "]");
+        allocStruct(ve->type, final_addr_aux + "[" + to_string(ve->offset) + "]");
       }
     }
   }
@@ -95,39 +119,59 @@ void copyArray(Type *t, string dst_addr, string src_addr) {
   extern TAC *tac;
   extern map<string, Type*> predefinedTypes;
   ArrayType *at = (ArrayType*) t;
-  string type;
-
-  // Si el arreglo corresponde a un string, no hay que hacer nada.
-  if (at->is_string) {
-    return;
-  }
+  string type, src_addr_aux, typesize_addr;
   
   // Obtenemos el tipo interno
   t = at->type;
 
+  if (at->size->addr.back() == ']') {
+    typesize_addr = tac->newTemp();
+    tac->gen("assign " + typesize_addr + " " + at->size->addr);
+  }
+  else {
+    typesize_addr = at->size->addr;
+  }
+
   // Obtenemos la longitud del hiper arreglo y lo reservamos
   string size_addr = tac->newTemp();
   tac->gen("assign " + size_addr + " " + to_string(t->width));
-  tac->gen("mult " + size_addr + " " + size_addr + " " + at->size->addr);
+  tac->gen("mult " + size_addr + " " + size_addr + " " + typesize_addr);
   tac->gen("malloc " + dst_addr + " " + size_addr);
 
   // Si el tipo base del hiper arreglo no es primitivo ni puntero, es decir, es una
   // estructura, hay que reservar y copiar la memoria de cada uno explicitamente.
   type = t->toString();
+
+  if (src_addr.back() == ']') {
+    src_addr_aux = tac->newTemp();
+    tac->gen("assign " + src_addr_aux + " " + src_addr);
+  }
+  else {
+    src_addr_aux = src_addr;
+  }
+
   if (type.back() == ']' || (! predefinedTypes.count(type) && type[0] != '^')) {
 
     // Creamos un bucle en el que se reserva memoria para cada elemento del hiper arreglo.
-    string label = tac->newLabel();
+    string label = tac->newLabel(), dst_addr_aux;
     tac->gen("@label " + label);
     tac->gen("sub " + size_addr + " " + size_addr + " " + to_string(t->width));
     tac->gen("lt test " + size_addr + " 0");
     tac->gen("goif " + label + "_end test");
 
-    if (type.back() == ']') {
-      copyArray(t, dst_addr + "[" + size_addr + "]", src_addr + "[" + size_addr + "]");
+    if (dst_addr.back() == ']') {
+      dst_addr_aux = tac->newTemp();
+      tac->gen("assign " + dst_addr_aux + " " + dst_addr);
     }
     else {
-      copyStruct(t, dst_addr + "[" + size_addr + "]", src_addr + "[" + size_addr + "]");
+      dst_addr_aux = dst_addr;
+    }
+
+    if (type.back() == ']') {
+      copyArray(t, dst_addr_aux + "[" + size_addr + "]", src_addr_aux + "[" + size_addr + "]");
+    }
+    else {
+      copyStruct(t, dst_addr_aux + "[" + size_addr + "]", src_addr_aux + "[" + size_addr + "]");
     }
 
     tac->gen("goto " + label);
@@ -136,7 +180,7 @@ void copyArray(Type *t, string dst_addr, string src_addr) {
 
   // En caso contrario copiamos toda la memoria
   else {
-    tac->gen("memcpy " + dst_addr + " " + src_addr);
+    tac->gen("memcpy " + dst_addr + " " + src_addr_aux);
   }
 }
 
@@ -147,10 +191,19 @@ void copyStruct(Type *t, string dst_addr, string src_addr) {
   extern TAC *tac;
   extern map<string, Type*> predefinedTypes;
   extern SymbolsTable *table;
+  string src_addr_aux;
 
   // Reservamos la memoria para la estructura completa
   tac->gen("malloc " + dst_addr + " " + to_string(t->width));
-  tac->gen("memcpy " + dst_addr + " " + src_addr);
+
+  if (src_addr.back() == ']') {
+    src_addr_aux = tac->newTemp();
+    tac->gen("assign " + src_addr_aux + " " + src_addr);
+  }
+  else {
+    src_addr_aux = src_addr;
+  }
+  tac->gen("memcpy " + dst_addr + " " + src_addr_aux);
 
   // Obtenemos el scope de definicion de la estructura.
   PrimitiveType *pt = (PrimitiveType*) t;
@@ -160,7 +213,15 @@ void copyStruct(Type *t, string dst_addr, string src_addr) {
   // Si la estructura define algun campo.
   if (table->scopeEntries.count(scope)) {
     VarEntry *ve;
-    string type, offset;
+    string type, offset, dst_addr_aux;
+
+    if (dst_addr.back() == ']') {
+      dst_addr_aux = tac->newTemp();
+      tac->gen("assign " + dst_addr_aux + " " + dst_addr);
+    }
+    else {
+      dst_addr_aux = dst_addr;
+    }
 
     // Por cada campo de la estructura.
     for (Entry *e : table->scopeEntries[scope]) {
@@ -170,11 +231,11 @@ void copyStruct(Type *t, string dst_addr, string src_addr) {
 
       // Reservamos la memoria necesaria para los campos que son arreglos.
       if (type.back() == ']') {
-        copyArray(ve->type, dst_addr + "[" + offset + "]", src_addr + "[" + offset + "]");
+        copyArray(ve->type, dst_addr_aux + "[" + offset + "]", src_addr_aux + "[" + offset + "]");
       }
       // Y para los campos que son otras estructuras.
       else if (! predefinedTypes.count(type) && type[0] != '^') {
-        copyStruct(ve->type, dst_addr + "[" + offset + "]", src_addr + "[" + offset + "]");
+        copyStruct(ve->type, dst_addr_aux + "[" + offset + "]", src_addr_aux + "[" + offset + "]");
       }
     }
   }
@@ -203,11 +264,19 @@ void freeArray(Type *t, string final_addr) {
   // estructura, hay que liberar la memoria de cada uno explicitamente.
   type = t->toString();
   if (type.back() == ']' || (! predefinedTypes.count(type) && type[0] != '^')) {
+    string typesize_addr;
+    if (at->size->addr.back() == ']') {
+      typesize_addr = tac->newTemp();
+      tac->gen("assign " + typesize_addr + " " + at->size->addr);
+    }
+    else {
+      typesize_addr = at->size->addr;
+    }
 
     // Obtenemos la longitud del hiper arreglo.
     string size_addr = tac->newTemp();
     tac->gen("assign " + size_addr + " " + to_string(t->width));
-    tac->gen("mult " + size_addr + " " + size_addr + " " + at->size->addr);
+    tac->gen("mult " + size_addr + " " + size_addr + " " + typesize_addr);
 
     // Creamos un bucle en el que se reserva memoria para cada elemento del hiper arreglo.
     string label = tac->newLabel();
@@ -216,11 +285,20 @@ void freeArray(Type *t, string final_addr) {
     tac->gen("lt test " + size_addr + " 0");
     tac->gen("goif " + label + "_end test");
 
-    if (type.back() == ']') {
-      freeArray(t, final_addr + "[" + size_addr + "]");
+    string final_addr_aux;
+    if (final_addr.back() == ']') {
+      final_addr_aux = tac->newTemp();
+      tac->gen("assign " + final_addr_aux + " " + final_addr);
     }
     else {
-      freeStruct(t, final_addr + "[" + size_addr + "]");
+      final_addr_aux = final_addr;
+    }
+
+    if (type.back() == ']') {
+      freeArray(t, final_addr_aux + "[" + size_addr + "]");
+    }
+    else {
+      freeStruct(t, final_addr_aux + "[" + size_addr + "]");
     }
 
     tac->gen("goto " + label);
@@ -248,7 +326,15 @@ void freeStruct(Type *t, string final_addr) {
   // Si la estructura define algun campo.
   if (table->scopeEntries.count(scope)) {
     VarEntry *ve;
-    string type;
+    string type, final_addr_aux;
+
+    if (final_addr.back() == ']') {
+      final_addr_aux = tac->newTemp();
+      tac->gen("assign " + final_addr_aux + " " + final_addr);
+    }
+    else {
+      final_addr_aux = final_addr;
+    }
 
     // Por cada campo de la estructura.
     for (Entry *e : table->scopeEntries[scope]) {
@@ -257,11 +343,11 @@ void freeStruct(Type *t, string final_addr) {
 
       // Liberamos la memoria necesaria para los campos que son arreglos.
       if (type.back() == ']') {
-        freeArray(ve->type, final_addr + "[" + to_string(ve->offset) + "]");
+        freeArray(ve->type, final_addr_aux + "[" + to_string(ve->offset) + "]");
       }
       // Y para los campos que son otras estructuras.
       else if (! predefinedTypes.count(type) && type[0] != '^') {
-        freeStruct(ve->type, final_addr + "[" + to_string(ve->offset) + "]");
+        freeStruct(ve->type, final_addr_aux + "[" + to_string(ve->offset) + "]");
       }
     }
   }

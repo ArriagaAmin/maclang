@@ -43,6 +43,7 @@ public:
     void backpatch(vector<unsigned long long> ps, unsigned long long l);
     void backpatch(vector<unsigned long long> ps, string l);
     void print(void);
+    void genTACinstr(string instr, string addrl, string addr1, string addr2);
 };
 
 template <typename T>

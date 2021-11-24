@@ -23,7 +23,7 @@ dec CharTree_print(^CharTree T);
 
 
 let ^CharNode NIL = new CharNode;
-^NIL.key = '\0';
+^NIL.key = '\0'; 
 
 let Int LINE_SIZE = 512;
 let Char[LINE_SIZE] buffer;
@@ -148,7 +148,7 @@ def CharNode_removeMin(^CharNode N) => ^CharNode {
 }
 
 def CharNode_print(^CharNode N, Int level) {
-	let Int i = 0;
+	let Int i = 0; 
 	let Char[32] buffer;
 
 	while i < level do print("    "); done 

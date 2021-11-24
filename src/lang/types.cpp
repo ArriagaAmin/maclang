@@ -1,7 +1,7 @@
 #include "types.hpp"
 
 bool typecmp(string t1, string t2) {
-	return t1 == t2;
+	return t1 == t2 || (t1[0] == '^' && t2 == "^(Unit)");
 }
 
 // Esta variable representa un grafo que verifica la correctitud de los tipos para las

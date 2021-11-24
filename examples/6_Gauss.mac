@@ -1,4 +1,4 @@
-execonce "examples/String.mac";
+execonce "String.mac";
 
 dec gauss(Float[][] M, Int N) => Bool;
 
