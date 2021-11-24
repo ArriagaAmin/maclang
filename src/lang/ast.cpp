@@ -70,17 +70,7 @@
     this->type = type;
     this->size = size;
     this->is_string = is_string;
-
-    // Si size es un literal, podemos calcular directamente el desplazamiento.
-    if (! is_string && size->is_lit) {
-      this->width = type->width * ((NodeINT*) size)->value;
-      this->is_pointer = false;
-    }
-    // En caso contrario, se tomara como un puntero.
-    else {
-      this->width = primitiveWidths["Pointer"];
-      this->is_pointer = true;
-    }
+    this->width = primitiveWidths["Pointer"];
     this->category = "Array";
   }
   string ArrayType::toString(void) {

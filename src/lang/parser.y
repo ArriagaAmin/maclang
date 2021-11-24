@@ -27,6 +27,7 @@
 
   // Predefined Types 
   extern map<string, Type*> predefinedTypes;
+  extern map<string, int> primitiveWidths;
 
   // Crea las funciones y variables del scope0.
   void scope0(void);
@@ -152,7 +153,6 @@
 %type <integer>       M
 
 %%
-
 /* ======================= GLOBAL RULES ============================== */
   S       : I 
             { 
@@ -168,12 +168,6 @@
                 for (pair<string, vector<pair<unsigned long long, vector<int>>>> f : tac->functionlist) {
                   addError("Function '\033[1;3m" + f.first + "\033[0m' declared but not defined.");
                 }
-
-                // Liberamos la memoria reservada automaticamente en el scope.
-                for (pair<Type*, string> mem : tac->to_free.top()) {
-                  freeCompound(mem.first, mem.second);
-                }
-                tac->to_free.pop();
               }
               else {
                 exec_node = new NodeExec(filename, $1);
@@ -414,17 +408,15 @@
                     
                     // Si el tipo es un arreglo o estructura, llamamos a la funcion
                     // para liberar memoria correspondiente
-                    if (type.back() == ']' && ! ((ArrayType*) t)->is_pointer) {
-                      freeConstArray(t, addr);
-                    }
-                    else if (type.back() == ']') {
-                      freeVarArray(t, addr);
+                    if (type.back() == ']') {
+                      freeArray(t, addr);
                     }
                     else if (! predefinedTypes.count(type) && type[0] != '^') {
                       freeStruct(t, addr);
                     }
-
-                    tac->gen("free " + addr);
+                    else {
+                      tac->gen("free " + addr);
+                    }
                   }
                 }
 
@@ -508,71 +500,27 @@
                       } 
 
                       else {
-                        int s = table->currentScope(), offset;
+                        int s = table->currentScope(), offset = table->newOffset($2);
                         string addr;
-
-                        // Calculamos el offset.
-                        offset = table->offsets.back();
-                        if ($2-> width != 1 && offset % 4 != 0) {
-                          int diff = 4 - offset % 4;
-                          offset += diff;
-                          table->offsets.back() += diff;
-                        }
 
                         // Verificamos si nos encontramos dentro de una funcion.
                         if (table->ret_type != "") {
                           addr = "base[" + to_string(offset) + "]";
+                        } 
+                        else {
+                          addr = tac->newTemp();
                         }
 
                         // En caso de que el tipo sea un arreglo o estructura (registro
-                        // o union) reservamos la memoria necesaria. Tambien obtenemos
-                        // la direccion de memoria correspondiente a la variable.
+                        // o union) reservamos la memoria necesaria.
 
                         // Si es un arreglo de longitud constante.
-                        if (type.back() == ']' && ! ((ArrayType*) $2)->is_pointer) {
-                          if (table->ret_type != "") {
-                            // Si nos encontramos dentro de una funcion, el arreglo sera
-                            // almacenado dinamicamente a pesar de ser constante.
-                            allocVarArray($2, addr);
-                          } else {
-                            addr = tac->newAddr($2->width);
-                            allocConstArray($2, addr);
-                          }
-
-                          // Agregamos la direccion de memoria a las entradas que deben
-                          // ser liberadas al salir del scope actual.
-                          tac->to_free.top().push_back({$2, addr});
-                        }
-                        // Si es un arreglo de longitud variable.
-                        else if (type.back() == ']') {
-                          if (table->ret_type == "") {
-                            addr = tac->newTemp();
-                          }
-                          allocVarArray($2, addr);
-
-                          // Agregamos la direccion de memoria a las entradas que deben
-                          // ser liberadas al salir del scope actual.
-                          tac->to_free.top().push_back({$2, addr});
+                        if (type.back() == ']') {
+                          allocArray($2, addr);
                         }
                         // En cambio si es una estructura excepto un puntero.
                         else if (! predefinedTypes.count(type) && type[0] != '^') {
-                          if (table->ret_type != "") {
-                            // Si nos encontramos dentro de una funcion, la estructura
-                            // sera almacenada dinamicamente.
-                            tac->gen("malloc " + addr + " " + to_string($2->width));
-                            allocStruct($2, addr);
-                          } else {
-                            addr = tac->newAddr($2->width);
-                            allocStruct($2, addr);
-                          }
-
-                          // Agregamos la direccion de memoria a las entradas que deben
-                          // ser liberadas al salir del scope actual.
-                          tac->to_free.top().push_back({$2, addr});
-                        }
-                        // En cambio, si no estamos dentro de una funcion
-                        else if (table->ret_type == "") {
-                          addr = tac->newTemp();
+                          allocStruct($2, addr);
                         }
 
                         // Almacenamos la entrada.
@@ -585,7 +533,6 @@
                           e = new VarArrayEntry(vardef.first, s, "Var", current, offset, addr);
                         }
                         table->insert(e);
-                        table->offsets.back() += $2->width;
 
                         // En caso de haber una expresion, se realiza la asignacion.
                         if (exp != NULL) {
@@ -1111,30 +1058,17 @@
               Type *type = ((ArrayType*) $1->type)->type;
               $$ = new NodeArrayAccess($1, $3, type);
 
-              // Si el tipo base es un arreglo constante, entonces no accedemos a memoria 
-              // si no que nos movemos a traves de ella sumando el numero de elementos
-              // correspondiente a la base.
-              if(type->toString().back() == ']' && ! ((ArrayType*) type)->is_pointer) {
-                string t = tac->newTemp();
-                $$->addr = tac->newTemp();
-                tac->gen("mult " + t + " " + $3->addr + " " + to_string(type->width));
-                tac->gen("add " + $$->addr + " " + $1->addr + " " + t);
-              }
+              string t = tac->newTemp();
+              $$->addr = tac->newTemp();
+              tac->gen("mult " + $$->addr + " " + $3->addr + " " + to_string(type->width));
+              $$->addr = $1->addr + "[" + $$->addr + "]";
 
-              // En caso contrario, se hace un acceso a memoria.
-              else {
-                string t = tac->newTemp();
-                $$->addr = tac->newTemp();
-                tac->gen("mult " + $$->addr + " " + $3->addr + " " + to_string(type->width));
-                $$->addr = $1->addr + "[" + $$->addr + "]";
-
-                // Si el tipo base es booleano, aplicamos el backpatching correspondiente.
-                if (type->toString() == "Bool") {
-                  $$->truelist = {tac->instructions.size()};
-                  tac->gen("goif _ " + $$->addr);
-                  $$->falselist = {tac->instructions.size()};
-                  tac->gen("goto _");
-                }
+              // Si el tipo base es booleano, aplicamos el backpatching correspondiente.
+              if (type->toString() == "Bool") {
+                $$->truelist = {tac->instructions.size()};
+                tac->gen("goif _ " + $$->addr);
+                $$->falselist = {tac->instructions.size()};
+                tac->gen("goto _");
               }
             }
           }
@@ -1279,16 +1213,14 @@
 
               // En caso de que el tipo sea un arreglo o estructura (registro o union) 
               // reservamos la memoria necesaria. 
-              if (type.back() == ']' && ! ((ArrayType*) $2)->is_pointer) {
-                tac->gen("malloc " + $$->addr + " " + to_string($2->width));
-                allocConstArray($2, $$->addr);
-              }
-              else if (type.back() == ']') {
-                allocVarArray($2, $$->addr);
+              if (type.back() == ']') {
+                allocArray($2, $$->addr);
               }
               else if (! predefinedTypes.count(type) && type[0] != '^') {
-                tac->gen("malloc " + $$->addr + " " + to_string($2->width));
                 allocStruct($2, $$->addr);
+              }
+              else {
+                tac->gen("malloc " + $$->addr + " " + to_string($2->width));
               }
             }
 
@@ -1416,38 +1348,23 @@
                 // arreglo.
                 if ($2->type->toString() != "$Error") {
                   int size = ((NodeArrayElems*) $2)->current_size;
-                  $$ = new NodeArray($2, new ArrayType($2->type, new NodeINT(size)));
+                  Type *t = new ArrayType($2->type, new NodeINT(size));
+                  $$ = new NodeArray($2, t);
+
+                  int offset = table->newOffset(t);
 
                   // Si no estamos en una funcion
                   if (table->ret_type == "") {
-                    // Calculamos el offset.
-                    int offset = table->offsets.back();
-                    if ($2->type-> width != 1 && offset % 4 != 0) {
-                      int diff = 4 - offset % 4;
-                      offset += diff;
-                      table->offsets.back() += diff;
-                    }
-                    table->offsets.back() += size * $2->type->width;
-
-                    // Creamos una nueva etiqueta para reservar memoria estaticamente
-                    $$->addr = tac->newAddr(size * $2->type->width);
+                    // Creamos una nueva etiqueta para reservar memoria.
+                    $$->addr = tac->newTemp();
                   }
                   else {
-                    // Calculamos el offset.
-                    int offset = table->offsets.back();
-                    int diff = offset % 4 == 0 ? 0 : 4 - offset % 4;
-                    offset += diff;
-                    table->offsets.back() += diff + 4;
-
                     // Si nos encontramos dentro de una funcion, el arreglo sera
                     // almacenado dinamicamente a pesar de ser constante.
                     $$->addr = "base[" + to_string(offset) + "]";
-                    allocVarArray($$->type, $$->addr);
-
-                    // Agregamos la direccion de memoria a las entradas que deben
-                    // ser liberadas al salir del scope actual.
-                    tac->to_free.top().push_back({$$->type, $$->addr});
                   }
+
+                  allocArray($$->type, $$->addr);
 
                   // Realizamos la asignacion de cada expresion del arreglo.
                   NodeArrayElems *exp = $2;
@@ -1595,13 +1512,14 @@
                           FunctionEntry *fe = (FunctionEntry*) e;
                           VarEntry *ve;
                           bool correctTypes = true;
-                          string type_str;
+                          string type_str, addr;
 
                           int numPositional = $3->positionalArgs.size(), i = 0;
 
                           for (tuple<string, string, bool, ExpressionNode*> arg : fe->args) {
                             if (i < numPositional) {
                               type_str = $3->positionalArgs[i]->type->toString();
+                              addr = $3->positionalArgs[i]->addr;
 
                               if (get<1>(arg) != type_str) {
                                 addError(
@@ -1629,15 +1547,31 @@
                                 );
                                 correctTypes = false;
                               }
-                              else if (get<2>(arg)) {
+                              // Si el pase es por referencia y es un tipo basico
+                              else if (
+                                get<2>(arg) && type_str.back() != ']' && 
+                                (predefinedTypes.count(type_str) || type_str[0] == '^')
+                              ) {
                                 ve = (VarEntry*) table->lookup(get<0>(arg), fe->def_scope);
                                 refs.push_back({
                                   $3->positionalArgs[i]->addr,
                                   "lastbase[" + to_string(ve->offset) + "]"
                                 });
                               }
+                              // Si el pase no es por referencia y es un tipo arreglo
+                              else if (! get<2>(arg) && type_str.back() == ']') {
+                                // Creamos una copia del arreglo
+                                addr = tac->newTemp();
+                                copyArray($3->positionalArgs[i]->type, addr, $3->positionalArgs[i]->addr);
+                              }
+                              // Si el pase no es por referencia y es una estructura
+                              else if (! get<2>(arg) && ! predefinedTypes.count(type_str) && type_str[0] != '^') {
+                                // Creamos una copia de la estructura
+                                addr = tac->newTemp();
+                                copyStruct($3->positionalArgs[i]->type, addr, $3->positionalArgs[i]->addr);
+                              }
 
-                              tac->gen("param " + $3->positionalArgs[i]->addr);
+                              tac->gen("param " + addr);
                             } 
                             
                             else if ($3->keywords.count(get<0>(arg))) {
@@ -1662,12 +1596,28 @@
                                 );
                                 correctTypes = false;
                               }
-                              else if (get<2>(arg)) {
+                              // Si el pase es por referencia y es un tipo basico
+                              else if (
+                                get<2>(arg) && type_str.back() != ']' && 
+                                (predefinedTypes.count(type_str) || type_str[0] == '^')
+                              ) {
                                 ve = (VarEntry*) table->lookup(get<0>(arg), fe->def_scope);
                                 refs.push_back({
-                                  $3->namedArgs[get<0>(arg)]->addr,
+                                  $3->positionalArgs[i]->addr,
                                   "lastbase[" + to_string(ve->offset) + "]"
                                 });
+                              }
+                              // Si el pase no es por referencia y es un tipo arreglo
+                              else if (! get<2>(arg) && type_str.back() == ']') {
+                                // Creamos una copia del arreglo
+                                addr = tac->newTemp();
+                                copyArray($3->positionalArgs[i]->type, addr, $3->positionalArgs[i]->addr);
+                              }
+                              // Si el pase no es por referencia y es una estructura
+                              else if (! get<2>(arg) && ! predefinedTypes.count(type_str) && type_str[0] != '^') {
+                                // Creamos una copia de la estructura
+                                addr = tac->newTemp();
+                                copyStruct($3->positionalArgs[i]->type, addr, $3->positionalArgs[i]->addr);
                               }
 
                               $3->keywords.erase(get<0>(arg));
@@ -2039,15 +1989,7 @@
                 else {
                   $$ = new NodeUnionFields(NULL, $1, *$2, $1->width); 
                   int s = table->currentScope();
-                  Entry *e = new VarEntry(
-                    *$2, 
-                    s, 
-                    "Field", 
-                    $1, 
-                    table->offsets.back(),
-                    "",
-                    table
-                  );
+                  Entry *e = new VarEntry(*$2, s, "Field", $1, table->offsets.back(), "", table);
 
                   if ($1->incomplete != "") {
                     ((NodeUnionFields*) $$)->incompletes.push_back($1->incomplete);
@@ -2081,15 +2023,7 @@
                   max_width = max_width > $2->width ? max_width : $2->width;
                   $$ = new NodeUnionFields($1, $2, *$3, max_width); 
                   int s = table->currentScope();
-                  Entry *e = new VarEntry(
-                    *$3, 
-                    s, 
-                    "Field", 
-                    $2, 
-                    table->offsets.back(),
-                    "",
-                    table
-                  );
+                  Entry *e = new VarEntry(*$3, s, "Field", $2, table->offsets.back(), "", table);
 
                   ((NodeUnionFields*) $$)->incompletes = ((NodeUnionFields*) $1)->incompletes;
                   if ($2->incomplete != "") {
@@ -2206,7 +2140,7 @@
               }
             ; 
 
-  RegBody   : Type IdDef OptAssign SEMICOLON            
+  RegBody   : Type IdDef OptAssign SEMICOLON  
               { 
                 bool cond = *$2 == "" || $1->toString() == "$Error" ||
                   ($3 != NULL && $3->type->toString() == "$Error");
@@ -2238,16 +2172,7 @@
                 
                 else {
                   $$ = new NodeRegFields(NULL, $1, *$2, $3);
-                  int s = table->currentScope();
-
-                  // Calculamos el offset.
-                  int offset = table->offsets.back();
-                  if ($1-> width != 1 && offset % 4 != 0) {
-                    int diff = 4 - offset % 4;
-                    offset += diff;
-                    table->offsets.back() += diff;
-                  }
-                  table->offsets.back() += $1->width;
+                  int s = table->currentScope(), offset = table->newOffset($1);
 
                   Entry *e = new VarEntry(*$2, s, "Field", $1, offset, "", table);
                   table->insert(e);
@@ -2291,16 +2216,7 @@
 
                 else {
                   $$ = new NodeRegFields($1, $2, *$3, $4);
-                  int s = table->currentScope();
-
-                  // Calculamos el offset.
-                  int offset = table->offsets.back();
-                  if ($2-> width != 1 && offset % 4 != 0) {
-                    int diff = 4 - offset % 4;
-                    offset += diff;
-                    table->offsets.back() += diff;
-                  }
-                  table->offsets.back() += $2->width;
+                  int s = table->currentScope(), offset = table->newOffset($2);
 
                   Entry *e = new VarEntry(*$3, s, "Field", $2, offset, "", table);
                   table->insert(e);
@@ -2364,12 +2280,6 @@
                     t = merge<unsigned long long>(t, $2->falselist);
                   }
 
-                  // Liberamos la memoria reservada automaticamente en el scope.
-                  for (pair<Type*, string> mem : tac->to_free.top()) {
-                    freeCompound(mem.first, mem.second);
-                  }
-                  tac->to_free.pop();
-
                   $$->nextlist = t;
                   table->exitScope(); 
                 }
@@ -2396,7 +2306,6 @@
 
   If          : IF 
                 {
-                  tac->to_free.push({});
                   table->newScope(); 
                 }
               ;
@@ -2434,14 +2343,6 @@
 
   Elsif       : ELSIF 
                 { 
-
-                  // Liberamos la memoria reservada automaticamente en el scope.
-                  for (pair<Type*, string> mem : tac->to_free.top()) {
-                    freeCompound(mem.first, mem.second);
-                  }
-                  tac->to_free.pop();
-                  tac->to_free.push({});
-
                   table->exitScope();
                   table->newScope(); 
                 }
@@ -2457,14 +2358,6 @@
               ;
   Else        : ELSE  
                 { 
-
-                  // Liberamos la memoria reservada automaticamente en el scope.
-                  for (pair<Type*, string> mem : tac->to_free.top()) {
-                    freeCompound(mem.first, mem.second);
-                  }
-                  tac->to_free.pop();
-                  tac->to_free.push({});
-
                   table->exitScope();
                   table->newScope(); 
                 }
@@ -2475,12 +2368,6 @@
   LoopWhile : While W Cond M DO I DONE
               { 
                 $$ = new NodeWhile($3, $6); 
-
-                // Liberamos la memoria reservada automaticamente en el scope.
-                for (pair<Type*, string> mem : tac->to_free.top()) {
-                  freeCompound(mem.first, mem.second);
-                }
-                tac->to_free.pop();
 
                 if ($6 != NULL) {
                   tac->backpatch($6->nextlist, *$2);
@@ -2504,7 +2391,6 @@
 
   While     : WHILE 
               { 
-                tac->to_free.push({});
                 tac->breaklist.push({});
                 tac->continuelist.push({});
                 table->newScope(); 
@@ -2528,12 +2414,6 @@
                   tac->backpatch(tac->continuelist.top(), tac->instructions.size());
                 }
                 tac->continuelist.pop();
-
-                // Liberamos la memoria reservada automaticamente en el scope.
-                for (pair<Type*, string> mem : tac->to_free.top()) {
-                  freeCompound(mem.first, mem.second);
-                }
-                tac->to_free.pop();
 
                 if ($1->step != NULL) {
                   tac->gen("add " + $1->addr + " " + $1->addr + " " + $1->step->addr);
@@ -2563,11 +2443,7 @@
                 Type *t = predefinedTypes["Float"];
 
                 // Calculamos el offset.
-                int offset = table->offsets.back();
-                int diff = offset % 4 == 0 ? 0 : 4 - offset % 4;
-                offset += diff;
-                table->offsets.back() += diff;
-                table->offsets.back() += predefinedTypes["Float"]->width;
+                int offset = table->newOffset(t);
 
                 VarEntry *e = new VarEntry(*$3, s, "Var", t, offset, tac->newTemp());
                 table->insert(e); 
@@ -2609,7 +2485,6 @@
                 
                 tac->gen("assign " + e->addr + " " + $$->addr);
 
-                tac->to_free.push({});
                 tac->breaklist.push({});
                 tac->continuelist.push({});
                 table->newScope();
@@ -2659,12 +2534,6 @@
                 if ($4 != NULL) {
                   tac->backpatch($4->nextlist, $1->addr + "_end");
                 }
-
-                // Liberamos la memoria reservada automaticamente en el scope.
-                for (pair<Type*, string> mem : tac->to_free.top()) {
-                  freeCompound(mem.first, mem.second);
-                }
-                tac->to_free.pop();
 
                 tac->gen("assign lastbase base");
                 tac->gen("@endfunction");
@@ -2773,8 +2642,6 @@
                 if ($5->toString() != "$Error") {
                   table->ret_type = $5->toString();
                 }
-
-                tac->to_free.push({});
                 table->newScope();
 
                 if (fe != NULL) {
@@ -2888,16 +2755,7 @@
                   $$ = new NodeRoutArgDef(NULL, $1, $2, *$3, NULL);
                   $$->currentParams.push_back({*$3, $1->toString(), $2, NULL});
 
-                  int s = table->currentScope();
-
-                  // Calculamos el offset.
-                  int offset = table->offsets.back();
-                  if ($1-> width != 1 && offset % 4 != 0) {
-                    int diff = 4 - offset % 4;
-                    offset += diff;
-                    table->offsets.back() += diff;
-                  }
-                  table->offsets.back() += $1->width;
+                  int s = table->currentScope(), offset = table->newOffset($1);
 
                   Entry *e = new VarEntry(*$3, s, "Var", $1, offset);
                   table->insert(e);
@@ -2922,16 +2780,7 @@
                   $1->currentParams.clear();
                   $$->currentParams.push_back({*$5, $3->toString(), $4, NULL});
 
-                  int s = table->currentScope();
-
-                  // Calculamos el offset.
-                  int offset = table->offsets.back();
-                  if ($3-> width != 1 && offset % 4 != 0) {
-                    int diff = 4 - offset % 4;
-                    offset += diff;
-                    table->offsets.back() += diff;
-                  }
-                  table->offsets.back() += $3->width;
+                  int s = table->currentScope(), offset = table->newOffset($3);
 
                   Entry *e = new VarEntry(*$5, s, "Var", $3, offset);
                   table->insert(e);
@@ -2969,16 +2818,7 @@
                   $$ = new NodeRoutArgDef(NULL, $1, $2, *$3, $5);
                   $$->currentParams.push_back({*$3, type, $2, (ExpressionNode*) $5});
 
-                  int s = table->currentScope();
-
-                  // Calculamos el offset.
-                  int offset = table->offsets.back();
-                  if ($1-> width != 1 && offset % 4 != 0) {
-                    int diff = 4 - offset % 4;
-                    offset += diff;
-                    table->offsets.back() += diff;
-                  }
-                  table->offsets.back() += $1->width;
+                  int s = table->currentScope(), offset = table->newOffset($1);
 
                   Entry *e = new VarEntry(*$3, s, "Var",$1, offset);
                   table->insert(e);
@@ -3019,16 +2859,7 @@
                   $1->currentParams.clear();
                   $$->currentParams.push_back({*$5, type, $4, (ExpressionNode*) $7});
 
-                  int s = table->currentScope();
-
-                  // Calculamos el offset.
-                  int offset = table->offsets.back();
-                  if ($3-> width != 1 && offset % 4 != 0) {
-                    int diff = 4 - offset % 4;
-                    offset += diff;
-                    table->offsets.back() += diff;
-                  }
-                  table->offsets.back() += $3->width;
+                  int s = table->currentScope(), offset = table->newOffset($3);
 
                   Entry *e = new VarEntry(*$5, s, "Var", $3, offset);
                   table->insert(e);

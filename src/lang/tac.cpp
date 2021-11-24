@@ -28,13 +28,6 @@ string TAC::newStr(string str)
     return temp;
 }
 
-string TAC::newAddr(unsigned long long bytes)
-{
-    string temp = "A" + to_string(this->address.size());
-    this->address.push_back({temp, bytes});
-    return temp;
-}
-
 string TAC::replaceAll(string text, string to_find, string to_replace) 
 {
     std::string::size_type n = 0;
@@ -71,9 +64,6 @@ void TAC::backpatch(vector<unsigned long long> ps, string l) {
 void TAC::print(void) {
     unsigned long long index = 0;
 
-    for (pair<string, unsigned long long> addr : this->address) {
-        cout << "@staticv " << addr.first << " " << to_string(addr.second) << "\n";
-    }
     for (pair<string, string> str : this->strings) {
         cout << "@string " << str.first << " " << str.second << "\n";
     }

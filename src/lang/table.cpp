@@ -100,6 +100,30 @@ Entry* SymbolsTable::lookup(string id, int scope) {
   return NULL;
 }
 
+int SymbolsTable::newOffset(Type* t) {
+  extern map<string, int> primitiveWidths;
+  int tsize;
+  string type = t->toString();
+
+  if (type.back() == ']' || (! predefinedTypes.count(type) && type[0] != '^')) {
+    tsize = primitiveWidths["Pointer"];
+  }
+  else {
+    tsize = t->width;
+  }
+
+  // Calculamos el offset.
+  int offset = this->offsets.back();
+  if (tsize != 1 && offset % 4 != 0) {
+    int diff = 4 - offset % 4;
+    offset += diff;
+    this->offsets.back() += diff;
+  }
+  this->offsets.back() += tsize;
+
+  return offset;
+}
+
 /*
   Erase an entry on the Symbols Table that matches the specified id and scope.
 */

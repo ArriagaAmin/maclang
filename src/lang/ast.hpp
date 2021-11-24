@@ -78,7 +78,6 @@ class Node {
   class ArrayType : public Type {
     public: 
       bool is_string;
-      bool is_pointer;
       ExpressionNode *size;
       Type *type;
 

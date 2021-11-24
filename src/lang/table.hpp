@@ -74,6 +74,8 @@ class SymbolsTable {
     // Erase a variable in a scope
     void erase(string id, int scope);
 
+    int newOffset(Type* t);
+
     // Add a new scope
     int newScope(void);
 

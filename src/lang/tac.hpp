@@ -19,14 +19,10 @@ private:
     unsigned long long tempLabelNumber = 0;
     unsigned long long tempFuncNumber = 0;
     vector<pair<string, string>> strings;
-    vector<pair<string, unsigned long long>> address;
     set<unsigned long long> numberLabels;
 
 public:
     vector<string> instructions;
-    // Almacenamos las direcciones de memoria que fueron reseradas automaticamentes
-    // para liberarlas el final del scope.
-    stack<vector<pair<Type*, string>>> to_free;
     // Mapeo de nombre de funciones a una lista de pares 
     // <
     //      Instruccion donde se hizo la llamada a funcion, 
@@ -37,12 +33,11 @@ public:
     stack<vector<unsigned long long>> breaklist;
     stack<vector<unsigned long long>> continuelist;
     
-    TAC() { this->to_free.push({}); }
+    TAC() { }
     string newTemp();
     string newLabel();
     string newFunc();
     string newStr(string str);
-    string newAddr(unsigned long long bytes);
     string replaceAll(string text, string to_find, string to_replace);
     void gen(string instr);
     void backpatch(vector<unsigned long long> ps, unsigned long long l);
