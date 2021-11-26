@@ -32,6 +32,3 @@ while True do
 		print("Hasta luego!");
 	done 
 done
-
-
-1 + (8 * 4) / 2 + 4 * 16 ** 2;

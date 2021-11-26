@@ -3272,6 +3272,7 @@ void scope0(void) {
   // VARIABLES
   VarEntry *ve;
 
-  ve = new VarEntry("NULL", 0, "Var", new PointerType(predefinedTypes["Unit"]), 0, "0");
+  ve = new VarEntry("NULL", 0, "Var", new PointerType(predefinedTypes["Unit"]), 0, "NULL");
   table->insert(ve);
+  tac->gen("assign " + ve->addr + " 0");
 }
