@@ -1,15 +1,15 @@
 #include "translate.hpp"
 
-CodeBlock::CodeBlock()
+T_Block::T_Block()
 {
     // Agregar los registros de MIPS
-    InsertRegister("$v0");
-    InsertRegister("$v1");
+    insertRegister("$v0");
+    insertRegister("$v1");
 
     int i = 0;
     while (i < 3)
     {   
-        InsertRegister("$a" + to_string(i));
+        insertRegister("$a" + to_string(i));
         i++;
     }
 
@@ -17,7 +17,7 @@ CodeBlock::CodeBlock()
     
     while (i < 10)
     {   
-        InsertRegister("$t" + to_string(i));
+        insertRegister("$t" + to_string(i));
         i++;
     }
 
@@ -25,39 +25,62 @@ CodeBlock::CodeBlock()
     
     while (i < 8)
     {   
-        InsertRegister("$s" + to_string(i));
+        insertRegister("$s" + to_string(i));
         i++;
     }
 }
 
-bool CodeBlock::InsertRegister(string reg)
+void T_Block::insertInstruction(T_Instruction instruction)
 {
-    auto found = registersDescriptor.find(reg);
+    m_instructions.push_back(instruction);
+}
 
-    if(found == registersDescriptor.end()) 
+bool T_Block::insertRegister(string id)
+{
+    auto found = m_registers.find(id);
+
+    if(found != m_registers.end()) 
         return false;
     
-    registersDescriptor[reg] = vector<string>();
+    m_registers[id] = vector<string>();
     return true;
 }
 
-bool CodeBlock::InsertVariable(string var)
+bool T_Block::insertVariable(string id)
 {
-    auto found = variablesDescriptor.find(var);
+    auto found = m_variables.find(id);
 
-    if(found == variablesDescriptor.end()) 
+    if(found != m_variables.end()) 
         return false;
     
-    vector<string> locations {var};
-    variablesDescriptor[var] = locations;
+    vector<string> locations { id };
+    m_variables[id] = locations;
     return true;
 }
 
-bool CodeBlock::InsertElementToDescriptor(unordered_map<string, vector<string>> &descriptors, string key, string element, bool replace)
+void T_Block::print()
+{
+    for(string inst : data)
+    {
+        cout << inst << endl;
+    }
+
+    for(string inst : text)
+    {
+        cout << inst << endl;
+    }
+
+    for(string inst : functions)
+    {
+        cout << inst << endl;
+    }
+}
+
+bool T_Block::insertElementToDescriptor(unordered_map<string, vector<string>> &descriptors, string key, string element, bool replace)
 {
     auto found = descriptors.find(key);
 
-    if(found == descriptors.end()) 
+    if(found != descriptors.end()) 
         return false;
     
     if(replace)
@@ -67,126 +90,158 @@ bool CodeBlock::InsertElementToDescriptor(unordered_map<string, vector<string>> 
     return true;
 }
 
-void CodeBlock::RemoveElementFromDescriptors(unordered_map<string, vector<string>> &descriptors, string element, string elementHolder)
+void T_Block::removeElementFromDescriptors(unordered_map<string, vector<string>> &descriptors, string element, string current_container)
 {   
-    for (pair<string, vector<string>> currentDescriptor : descriptors) 
+    for (pair<string, vector<string>> current_descriptor : descriptors) 
     {
-        if(currentDescriptor.first.compare(elementHolder))
+        if(current_descriptor.first.compare(current_container) == 0)
             continue;
         
-        vector<string> currentElements = currentDescriptor.second;
-        remove(currentElements.begin(), currentElements.end(), element);
+        vector<string> current_elements = current_descriptor.second;
+        remove(current_elements.begin(), current_elements.end(), element);
     }
 }
 
 
-bool CodeBlock::Assignment(string reg, string var, bool replace)
+bool T_Block::assignment(string register_id, string variable_id, bool replace)
 {
-    return InsertElementToDescriptor(registersDescriptor, reg, var, replace);
+    return insertElementToDescriptor(m_registers, register_id, variable_id, replace);
 }
 
-bool CodeBlock::Availability(string var, string location, bool replace)
+bool T_Block::availability(string variable_id, string location, bool replace)
 {
-    return InsertElementToDescriptor(variablesDescriptor, var, location, replace);
+    return insertElementToDescriptor(m_variables, variable_id, location, replace);
 }
 
-vector<string> CodeBlock::GetRegisterDescriptor(string key)
+vector<string> T_Block::getRegisterDescriptor(string id)
 {
-    return registersDescriptor[key];
+    return m_registers[id];
 }
 
-vector<string> CodeBlock::GetVariableDescriptor(string key)
+vector<string> T_Block::getVariableDescriptor(string id)
 {
-    return variablesDescriptor[key];
+    return m_variables[id];
 }
 
-string CodeBlock::FindOptimalLocation(vector<string> const &descriptor)
+string T_Block::findOptimalLocation(vector<string> const &descriptor)
 {
     // Por ahora solamente devolver el primero
     return descriptor[0];
 }
 
-string CodeBlock::FindElementInDescriptors(unordered_map<string, vector<string>> &descriptors, string element)
+string T_Block::findElementInDescriptors(unordered_map<string, vector<string>> &descriptors, string element)
 {   
-    for (pair<string, vector<string>> currentDescriptor : descriptors) 
+    for (pair<string, vector<string>> current_descriptor : descriptors) 
     {
-        vector<string> currentElements = currentDescriptor.second;
-        if( find(currentElements.begin(), currentElements.end(), element) != currentElements.end())
-            return currentDescriptor.first;
+        vector<string> current_elements = current_descriptor.second;
+        if( find(current_elements.begin(), current_elements.end(), element) != current_elements.end())
+            return current_descriptor.first;
     }
 
     return "";
 }
 
-string CodeBlock::FindFreeRegister()
+vector<string> T_Block::findFreeRegister()
 {
-    
-    for (pair<string, vector<string>> currentRegister : registersDescriptor) 
+    vector<string> regs;
+    for (pair<string, vector<string>> current_register : m_registers) 
     {
-        if(currentRegister.second.empty())
-            return currentRegister.first;
+        if(current_register.second.empty())
+            regs.push_back(current_register.first);
     }
 
-    return "";
+    return regs;
 }
 
-string CodeBlock::RecycleRegister(T_Instruction instruction)
+string T_Block::recycleRegister(T_Instruction instruction)
 {
     // Vamos a recorrer todos los registros e ir verificando cual es el mas viable
     // para reciclar y utilizarlo
 
-    string bestReg = "";
+    string best_reg = "";
 
     // Contadores de spills
     map<string, int> spills;
     
-    for (pair<string, vector<string>> currentRegister : registersDescriptor) 
+    for (pair<string, vector<string>> current_register : m_registers) 
     {
         //bool isSafe = false;
-        int currentSpills = 0;
+        int current_spills = 0;
 
-        vector<string> descriptor = currentRegister.second;
+        vector<string> descriptor = current_register.second;
 
         for(string element : descriptor)
         {
             // Primero se verifica que el valor actual este en algun otro lado
-            if(variablesDescriptor[element].size() > 1)
+            if(m_variables[element].size() > 1)
                 // Es seguro el registro
                 continue;
             
             // Verificar que el valor actual sea el resultado y si lo es que no sea operando
-            if(element.compare(instruction.result) && 
-                find(instruction.operators.begin(), instruction.operators.end(), element) != instruction.operators.end())
+            bool found = false;
+            for(int i = 0; i < 2; i++)
+            {
+                if(instruction.operands[i].compare(element) == 0)
+                {
+                    found = true;
+                    break;
+                }
+            }
+            if(element.compare(instruction.result) == 0 && found)
                 // Es seguro el registro
                 continue;
 
             // Verificar que el valor actual no tenga usos posteriores
 
             // Si aun este registro no es seguro
-            text.push_back("sw " + element + ", " + currentRegister.first);
+            text.push_back("sw " + element + ", " + current_register.first);
 
             // Mantener descriptores
-            Availability(element, element);
+            availability(element, element);
             
-            currentSpills += 1;
+            current_spills += 1;
         }
 
-        spills[currentRegister.first] = currentSpills;
+        spills[current_register.first] = current_spills;
     }
 
     // Ahora se verifica cual registro tiene el menor numero de spills
-    int current = INT32_MAX;
+    int min_spill = INT32_MAX;
     
-    for (pair<string, int> currentRegister : spills) 
+    for (pair<string, int> spill : spills) 
     {
-        if(currentRegister.second < current)
-            bestReg = currentRegister.first;
+        if(spill.second < min_spill)
+            best_reg = spill.first;
     }
 
-    return bestReg;
+    return best_reg;
 }
 
-vector<string> CodeBlock::GetReg(T_Instruction instruction, bool isCopy)
+void T_Block::selectRegister(string operand, T_Instruction instruction, vector<string> &regs, vector<string> &free_regs)
+{
+    // Primero se verifica que el operando este guardada en algun registro
+    string reg = findElementInDescriptors(m_registers, operand);
+    if(!reg.empty())
+    {
+        regs.push_back(reg);
+        return;
+    }
+    
+    // Si no estaba en un registro verificamos si hay registros libres
+    if(free_regs.size() > 0)
+    {
+        regs.push_back(free_regs.front());
+        free_regs.erase(free_regs.begin());
+        return;
+    }
+    
+    // Si no se cumple nada los casos simples, pasamos a los casos complejos
+    // No hay registros disponibles y el operando no esta en ninguno
+    reg = recycleRegister(instruction);
+    regs.push_back(reg);
+}
+
+vector<string> T_Block::getReg(T_Instruction instruction, bool is_copy)
 {
     vector<string> registers;
 
@@ -194,173 +249,180 @@ vector<string> CodeBlock::GetReg(T_Instruction instruction, bool isCopy)
 
     // AGREGAR FUNCIONES
 
-    for (string currentOp : instruction.operators)
-    {
-        // Primero se verifica que el operando este guardada en algun registro
-        string reg = FindElementInDescriptors(registersDescriptor, currentOp);
-        if(!reg.empty())
-        {
-            registers.push_back(reg);
-            continue;
-        }
-        
-        // Si no estaba en un registro verificamos si hay registros libres
-        reg = FindFreeRegister();
+    vector<string> free_regs = findFreeRegister();
 
-        if(!reg.empty())
-        {
-            registers.push_back(reg);
-            continue;
-        }
-        
-        // Si no se cumple nada los casos simples, pasamos a los casos complejos
-        // No hay registros disponibles y el operando no esta en ninguno
-        reg = RecycleRegister(instruction);
-        registers.push_back(reg);
+    for (string current_operand : instruction.operands)
+    {
+        selectRegister(current_operand, instruction, registers, free_regs);
     }
     
-    bool resultRegAdded = false;
+    bool result_reg_added = false;
 
     // Ahora se escoge el registro para el resultado
-    if(isCopy)
+    if(is_copy)
     {
-        string resultReg = registers[0];
-        registers.insert(registers.begin(), resultReg);
-        resultRegAdded = true;
+        string result_reg = registers[0];
+        registers.insert(registers.begin(), result_reg);
+        result_reg_added = true;
     }
 
-    if(!resultRegAdded)
+    if(!result_reg_added)
     {
         // Buscar registro que SOLO contenga al resultado
-        string reg = FindElementInDescriptors(registersDescriptor, instruction.result);
-        if(!reg.empty())
+        string reg = findElementInDescriptors(m_registers, instruction.result);
+        if(!reg.empty() && getRegisterDescriptor(reg).size() < 2)
         {
-            if(GetRegisterDescriptor(reg).size() < 2)
-            {
-                registers.insert(registers.begin(), reg);
-                resultRegAdded = true;
-            }
+            registers.insert(registers.begin(), reg);
+            result_reg_added = true;
         }
     }
 
     // Si los operandos no tienen usos posteriores se usa alguno de esos registros
-    
+
+    // Mismo tema que los operandos
+    if(!result_reg_added)
+    {
+        selectRegister(instruction.result, instruction, registers, free_regs);
+        string reg = registers.back();
+        registers.pop_back();
+        registers.insert(registers.begin(), reg);
+    }
+
     return registers;
 }
 
-void CodeBlock::Translate(T_Instruction instruction)
+void T_Block::translate()
+{
+    for(T_Instruction current_inst : m_instructions)
+    {
+        translateInstruction(current_inst);
+    }
+}
+
+void T_Block::translateInstruction(T_Instruction instruction)
 {
     // Verificamos primero si es una meta instruccion para procesarla
-    if(instruction.name[0] == '@')
+    if(instruction.id[0] == '@')
     {
-        TranslateMetaIntruction(instruction);
+        translateMetaIntruction(instruction);
         return;
     }
 
     // Instrucciones de branch
-    if(instruction.name[0] == 'g')
+    if(instruction.id[0] == 'g')
     {
-        if(instruction.name.compare("goto"))
+        if(instruction.id.compare("goto") == 0)
         {
-            if(instruction.name.find("_out") != std::string::npos)
+            if(instruction.id.find("_out") != std::string::npos)
                 return;
             
-            text.push_back(instTypes[instruction.name] + " " + instruction.result);
+            text.push_back(mips_instructions.at(instruction.id) + " " + instruction.result);
         }
         else
         {
-            vector<string> reg = GetReg(instruction);
-            text.push_back(instTypes[instruction.name] + " " + reg[0] + ", " + instruction.result);
+            vector<string> reg = getReg(instruction);
+            text.push_back(mips_instructions.at(instruction.id) + " " + reg[0] + ", " + instruction.result);
         }
         return;
     }
 
     // Instrucciones para llamada de funciones
-    if(instruction.name.compare("param"))
+    if(instruction.id.compare("param") == 0)
     {
-        vector<string> reg = GetReg(instruction);
-        text.push_back(instTypes[instruction.name] + " " + reg[0] + ", 0($sp)");
+        vector<string> reg = getReg(instruction);
+        text.push_back(mips_instructions.at(instruction.id) + " " + reg[0] + ", 0($sp)");
         text.push_back("addi $sp, $sp, -4"); // El tamano depende de lo que se le este pasando
         return;
     }
 
-    if(instruction.name.compare("call"))
+    if(instruction.id.compare("call") == 0)
     {
         // Falta usar el numero de parametros
-        text.push_back(instTypes[instruction.name] + instruction.result);
+        text.push_back(mips_instructions.at(instruction.id) + instruction.result);
         return;
     }
 
     // Instrucciones para funciones
 
     // Instrucciones de operadores
-    TranslateOperationInstruction(instruction);
+    translateOperationInstruction(instruction);
 }
 
-void CodeBlock::TranslateOperationInstruction(T_Instruction instruction)
+void T_Block::translateOperationInstruction(T_Instruction instruction)
 {
-        // Verificamos si es una instruccion de copia para luego actualizar los descriptores
-    bool isCopy = instruction.name.compare("assign") ? true : false;
+    // Intentar crear descriptores de variables
+    insertVariable(instruction.result);
+    for(string op : instruction.operands)
+        insertVariable(op);
     
-    vector<string> opRegisters = GetReg(instruction, isCopy);
-    int opIndex = 1;
+    // Verificamos si es una instruccion de copia para luego actualizar los descriptores
+    bool is_copy = instruction.id.compare("assign") == 0 ? true : false;
+    vector<string> op_registers = getReg(instruction, is_copy);
+    int op_index = 1;
 
-    for (string currentOp : instruction.operators)
+    for (string current_operand : instruction.operands)
     {
         // Verificamos el operando
-        string currentReg = opRegisters[opIndex];
-        vector<string> regDescriptor = GetRegisterDescriptor(currentReg);
-        if ( find(regDescriptor.begin(), regDescriptor.end(), currentOp) != regDescriptor.end() )
+        string current_reg = op_registers[op_index];
+        vector<string> reg_descriptor = getRegisterDescriptor(current_reg);
+        if ( find(reg_descriptor.begin(), reg_descriptor.end(), current_operand) == reg_descriptor.end() )
         {
             // Buscar el y' mas economico
-            string econLocation = FindOptimalLocation(GetVariableDescriptor(currentOp));
-            text.push_back("lw " + currentReg + ", " + econLocation);
+            string best_location = findOptimalLocation(getVariableDescriptor(current_operand));
+            text.push_back("lw " + current_reg + ", " + best_location);
 
             // Mantener descriptores
-            Assignment(currentReg, currentOp, true);
-            Availability(currentOp, currentReg);
+            assignment(current_reg, current_operand, true);
+            availability(current_operand, current_reg);
 
-            if(isCopy)
+            if(is_copy)
             {
-                Assignment(currentReg, instruction.result);
-                Availability(instruction.result, currentReg, true);
+                assignment(current_reg, instruction.result);
+                availability(instruction.result, current_reg, true);
             }
         }    
-        opIndex++;
+        op_index++; 
     }
+    
 
     // Emitir codigo dependiendo del operador
-    string emit = instTypes[instruction.name] + " ";
-    for (string reg : opRegisters)
+    string emit = mips_instructions.at(instruction.id) + " ";
+    for (int i = 0; i < (int) op_registers.size(); i++)
     {
-        emit += reg + ", ";
+        if(i == (int) op_registers.size() - 1)
+        {
+            emit += op_registers[i];
+            continue;
+        }
+
+        emit += op_registers[i] + ", ";
     }
     text.push_back(emit);
 
     // Mantener descriptor
-    Assignment(opRegisters[0], instruction.result, true);
-    Availability(instruction.result, opRegisters[0], true);
-    RemoveElementFromDescriptors(variablesDescriptor, opRegisters[0], instruction.result);
+    assignment(op_registers[0], instruction.result, true);
+    availability(instruction.result, op_registers[0], true);
+    removeElementFromDescriptors(m_variables, op_registers[0], instruction.result);
 }
 
-void CodeBlock::TranslateMetaIntruction(T_Instruction instruction)
+void T_Block::translateMetaIntruction(T_Instruction instruction)
 {
-    if(instruction.name.compare("@label"))
+    if(instruction.id.compare("@label") == 0)
     {
         text.push_back(instruction.result + ": ");
         return;
     }
 
-    if(instruction.name.compare("@string"))
+    if(instruction.id.compare("@string") == 0)
     {
-        string instructionType = instTypes[instruction.name];
-        data.push_back(instruction.result + ": " + instructionType + " " + instruction.operators[0]);
+        string instruction_type = mips_instructions.at(instruction.id);
+        data.push_back(instruction.result + ": " + instruction_type + " " + instruction.operands[0]);
         return;
     }
     
-    if(instruction.name.compare("@staticv"))
+    if(instruction.id.compare("@staticv") == 0)
     {
-        data.push_back(instruction.result + ": " + instruction.operators[0]);
+        data.push_back(instruction.result + ": " + instruction.operands[0]);
         return;
     }
 }

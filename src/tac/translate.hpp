@@ -1,17 +1,20 @@
 #pragma once
 
+#include <iostream>
 #include <string>
-#include <unordered_map>
+
 #include <vector>
-#include <algorithm>
 #include <map>
+#include <unordered_map>
+
+#include <algorithm>
 
 using namespace std;
 
 const unsigned NUMBER_OF_REGISTERS = 23;
 
 // TODAVIA FALTAN MUCHAS INSTRUCCIONES
-unordered_map<string, string> instTypes = {
+const unordered_map<string, string> mips_instructions ({
     {"assign", "move"},
     {"add", "add"},
     {"sub", "sub"},
@@ -28,47 +31,53 @@ unordered_map<string, string> instTypes = {
     {"param", "sw"},
     {"call", "jal"},
     {"@string", ".asciiz"}
-};
+});
 
 struct T_Instruction
 {
-    string name;
+    string id;
     string result;
-    vector<string> operators;
+    string operands[2];
 };
 
-struct T_Block
-{
-    vector<T_Instruction> instructions;
-};
-
-
-class CodeBlock
+class T_Block
 {
 private:
-    unordered_map<string, vector<string>> registersDescriptor;
-    unordered_map<string, vector<string>> variablesDescriptor;
+    vector<T_Instruction> m_instructions;
+    unordered_map<string, vector<string>> m_registers;
+    unordered_map<string, vector<string>> m_variables;
     vector<string> data;
     vector<string> text;
     vector<string> functions;
-
-    bool InsertElementToDescriptor(unordered_map<string, vector<string>> &descriptors, string key, string element, bool replace = false);
-    void RemoveElementFromDescriptors(unordered_map<string, vector<string>> &descriptors, string element, string elementHolder);
-    string FindElementInDescriptors(unordered_map<string, vector<string>> &descriptors, string element);
-    string FindFreeRegister();
-    string RecycleRegister(T_Instruction instruction);
     
-    vector<string> GetReg(T_Instruction instruction, bool isCopy = false);
-    string FindOptimalLocation(vector<string> const &descriptor);
-    bool Assignment(string reg, string var, bool replace = false);
-    bool Availability(string var, string location, bool replace = false);
+    // Funciones para descriptores
+    bool insertElementToDescriptor(unordered_map<string, vector<string>> &descriptors, string key, string element, bool replace = false);
+    void removeElementFromDescriptors(unordered_map<string, vector<string>> &descriptors, string element, string current_container);
+    string findElementInDescriptors(unordered_map<string, vector<string>> &descriptors, string element);
+    string findOptimalLocation(vector<string> const &descriptor);
+    
+    // Funciones para manejar registros
+    vector<string> getReg(T_Instruction instruction, bool is_copy = false);
+    vector<string> findFreeRegister();
+    string recycleRegister(T_Instruction instruction);
+    void selectRegister(string operand, T_Instruction instruction, vector<string> &regs, vector<string> &free_regs);
+    
+    // Funciones para actualizar descriptores
+    bool assignment(string register_id, string variable_id, bool replace = false);
+    bool availability(string variable_id, string location, bool replace = false);
+
+    // Funciones para instrucciones
+    void translateInstruction(T_Instruction instruction);
+    void translateMetaIntruction(T_Instruction instruction);
+    void translateOperationInstruction(T_Instruction instruction);
+
 public:
-    CodeBlock();
-    void Translate(T_Instruction instruction);
-    void TranslateMetaIntruction(T_Instruction instruction);
-    void TranslateOperationInstruction(T_Instruction instruction);
-    bool InsertRegister(string reg);
-    bool InsertVariable(string var);
-    vector<string> GetRegisterDescriptor(string key);
-    vector<string> GetVariableDescriptor(string key);
+    T_Block();
+    void translate();
+    bool insertRegister(string id);
+    bool insertVariable(string id);
+    void insertInstruction(T_Instruction instruction);
+    vector<string> getRegisterDescriptor(string id);
+    vector<string> getVariableDescriptor(string id);
+    void print();
 };

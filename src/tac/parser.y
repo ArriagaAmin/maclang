@@ -3,6 +3,7 @@
   #include <string>
   #include <cstring>
   #include <set>
+  #include "translate.hpp"
 
   #include "errors.hpp"
 
@@ -12,6 +13,7 @@
   extern int yycolumn;
   extern char *filename;
   extern queue<string> errors;
+  T_Block *block = new T_Block;
 %}
 
 %define parse.lac full
@@ -41,6 +43,8 @@
 %token <boolean>  FALSE
 %token <str>      ID
 
+%type <str> T Lvalue Rvalue
+
 %%
   S       : Data Text
           ;
@@ -66,7 +70,10 @@
   T       : NL { /* ignore */ }
           | MI_LABEL ID NL
             {
-
+              T_Instruction inst;
+              inst.id = "@label";
+              inst.result = *$2;
+              block->insertInstruction(inst);
             }
           | I_ASSIGN Lvalue Rvalue NL
             {
@@ -74,7 +81,8 @@
             }
           | I_ADD Lvalue Rvalue Rvalue NL
             {
-
+              T_Instruction inst = {"add", *$2, *$3, *$4};
+              block->insertInstruction(inst);
             }
           | I_SUB Lvalue Rvalue Rvalue NL
             {
@@ -156,11 +164,10 @@
        
   Lvalue  : ID 
             {
-
+              $$ = $1;
             }
           | Lvalue OPEN_BRACKET INT CLOSE_BRACKET
             {
-
             }
           | Lvalue OPEN_BRACKET ID CLOSE_BRACKET
             {
@@ -170,7 +177,7 @@
 
   Rvalue  : Lvalue 
             {
-              
+              $$ = $1;
             }
           | FLOAT
             {
@@ -226,7 +233,10 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  printf("OK!\n");
+  block->translate();
+  block->print();
+
+  //printf("OK!\n");
 
   return 0;
 }

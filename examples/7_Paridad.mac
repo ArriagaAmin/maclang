@@ -1,4 +1,4 @@
-execonce "String.mac";
+execonce "examples/String.mac";
 
 let Int LINE_SIZE = 1024;
 
