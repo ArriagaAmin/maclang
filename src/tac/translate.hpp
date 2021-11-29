@@ -5,30 +5,11 @@
 #include <vector>
 #include <algorithm>
 #include <map>
+#include <iostream>
 
 using namespace std;
 
 const unsigned NUMBER_OF_REGISTERS = 23;
-
-// TODAVIA FALTAN MUCHAS INSTRUCCIONES
-unordered_map<string, string> instTypes = {
-    {"assign", "move"},
-    {"add", "add"},
-    {"sub", "sub"},
-    {"mult", "mul"},
-    {"div", "div"}, // Esta en el low
-    {"mod", "div"}, // Esta en el high
-    {"minus", "negu"},
-    {"and", "and"},
-    {"or", "or"},
-    {"not", "not"},
-    {"goto", "b"},
-    {"goif", "bnez"},
-    {"goifnot", "bez"},
-    {"param", "sw"},
-    {"call", "jal"},
-    {"@string", ".asciiz"}
-};
 
 struct T_Instruction
 {
@@ -41,7 +22,6 @@ struct T_Block
 {
     vector<T_Instruction> instructions;
 };
-
 
 class CodeBlock
 {
@@ -71,4 +51,5 @@ public:
     bool InsertVariable(string var);
     vector<string> GetRegisterDescriptor(string key);
     vector<string> GetVariableDescriptor(string key);
+    void print(void);
 };

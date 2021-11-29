@@ -247,7 +247,7 @@
     this->value = value;
     this->type = new ArrayType(predefinedTypes["Char"], new NodeINT(value.size()), true);
     this->is_lvalue = false;
-    this->is_lit = false;
+    this->is_lit = true;
   }
   void NodeSTRING::printTree(vector<bool> *identation) {
     cout << "STRING: \033[1;36m" << this->value << "\033[0m\n";

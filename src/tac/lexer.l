@@ -33,6 +33,8 @@
 "@staticv"                    { return MI_STATICV; }
 "@string"                     { return MI_STRING; }
 "@label"                      { return MI_LABEL; }
+"@function"                   { return MI_FUNCTION; }
+"@endfunction"                { return MI_ENDFUNCTION; }
 "assign"                      { return I_ASSIGN; }
 "add"                         { return I_ADD; }
 "sub"                         { return I_SUB; }
@@ -49,6 +51,7 @@
 "goto"                        { return I_GOTO; }
 "goif"                        { return I_GOIF; }
 "malloc"                      { return I_MALLOC; }
+"memcpy"                      { return I_MEMCPY; }
 "free"                        { return I_FREE; }
 "param"                       { return I_PARAM; }
 "call"                        { return I_CALL; }
@@ -68,7 +71,7 @@
 \n                            { return NL; } 
 .                             { 
                                 /* add error to queue */
-                                pushError(); 
+                                pushError();  
                               }
 %%
 

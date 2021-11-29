@@ -4,6 +4,7 @@
   #include <cstring>
   #include <set>
 
+  #include "translate.hpp"
   #include "errors.hpp"
 
   using namespace std;
@@ -12,6 +13,8 @@
   extern int yycolumn;
   extern char *filename;
   extern queue<string> errors;
+
+  CodeBlock *CB;
 %}
 
 %define parse.lac full
@@ -28,9 +31,9 @@
 %locations
 %start S
 
-%token MI_STATICV MI_STRING MI_LABEL
-%token I_ASSIGN I_ADD I_SUB I_MULT I_DIV I_MOD I_MINUS I_EQ I_NEQ I_LT I_LEQ I_GT I_GEQ 
-%token I_GOTO I_GOIF I_MALLOC I_FREE I_PARAM I_CALL I_RETURN I_EXIT
+%token <str> MI_STATICV MI_STRING MI_LABEL MI_FUNCTION MI_ENDFUNCTION
+%token <str> I_ASSIGN I_ADD I_SUB I_MULT I_DIV I_MOD I_MINUS I_EQ I_NEQ I_LT I_LEQ I_GT 
+%token <str> I_GEQ I_GOTO I_GOIF I_MALLOC I_MEMCPY  I_FREE I_PARAM I_CALL I_RETURN I_EXIT
 %token OPEN_BRACKET CLOSE_BRACKET NL
 
 %token <integer>  INT
@@ -52,147 +55,200 @@
   D       : 
             MI_STATICV ID INT NL 
             {
-
+              CB->Translate({*$1, *$2, {to_string($3)}});
             }
-          | MI_STRING ID STRING NL
+          | MI_STRING  ID STRING NL
             {
-
+              CB->Translate({*$1, *$2, {*$3}});
             }
           ;
 
   Text    : /* lambda */
-          | T Text 
+          | T NL Text 
           ;
-  T       : NL { /* ignore */ }
-          | MI_LABEL ID NL
+
+  T       : I 
             {
 
             }
-          | I_ASSIGN Lvalue Rvalue NL
+          | F 
             {
 
             }
-          | I_ADD Lvalue Rvalue Rvalue NL
+          ;
+
+  I       : /* lambda */
+          | MI_LABEL ID
+            {
+              CB->Translate({*$1, *$2, {}});
+            }
+          | I_ASSIGN Acc Val
             {
 
             }
-          | I_SUB Lvalue Rvalue Rvalue NL
+          | I_ASSIGN ID RVal
+            {
+
+            }
+          | I_ADD    ID Val Val
+            {
+
+            }
+          | I_SUB    ID Val Val
             {
               
             }
-          | I_MULT Lvalue Rvalue Rvalue NL
+          | I_MULT   ID Val Val
             {
               
             }
-          | I_DIV Lvalue Rvalue Rvalue NL
+          | I_DIV    ID Val Val
             {
               
             }
-          | I_MOD Lvalue Rvalue Rvalue NL
+          | I_MOD    ID Val Val
             {
               
             }
-          | I_MINUS Lvalue Rvalue NL
+          | I_MINUS  Acc Val
             {
               
             }
-          | I_EQ Lvalue Rvalue Rvalue NL
+          | I_MINUS  ID RVal
             {
               
             }
-          | I_NEQ Lvalue Rvalue Rvalue NL
+          | I_EQ     ID Val Val
             {
               
             }
-          | I_LT Lvalue Rvalue Rvalue NL
+          | I_NEQ    ID Val Val
             {
               
             }
-          | I_LEQ Lvalue Rvalue Rvalue NL
+          | I_LT     ID Val Val
             {
               
             }
-          | I_GT Lvalue Rvalue Rvalue NL
+          | I_LEQ    ID Val Val
             {
               
             }
-          | I_GEQ Lvalue Rvalue Rvalue NL
+          | I_GT     ID Val Val
             {
               
             }
-          | I_GOTO ID NL
+          | I_GEQ    ID Val Val
             {
               
             }
-          | I_GOIF ID Rvalue NL
+          | I_GOTO   ID
             {
               
             }
-          | I_MALLOC Lvalue Rvalue NL
+          | I_GOIF   ID RVal
             {
               
             }
-          | I_FREE Rvalue NL
+          | I_MALLOC Acc Val
             {
               
             }
-          | I_PARAM Rvalue NL
+          | I_MALLOC ID RVal
             {
               
             }
-          | I_CALL Lvalue ID Rvalue NL
+          | I_MEMCPY Acc ID
             {
               
             }
-          | I_RETURN Rvalue NL
+          | I_MEMCPY ID RVal
             {
               
             }
-          | I_EXIT Rvalue NL
+          | I_FREE   LVal
+            {
+              
+            }
+          | I_EXIT   RVal
+            {
+              
+            }
+          | I_PARAM  RVal
+            {
+              
+            }
+          | I_RETURN RVal
+            {
+              
+            }
+          | I_CALL   ID ID INT
             {
               
             }
           ;
        
-  Lvalue  : ID 
-            {
+  F       : MI_FUNCTION ID INT NL Inst MI_ENDFUNCTION
 
-            }
-          | Lvalue OPEN_BRACKET INT CLOSE_BRACKET
-            {
-
-            }
-          | Lvalue OPEN_BRACKET ID CLOSE_BRACKET
+  Inst    : /* lambda */
+          | I NL Inst 
             {
 
             }
           ;
 
-  Rvalue  : Lvalue 
-            {
-              
-            }
-          | FLOAT
-            {
-              
-            }
-          | INT
-            {
-
-            }
-          | CHAR
-            {
-
-            }
-          | TRUE
-            {
-
-            }
-          | FALSE
+  Acc     : ID OPEN_BRACKET Val CLOSE_BRACKET
             {
 
             }
           ;
+
+  LVal    : ID 
+            {
+
+            }
+          | Acc 
+            {
+
+            }
+          ;
+
+  Val     : TRUE
+            {
+
+            }
+          | FALSE 
+            {
+
+            }
+          | CHAR 
+            {
+
+            }
+          | INT 
+            {
+
+            }
+          | FLOAT 
+            {
+
+            }
+          | ID 
+            {
+
+            }
+          ;
+
+  RVal    : Val 
+            {
+
+            }
+          | Acc
+            {
+              
+            }
+          ;
+
 %%
 
 int main(int argc, char **argv) {
@@ -215,6 +271,8 @@ int main(int argc, char **argv) {
   // reset lines and columns
   yylineno = 1; 
 
+  CB = new CodeBlock;
+
   // start parsing
   yyparse();
 
@@ -226,7 +284,7 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  printf("OK!\n");
+  CB->print();
 
   return 0;
 }

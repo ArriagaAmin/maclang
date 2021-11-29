@@ -1,5 +1,26 @@
 #include "translate.hpp"
 
+// TODAVIA FALTAN MUCHAS INSTRUCCIONES
+unordered_map<string, string> instTypes = {
+    {"assign", "move"},
+    {"add", "add"},
+    {"sub", "sub"},
+    {"mult", "mul"},
+    {"div", "div"}, // Esta en el low
+    {"mod", "div"}, // Esta en el high
+    {"minus", "negu"},
+    {"and", "and"},
+    {"or", "or"},
+    {"not", "not"},
+    {"goto", "b"},
+    {"goif", "bnez"},
+    {"goifnot", "bez"},
+    {"param", "sw"},
+    {"call", "jal"},
+    {"@string", ".asciiz"},
+    {"@staticv", ".word"}
+};
+
 CodeBlock::CodeBlock()
 {
     // Agregar los registros de MIPS
@@ -345,22 +366,26 @@ void CodeBlock::TranslateOperationInstruction(T_Instruction instruction)
 
 void CodeBlock::TranslateMetaIntruction(T_Instruction instruction)
 {
-    if(instruction.name.compare("@label"))
+    if(instruction.name == "@label")
     {
         text.push_back(instruction.result + ": ");
         return;
     }
 
-    if(instruction.name.compare("@string"))
+    else
     {
         string instructionType = instTypes[instruction.name];
         data.push_back(instruction.result + ": " + instructionType + " " + instruction.operators[0]);
         return;
     }
-    
-    if(instruction.name.compare("@staticv"))
-    {
-        data.push_back(instruction.result + ": " + instruction.operators[0]);
-        return;
+}
+
+void CodeBlock::print(void) {
+    for (string d : this->data) {
+        cout << d << "\n";
+    }
+
+    for (string t : this->text) {
+        cout << "    " << t << "\n";
     }
 }

@@ -544,12 +544,12 @@ class Node {
   class NodeRoutArgDef : public Node {
     protected:
       Node *head; 
-      Type *type; 
       bool ref; 
       string id; 
       Node *rvalue;
 
     public:
+      Type *type; 
       vector<tuple<string, string, bool, ExpressionNode*>> currentParams;
       
       NodeRoutArgDef(Node *head, Type *type, bool ref, string id, Node *rvalue);
