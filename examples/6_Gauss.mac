@@ -2,64 +2,43 @@ execonce "String.mac";
 
 dec gauss(Float[][] M, Int N) => Bool;
 
-let Int LINE_SIZE = 1024;
-
 let Float[10][11] M;
-let Int N, i, j;
-let Char[LINE_SIZE] buffer;
+let Int N;
+let Char c;
 
 while True do 
 	print("Desea resolver un sistema de ecuaciones? [Y/n] ");
-	read(buffer);
-	if strcmp(buffer, "n") == 0 || strcmp(buffer, "N") == 0 then 
+	c = readc();
+	if c == 'n' || c == 'N' then 
 		print("Hasta luego!");
 		break;
 	done 
 
 	print("Indique el numero de ecuaciones. Debe ser entre 1 y 10: ");
-	read(buffer);
-	N = stoi(buffer);
+	N = readi();
 
-	i = 0;
-	while i < N do 
-		print("Indique los ");
-		itos(buffer, N+1);
-		print(buffer);
-		print(" coeficientes flotantes de la ");
-		itos(buffer, i);
-		print(buffer);
-		print("-esima ecuacion: ");
-		print(nl);
+	for (i; 0; N) do 
+		print(
+			"Indique los %i coeficientes flotantes de la %i-esima ecuacion:", 
+			ints=[N+1, i]
+		);
 
-		j = 0;
-		while j < N + 1 do 
-			read(buffer);
-			M[i][j] = stof(buffer);
-			j = j + 1;
+		for (j; 0; N+1) do 
+			M[i][j] = readf();
 		done 
-		i = i + 1;
 	done
 
 	if gauss(M, N) then 
 		print("El valor de las variables es: ");
-		print(nl);
 
-		i = 0;
-		while i < N do 
-			print("X");
-			itos(buffer, i);
-			print(buffer);
-			print(" = ");
-			ftos(buffer, M[i][N]);
-			print(buffer);
-			print(nl);
+		for (i; 0; N) do 
+			print("X%i = %f", ints=[i], floats=[M[i][N]]);
 		done 
-		print(nl);
-
 	else 
 		print("El sistema de ecuaciones no tiene solucion.");
-		print(nl);
 	done
+
+	print(nl);
 done 
 
 
@@ -72,9 +51,9 @@ def abs(Float x) => Float {
 
 def argmax_col(Float[][] M, Int N, Int col) => Int {
 	let Float max = abs(M[0][col]);
-	let Int i = 1, i_max = 0;
+	let Int i_max = 0;
 
-	while i < N do 
+	for (i; 1; N) do 
 		if abs(M[i][col]) > max then 
 			max = abs(M[i][col]); 
 			i_max = i;
@@ -87,9 +66,8 @@ def argmax_col(Float[][] M, Int N, Int col) => Int {
 
 def swap_rows(Float[][] M, Int N, Int h, Int k) {
 	let Float aux;
-	let Int i = 0;
 
-	while i < N do 
+	for (i; 0; N) do 
 		aux = M[h][i];
 		M[h][i] = M[k][i];
 		M[k][i] = aux;
@@ -97,10 +75,10 @@ def swap_rows(Float[][] M, Int N, Int h, Int k) {
 }
 
 def gauss(Float[][] M, Int N) => Bool {
-	let Int h = 0, i_max, i, j;
+	let Int i_max;
 	let Float f;
 
-	while h < N do 
+	for (h; 0; N) do 
 		i_max = argmax_col(M, N, h);
 
 		if M[i_max][h] == 0 then 
@@ -109,30 +87,19 @@ def gauss(Float[][] M, Int N) => Bool {
 
 		swap_rows(M, N + 1, h, i_max);
 
-		i = h + 1;
-		while i < N do 
+		for (i; h+1; N) do 
 			f = M[i][h] / M[h][h];
 
-			j = h + 1;
-			while j < N + 1 do 
+			for (j; h+1; N+1) do 
 				M[i][j] = M[i][j] - M[h][j] * f ;
-				j = j + 1;
 			done 
-
-			i = i + 1;
 		done 
-
-		h = h + 1;
 	done 
 
-	h = N - 1;
-	while h >= 0 do 
-		i = 0;
-		while i < h do 
+	for (h; N-1; -1; -1) do 
+		for (i; 0; h) do 
 			M[i][N] = M[i][N] - M[h][N] * M[i][h] / M[h][h];
-			i = i + 1;
 		done 
 		M[h][N] = M[h][N] / M[h][h];
-		h = h - 1;
 	done
 }

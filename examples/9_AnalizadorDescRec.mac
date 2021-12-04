@@ -22,8 +22,8 @@ register ADR {
 # SYMBOLS TABLE
 let ^Hash table = Hash_init();
 let String abc = "abcdefghijklmnopqrstuvwxyz";
-let Int i = 0, N = strlen(abc);
-while i < N do 
+let Int N = strlen(abc);
+for (i; 0; N) do 
 	Hash_put(table, [abc[i]], 0.0);
 done
 
@@ -49,7 +49,6 @@ while True do
 
 	if strlen(output) > 0 then 
 		print(output);
-		print(nl);
 	done 
 done
 
@@ -87,8 +86,7 @@ def ADR_LA(^ADR analyzer, Int k=0) => String {
 
 def ADR_push(^ADR analyzer) {
 	if ^analyzer.stackIndex >= N_TOKENS then 
-		print("Numero maximo de tokens alcanzado");
-		print(nl);
+		print("Numero maximo de tokens alcanzado.");
 		exit 1;
 	done 
 	^analyzer.stack[^analyzer.stackIndex] = new E;
@@ -124,7 +122,6 @@ def ADR_S(^ADR analyzer, String output) {
 
 		if ! ADR_shift(analyzer, "$") then 
 			print("No se pudo reconocer la expresion.");
-			print(nl);
 			ADR_freeEntry(analyzer);
 			output[0] = '\0';
 		done 
@@ -134,7 +131,6 @@ def ADR_S(^ADR analyzer, String output) {
 	
 	else
 		print("No se pudo reconocer la expresion.");
-		print(nl);
 		ADR_freeEntry(analyzer);
 		output[0] = '\0';
 	done
@@ -179,7 +175,6 @@ def ADR_I(^ADR analyzer) => Bool {
 
 	else 
 		print("No se pudo reconocer la expresion.");
-		print(nl);
 		return False;
 	done
 
@@ -230,7 +225,6 @@ def ADR_E(^ADR analyzer) => Bool {
 
 	else 
 		print("No se pudo reconocer la expresion.");
-		print(nl);
 		return False;
 	done
 
@@ -273,7 +267,6 @@ def ADR_T(^ADR analyzer) => Bool {
 				# T -> N / T;
 				if stof(^(^analyzer.stack[^analyzer.stackIndex - 1]).out) == 0 then 
 					print("No se puede dividir entre 0.");
-					print(nl);
 					return False;
 				done
 				f = stof(^(^analyzer.stack[^analyzer.stackIndex - 2]).out) /
@@ -286,7 +279,6 @@ def ADR_T(^ADR analyzer) => Bool {
 
 	else 
 		print("No se pudo reconocer la expresion.");
-		print(nl);
 		return False;
 	done
 
@@ -307,7 +299,6 @@ def ADR_N(^ADR analyzer) => Bool {
 
 		if ! ADR_shift(analyzer, ")") then
 			print("No se pudo reconocer la expresion.");
-			print(nl);
 			return False;
 		done 
 
@@ -333,7 +324,6 @@ def ADR_N(^ADR analyzer) => Bool {
 
 	else 
 		print("No se pudo reconocer la expresion.");
-		print(nl);
 		return False;
 	done 
 

@@ -495,6 +495,7 @@ class Node {
 
     public:
       string label;
+      string step_addr;
       Node *step;
 
       NodeForSign(string iter, Node *begin, Node *end, Node *step);

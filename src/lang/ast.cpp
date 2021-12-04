@@ -799,12 +799,12 @@
     if (this->step != NULL) {
       printIdentation(identation);
       identation->push_back(true);
-      cout << "├── \033[1;34mStep: \033[0m";
+      cout << "└── \033[1;34mStep: \033[0m";
       this->step->printTree(identation);
       identation->pop_back();
     } else {
       printIdentation(identation);
-      cout << "├── \033[1;34mStep: \033[0mNULL\n";
+      cout << "└── \033[1;34mStep: \033[0m 1\n";
     }
   }
 

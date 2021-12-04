@@ -1,11 +1,8 @@
-let String s = ['a', 'b', '\n'];
-let Int i = 0;
-let Bool b = True;
+def f(String s) {
 
-def F(Int a, Int @b, Bool c, Bool @d=True, String e="", String @f="f") {
-	b = 0;
 }
-
-F(i, i, b || True, b, e=s);
-
-b;
+def g(String s) {
+	f(s);
+}
+let String s = "AAAAAAAAAAAAAA";
+g(s);

@@ -23,6 +23,9 @@ string TAC::newFunc()
 
 string TAC::newStr(string str)
 {
+    str.erase(0, 1);
+    str.erase(str.size() - 1, 1);
+    str = "0000" + str;
     string temp = "S" + to_string(this->strings.size());
     this->strings.push_back({temp, str});
     return temp;
@@ -65,7 +68,7 @@ void TAC::print(void) {
     unsigned long long index = 0;
 
     for (pair<string, string> str : this->strings) {
-        cout << "@string " << str.first << " " << str.second << "\n";
+        cout << "@string " << str.first << " \"" << str.second << "\"\n";
     }
 
     for (string instr : this->instructions) {
@@ -81,19 +84,19 @@ void TAC::print(void) {
     }
 }
 
-void TAC::genTACinstr(string instr, string addrl, string addr1, string addr2) {
+void TAC::genTACinstr(string assign, string instr, string addrl, string addr1, string addr2) {
     string addr1_aux, addr2_aux;
 
     if (addr1.back() == ']') {
         addr1_aux = this->newTemp();
-        this->gen("assign " + addr1_aux + " " + addr1);
+        this->gen(assign + " " + addr1_aux + " " + addr1);
     }
     else {
         addr1_aux = addr1;
     }
     if (addr2.back() == ']') {
         addr2_aux = this->newTemp();
-        this->gen("assign " + addr2_aux + " " + addr2);
+        this->gen(assign + " " + addr2_aux + " " + addr2);
     }
     else {
         addr2_aux = addr2;

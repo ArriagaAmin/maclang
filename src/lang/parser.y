@@ -299,6 +299,11 @@
                   tac->gen("assignb " + addr + " False");
                   tac->gen("@label " + label);
                 }
+                else if ($2->addr.back() == ']') {
+                  string assign_type = $2->type->width == 1 ? "assignb" : "assignw";
+                  addr = tac->newTemp();
+                  tac->gen(assign_type + " " + addr + " " + $2->addr);
+                }
                 else {
                   addr = $2->addr;
                 }
@@ -480,10 +485,6 @@
                     if (rtype != "Bool") {
                       // Si el rtype no es booleano, se hace la asignacion comun.
                       tac->gen(assign_type + " " + $1->addr + " " + raddr);
-
-                      if (rtype.back() == ']') {
-                        $1->type = $4->type;
-                      }
                     }
                     else {
                       // Eliminamos las dos instrucciones que debieron haber surgido por 
@@ -551,7 +552,7 @@
                         // En caso de que el tipo sea un arreglo o estructura (registro
                         // o union) reservamos la memoria necesaria.
 
-                        // Si es un arreglo de longitud constante.
+                        // Si es un arreglo.
                         if (type.back() == ']') {
                           allocArray($2, addr);
                         }
@@ -565,8 +566,8 @@
                         if(type.back() != ']') {
                           e = new VarEntry(vardef.first, s, "Var", $2, offset, addr);
                         }
-                        else{
-                          ArrayType *current = (ArrayType*) vardef.second->type;
+                        else {
+                          ArrayType *current = (ArrayType*) (exp == NULL ? $2 : exp->type);
                           e = new VarArrayEntry(vardef.first, s, "Var", current, offset, addr);
                         }
                         table->insert(e);
@@ -677,7 +678,8 @@
               $$ = predefinedTypes["$Error"];
             } 
             else {
-              NodeINT *size = new NodeINT(1);
+              NodeINT *size = new NodeINT(0);
+              size->addr = tac->newTemp();
               $$ = new ArrayType($1, size);
               $$->danger = $1->danger;
               $$->incomplete = $1->incomplete;
@@ -734,7 +736,9 @@
         | T_FLOAT                             { $$ = predefinedTypes["Float"]; }
         | T_STRING                            
           { 
-            $$ = new ArrayType(predefinedTypes["Char"], new NodeINT(1), true); 
+            ExpressionNode *size = new NodeINT(0);
+            size->addr = tac->newTemp();
+            $$ = new ArrayType(predefinedTypes["Char"], size, true); 
           }
         ;
 
@@ -799,7 +803,8 @@
 
             }
 
-            tac->genTACinstr("eq", "test", $1->addr, $4->addr);
+            string assign = $1->type->width == 1 ? "assignb" : "assignw";
+            tac->genTACinstr(assign, "eq", "test", $1->addr, $4->addr);
 
             // Como el resultado es booleano, creamos la truelist y falselist 
             // correspondiente.
@@ -853,7 +858,8 @@
               tac->gen("@label " + label);
             }
 
-            tac->genTACinstr("neq", "test", $1->addr, $4->addr);
+            string assign = $1->type->width == 1 ? "assignb" : "assignw";
+            tac->genTACinstr(assign, "neq", "test", $1->addr, $4->addr);
 
             // Como el resultado es booleano, creamos la truelist y falselist 
             // correspondiente.
@@ -910,7 +916,7 @@
             Type *type = verifyBinayOpType(*$2, t1->toString(), t2->toString());
             $$ = new NodeBinaryOperator($1, *$2, $3, type);  
 
-            tac->genTACinstr("lt", "test", $1->addr, $3->addr);
+            tac->genTACinstr("assignw", "lt", "test", $1->addr, $3->addr);
 
             // Aplicamos backpatching.
             $$->truelist = {tac->instructions.size()};
@@ -927,7 +933,7 @@
             Type *type = verifyBinayOpType(*$2, t1->toString(), t2->toString());
             $$ = new NodeBinaryOperator($1, *$2, $3, type); 
 
-            tac->genTACinstr("leq", "test", $1->addr, $3->addr);
+            tac->genTACinstr("assignw", "leq", "test", $1->addr, $3->addr);
 
             // Aplicamos backpatching.
             $$->truelist = {tac->instructions.size()};
@@ -944,7 +950,7 @@
             Type *type = verifyBinayOpType(*$2, t1->toString(), t2->toString());
             $$ = new NodeBinaryOperator($1, *$2, $3, type); 
 
-            tac->genTACinstr("gt", "test", $1->addr, $3->addr);
+            tac->genTACinstr("assignw", "gt", "test", $1->addr, $3->addr);
 
             // Aplicamos backpatching.
             $$->truelist = {tac->instructions.size()};
@@ -961,7 +967,7 @@
             Type *type = verifyBinayOpType(*$2, t1->toString(), t2->toString());
             $$ = new NodeBinaryOperator($1, *$2, $3, type); 
 
-            tac->genTACinstr("geq", "test", $1->addr, $3->addr);
+            tac->genTACinstr("assignw", "geq", "test", $1->addr, $3->addr);
 
             // Aplicamos backpatching.
             $$->truelist = {tac->instructions.size()};
@@ -980,7 +986,7 @@
 
             // Agregamos las instrucciones del TAC.
             $$->addr = tac->newTemp();
-            tac->genTACinstr("add", $$->addr, $1->addr, $3->addr);
+            tac->genTACinstr("assignw", "add", $$->addr, $1->addr, $3->addr);
           }
 
         | Exp MINUS Exp 
@@ -993,7 +999,7 @@
 
             // Agregamos las instrucciones del TAC.
             $$->addr = tac->newTemp();
-            tac->genTACinstr("sub", $$->addr, $1->addr, $3->addr);
+            tac->genTACinstr("assignw", "sub", $$->addr, $1->addr, $3->addr);
           }
 
         | Exp ASTERISK Exp 
@@ -1006,7 +1012,7 @@
 
             // Agregamos las instrucciones del TAC.
             $$->addr = tac->newTemp();
-            tac->genTACinstr("mult", $$->addr, $1->addr, $3->addr);
+            tac->genTACinstr("assignw", "mult", $$->addr, $1->addr, $3->addr);
           }
 
         | Exp DIV Exp 
@@ -1019,7 +1025,7 @@
 
             // Agregamos las instrucciones del TAC.
             $$->addr = tac->newTemp();
-            tac->genTACinstr("div", $$->addr, $1->addr, $3->addr);
+            tac->genTACinstr("assignw", "div", $$->addr, $1->addr, $3->addr);
           }
 
         | Exp MODULE Exp 
@@ -1032,7 +1038,7 @@
 
             // Agregamos las instrucciones del TAC.
             $$->addr = tac->newTemp();
-            tac->genTACinstr("mod", $$->addr, $1->addr, $3->addr);
+            tac->genTACinstr("assignw", "mod", $$->addr, $1->addr, $3->addr);
           }
 
         | MINUS Exp  
@@ -1161,6 +1167,7 @@
 
               $$->addr = tac->newTemp();
               tac->gen("mult " + $$->addr + " " + to_string(type->width) + " " + raddr);
+              tac->gen("add " + $$->addr + " " + $$->addr + " 4");
               $$->addr = arraddr + "[" + $$->addr + "]";
 
               // Si el tipo base es booleano, aplicamos el backpatching correspondiente.
@@ -1215,7 +1222,7 @@
                   tac->gen("assignb " + raddr + " " + $$->addr);
 
                   $$->truelist = {tac->instructions.size()};
-                  tac->gen("goif _ " + $$->addr);
+                  tac->gen("goif _ " + raddr);
                   $$->falselist = {tac->instructions.size()};
                   tac->gen("goto _");
                 }
@@ -1283,7 +1290,7 @@
                     tac->gen("assignb " + raddr + " " + $$->addr);
 
                     $$->truelist = {tac->instructions.size()};
-                    tac->gen("goif _ " + $$->addr);
+                    tac->gen("goif _ " + raddr);
                     $$->falselist = {tac->instructions.size()};
                     tac->gen("goto _");
                   }
@@ -1309,10 +1316,6 @@
             else {
               VarEntry *ve = (VarEntry*) e;
               $$ = new NodeID(*$1, ve->type); 
-
-              if (*$1 == "s") {
-                cout << ((ArrayType*) ve->type)->size->addr << "\n";
-              }
 
               // Si nos encontramos fuera de una funcion, usamos la etiqueta de la 
               // variable.
@@ -1419,10 +1422,6 @@
                   $$->addr = tac->newTemp();
                   tac->gen(assign_type + " " + $2->addr + " " + raddr);
                   tac->gen(assign_type + " " + $$->addr + " " + raddr);
-
-                  if (rtype.back() == ']') {
-                    $2->type = $5->type;
-                  }
                 }
                 else {
                   // Eliminamos las dos instrucciones que debieron haber surgido por 
@@ -1492,6 +1491,9 @@
           { 
             $$ = new NodeSTRING(*$1); 
             $$->addr = tac->newStr(*$1);
+            ArrayType *t = (ArrayType*) $$->type;
+            t->size->addr = tac->newTemp();
+            tac->gen("assignw " + $$->addr + "[0] " + to_string($1->size()-2));
           }
         ;
 
@@ -1562,7 +1564,7 @@
                     
                     tac->gen(
                       assign_type + " " + laddr + "[" + 
-                      to_string(size * $2->type->width) + "] " + raddr
+                      to_string(size * $2->type->width + 4) + "] " + raddr
                     );
                     exp = exp->head;
                   }
@@ -1771,16 +1773,27 @@
                                     $3->positionalArgs[i]->addr
                                   );
                                 }
+                                else {
+                                  addr = $3->positionalArgs[i]->addr;
+                                }
                               }
                               // Si el pase no es por referencia y es una estructura
                               else if (! get<2>(arg) && ! predefinedTypes.count(type_str) && type_str[0] != '^') {
                                 // Creamos una copia de la estructura
                                 addr = tac->newTemp();
-                                copyStruct($3->positionalArgs[i]->type, addr, $3->positionalArgs[i]->addr);
+                                copyStruct(
+                                  $3->positionalArgs[i]->type, 
+                                  addr, 
+                                  $3->positionalArgs[i]->addr
+                                );
                               }
+                              else {
+                                addr = $3->positionalArgs[i]->addr;
+                              }
+
                               // Por ultimo, verificamos si la direccion es un acceso a
                               // memoria
-                              else if (addr.back() == ']') {
+                              if (addr.back() == ']') {
                                 addr = tac->newTemp();
                                 tac->gen(assign_type + " " + addr + " " + $3->positionalArgs[i]->addr);
                               }
@@ -1835,6 +1848,9 @@
                                     $3->namedArgs[get<0>(arg)]->addr
                                   );
                                 }
+                                else {
+                                  addr = $3->namedArgs[get<0>(arg)]->addr;
+                                }
                               }
                               // Si el pase no es por referencia y es una estructura
                               else if (! get<2>(arg) && ! predefinedTypes.count(type_str) && type_str[0] != '^') {
@@ -1846,9 +1862,13 @@
                                   $3->namedArgs[get<0>(arg)]->addr
                                 );
                               }
+                              else {
+                                addr = $3->namedArgs[get<0>(arg)]->addr;
+                              }
+
                               // Por ultimo, verificamos si la direccion es un acceso a
                               // memoria
-                              else if (addr.back() == ']') {
+                              if (addr.back() == ']') {
                                 addr = tac->newTemp();
                                 tac->gen(assign_type + " " + addr + " " + $3->namedArgs[get<0>(arg)]->addr);
                               }
@@ -1905,6 +1925,7 @@
                           type = fe->return_type;
                           $$ = new NodeFunctionCall(*$1, $3, false, type); 
                           $$->addr = tac->newTemp();
+                          string n_args = to_string(fe->args.size());
 
                           if (e->category == "Declaration") {
                             // Almacenamos el scope y el numero de la instruccion donde
@@ -1922,11 +1943,11 @@
                               }};
                             }
 
-                            tac->gen("call " + $$->addr + " _ ");
+                            tac->gen("call " + $$->addr + " _  " + n_args);
                           }
 
                           else {
-                            tac->gen("call " + $$->addr + " " + fe->addr);
+                            tac->gen("call " + $$->addr + " " + fe->addr + " " + n_args);
                           }
 
                           // Realizamos las asignaciones por referencia correspondientes.
@@ -2682,7 +2703,7 @@
                 tac->continuelist.pop();
 
                 if ($1->step != NULL) {
-                  tac->gen("add " + $1->addr + " " + $1->addr + " " + $1->step->addr);
+                  tac->gen("add " + $1->addr + " " + $1->addr + " " + $1->step_addr);
                 }
                 else {
                   tac->gen("add " + $1->addr + " " + $1->addr + " 1");
@@ -2742,9 +2763,45 @@
                 tac->gen("assignw " + $$->addr + " " + $5->addr);
                 tac->gen("@label " + $$->label);
 
-                // Verificacion de iteracion del for
-                tac->gen("geq test " + $$->addr + " " + $7->addr);
-                tac->gen("goif " + $$->label + "_end test");
+                string end_addr;
+                if ($7->addr.back() == ']') {
+                  end_addr = tac->newTemp();
+                  tac->gen("assignw " + end_addr + " " + $7->addr);
+                }
+                else {
+                  end_addr = $7->addr;
+                }
+
+                // Verificamos si el step es definido, y n ese caso se verifica si es
+                // positivo o negativo
+                if ($8 != NULL) {
+                  if ($8->addr.back() == ']') {
+                    $$->step_addr = tac->newTemp();
+                    tac->gen("assignw " + $$->step_addr + " " + $8->addr);
+                  }
+                  else {
+                    $$->step_addr = $8->addr;
+                  }
+
+                  tac->gen("lt test " + $$->step_addr + " 0");
+                  tac->gen("goif " + $$->label + "_neg test");
+
+                  // Verificacion de iteracion del for
+                  tac->gen("geq test " + $$->addr + " " + end_addr);
+                  tac->gen("goif " + $$->label + "_end test");
+                  tac->gen("goto " + $$->label + "_body");
+
+                  tac->gen("@label " + $$->label + "_neg");
+                  tac->gen("leq test " + $$->addr + " " + end_addr);
+                  tac->gen("goif " + $$->label + "_end test");
+
+                  tac->gen("@label " + $$->label + "_body");
+                }
+                else {
+                  // Verificacion de iteracion del for
+                  tac->gen("geq test " + $$->addr + " " + end_addr);
+                  tac->gen("goif " + $$->label + "_end test");
+                }
                 
                 tac->gen("assignw " + e->addr + " " + $$->addr);
 
@@ -2768,6 +2825,8 @@
 /* ======================= SUBROUTINES DEFINITION ==================== */
   RoutDef   : RoutSign M OPEN_C_BRACE Actions CLOSE_C_BRACE   
               { 
+                string func_size = to_string(table->offsets.back());
+
                 if ($1->is_error) {
                   NodeError *err = (NodeError*) $1;
                   table->exitScope();
@@ -2784,10 +2843,7 @@
                   
                   table->exitScope();
                   table->exitScope();
-                  tac->backpatch(
-                    {(unsigned long long) $2 - 1}, 
-                    to_string(table->offsets.back())
-                  );
+                  tac->backpatch({(unsigned long long) $2 - 1}, func_size);
                 }
 
                 table->ret_type = "";
@@ -2798,9 +2854,9 @@
                 }
 
                 tac->gen("@label " + $1->addr + "_end");
-                tac->gen("assign lastbase BASE");
+                tac->gen("assignw lastbase BASE");
                 tac->gen("return 0");
-                tac->gen("@endfunction");
+                tac->gen("@endfunction " + func_size);
 
                 tac->gen("@label " + $1->addr + "_out");
                 tac->backpatch($1->nextlist, $1->addr + "_out");
@@ -3355,10 +3411,28 @@ void scope0(void) {
     table->insert(new PrimitiveEntry(t));
   }
 
+  // VARIABLES
+  VarEntry *ve;
+
+  // NULL pointer
+  ve = new VarEntry("NULL", 0, "Var", new PointerType(predefinedTypes["Unit"]), 0, "NULL");
+  table->insert(ve);
+  tac->gen("assignw " + ve->addr + " 0");
+
+  // New line
+  ExpressionNode *nl = new NodeSTRING("\n");
+  ArrayType *t = new ArrayType(predefinedTypes["Char"], new NodeINT(1), true);
+  t->size-> addr = tac->newTemp();
+  tac->gen("assignw " + t->size-> addr + " 1");
+  nl->addr = tac->newStr("\"\\n\"");
+  ve = new VarEntry("nl", 0, "Var", t, 0, "nl");
+  table->insert(ve);
+
+
   // FUNCTIONS.
   FunctionEntry *fe;
 
-  // Adding "read" function.
+  // Read functions
   fe = new FunctionEntry("read", 0, "Function");
   fe->args.push_back({"text", "(Char)[]", false, NULL});
   fe->return_type = predefinedTypes["Unit"];
@@ -3366,9 +3440,40 @@ void scope0(void) {
   fe->def_scope = 0;
   table->insert(fe);
 
+  fe = new FunctionEntry("readc", 0, "Function");
+  fe->return_type = predefinedTypes["Char"];
+  fe->addr = "READC";
+  fe->def_scope = 0;
+  table->insert(fe);
+
+  fe = new FunctionEntry("readi", 0, "Function");
+  fe->return_type = predefinedTypes["Int"];
+  fe->addr = "READI";
+  fe->def_scope = 0;
+  table->insert(fe);
+
+  fe = new FunctionEntry("readf", 0, "Function");
+  fe->return_type = predefinedTypes["Float"];
+  fe->addr = "READF";
+  fe->def_scope = 0;
+  table->insert(fe);
+
   // Adding "print" function.
+  // Primero creamos un arreglo vacio
+  Type *voidt = new Type();
+  voidt->width = 0;
+  ArrayType *voidarray = new ArrayType(voidt, new NodeINT(0));
+  voidarray->size->addr = "0";
+  ExpressionNode *NULLarray = new NodeArray(NULL, voidarray);
+  NULLarray->addr = "0";
+
   fe = new FunctionEntry("print", 0, "Function");
   fe->args.push_back({"text", "(Char)[]", false, NULL});
+  fe->args.push_back({"chars", "(Char)[]", false, NULLarray});
+  fe->args.push_back({"ints", "(Int)[]", false, NULLarray});
+  fe->args.push_back({"floats", "(Float)[]", false, NULLarray});
+  fe->args.push_back({"strings", "((Char)[])[]", false, NULLarray});
+  fe->args.push_back({"end", "(Char)[]", false, nl});
   fe->return_type = predefinedTypes["Unit"];
   fe->addr = "PRINT";
   fe->def_scope = 0;
@@ -3431,11 +3536,4 @@ void scope0(void) {
   fe->addr = "ITOF";
   fe->def_scope = 0;
   table->insert(fe);
-
-  // VARIABLES
-  VarEntry *ve;
-
-  ve = new VarEntry("NULL", 0, "Var", new PointerType(predefinedTypes["Unit"]), 0, "NULL");
-  table->insert(ve);
-  tac->gen("assignw " + ve->addr + " 0");
 }

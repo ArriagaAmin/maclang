@@ -32,8 +32,10 @@
 %start S
 
 %token <str> MI_STATICV MI_STRING MI_LABEL MI_FUNCTION MI_ENDFUNCTION
-%token <str> I_ASSIGN I_ADD I_SUB I_MULT I_DIV I_MOD I_MINUS I_EQ I_NEQ I_LT I_LEQ I_GT 
-%token <str> I_GEQ I_GOTO I_GOIF I_MALLOC I_MEMCPY  I_FREE I_PARAM I_CALL I_RETURN I_EXIT
+%token <str> I_ASSIGNW I_ASSIGNB I_ADD I_SUB I_MULT I_DIV I_MOD I_MINUS I_EQ I_NEQ I_LT 
+%token <str> I_LEQ I_GT I_GEQ I_GOTO I_GOIF I_GOIFNOT I_MALLOC I_MEMCPY  I_FREE I_PARAM 
+%token <str> I_CALL I_RETURN I_EXIT I_PRINTC I_PRINTI I_PRINTF I_PRINT I_READC I_READI
+%token <str> I_READF I_READ
 %token OPEN_BRACKET CLOSE_BRACKET NL
 
 %token <integer>  INT
@@ -78,117 +80,150 @@
           ;
 
   I       : /* lambda */
+
           | MI_LABEL ID
             {
               CB->Translate({*$1, *$2, {}});
             }
-          | I_ASSIGN Acc Val
+          | I_ASSIGNW Acc Val
             {
 
             }
-          | I_ASSIGN ID RVal
+          | I_ASSIGNW ID RVal
             {
 
             }
-          | I_ADD    ID Val Val
+          | I_ASSIGNB Acc Val
             {
 
             }
-          | I_SUB    ID Val Val
+          | I_ASSIGNB ID RVal
+            {
+
+            }
+          | I_ADD     ID Val Val
+            {
+
+            }
+          | I_SUB     ID Val Val
             {
               
             }
-          | I_MULT   ID Val Val
+          | I_MULT    ID Val Val
             {
               
             }
-          | I_DIV    ID Val Val
+          | I_DIV     ID Val Val
             {
               
             }
-          | I_MOD    ID Val Val
+          | I_MOD     ID Val Val
             {
               
             }
-          | I_MINUS  Acc Val
+          | I_MINUS   ID Val
             {
               
             }
-          | I_MINUS  ID RVal
+          | I_EQ      ID Val Val
             {
               
             }
-          | I_EQ     ID Val Val
+          | I_NEQ     ID Val Val
             {
               
             }
-          | I_NEQ    ID Val Val
+          | I_LT      ID Val Val
             {
               
             }
-          | I_LT     ID Val Val
+          | I_LEQ     ID Val Val
             {
               
             }
-          | I_LEQ    ID Val Val
+          | I_GT      ID Val Val
             {
               
             }
-          | I_GT     ID Val Val
+          | I_GEQ     ID Val Val
             {
               
             }
-          | I_GEQ    ID Val Val
+          | I_GOTO    ID
             {
               
             }
-          | I_GOTO   ID
+          | I_GOIF    ID Val
             {
               
             }
-          | I_GOIF   ID RVal
+          | I_GOIFNOT ID Val
             {
               
             }
-          | I_MALLOC Acc Val
+          | I_MALLOC  ID Val
             {
               
             }
-          | I_MALLOC ID RVal
+          | I_MEMCPY  ID ID Val
             {
               
             }
-          | I_MEMCPY Acc ID
+          | I_FREE    ID
             {
               
             }
-          | I_MEMCPY ID RVal
+          | I_EXIT    Val
             {
               
             }
-          | I_FREE   LVal
+          | I_PARAM   ID Val
             {
               
             }
-          | I_EXIT   RVal
+          | I_RETURN  Val
             {
               
             }
-          | I_PARAM  RVal
+          | I_CALL    ID ID INT
             {
               
             }
-          | I_RETURN RVal
+          | I_PRINTC  Val
+            {
+
+            }
+          | I_PRINTI  Val
             {
               
             }
-          | I_CALL   ID ID INT
+          | I_PRINTF  Val
+            {
+              
+            }
+          | I_PRINT   ID
+            {
+              
+            }
+          | I_READC   Val
+            {
+
+            }
+          | I_READI   Val
+            {
+              
+            }
+          | I_READF   Val
+            {
+              
+            }
+          | I_READ    ID
             {
               
             }
           ;
        
-  F       : MI_FUNCTION ID INT NL Inst MI_ENDFUNCTION
+  F       : MI_FUNCTION ID INT NL Inst MI_ENDFUNCTION INT
 
   Inst    : /* lambda */
           | I NL Inst 
@@ -203,15 +238,6 @@
             }
           ;
 
-  LVal    : ID 
-            {
-
-            }
-          | Acc 
-            {
-
-            }
-          ;
 
   Val     : TRUE
             {

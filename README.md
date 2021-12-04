@@ -79,7 +79,7 @@ I    -> *lambda*
       | exit    Val
       | param   ID Val
       | return  Val
-      | call    LVal ID
+      | call    ID ID
       | printc  Val
       | printi  Val
       | printf  Val
@@ -95,7 +95,6 @@ Inst -> *lambda*
       | I \n Inst
 
 Acc  -> ID [ Val ]
-LVal -> ID | Acc
 Val  -> TRUE | FALSE | CHAR | INT | FLOAT | ID
 RVal -> Val | Acc
 ```

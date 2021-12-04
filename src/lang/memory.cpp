@@ -7,7 +7,7 @@ void allocArray(Type *t, string final_addr) {
   extern TAC *tac;
   extern map<string, Type*> predefinedTypes;
   ArrayType *at = (ArrayType*) t;
-  string type, typesize_addr, final_addr_aux;
+  string type, n_elems_addr, final_addr_aux;
 
   // Si el arreglo corresponde a un string, no hay que hacer nada.
   if (at->is_string) {
@@ -17,13 +17,9 @@ void allocArray(Type *t, string final_addr) {
   // Obtenemos el tipo interno
   t = at->type;
 
-  if (at->size->addr.back() == ']') {
-    typesize_addr = tac->newTemp();
-    tac->gen("assignw " + typesize_addr + " " + at->size->addr);
-  }
-  else {
-    typesize_addr = at->size->addr;
-  }
+  // Numero de elementos del arreglo
+  n_elems_addr = tac->newTemp();
+  tac->gen("assignw " + n_elems_addr + " " + at->size->addr);
 
   if (final_addr.back() == ']') {
     final_addr_aux = tac->newTemp();
@@ -36,11 +32,13 @@ void allocArray(Type *t, string final_addr) {
   // Obtenemos la longitud del hiper arreglo y lo reservamos
   string size_addr = tac->newTemp();
   tac->gen("assignw " + size_addr + " " + to_string(t->width));
-  tac->gen("mult " + size_addr + " " + size_addr + " " + typesize_addr);
+  tac->gen("mult " + size_addr + " " + size_addr + " " + n_elems_addr);
+  tac->gen("add " + size_addr + " " + size_addr + " 4");
   tac->gen("malloc " + final_addr_aux + " " + size_addr);
+  tac->gen("assignw " + final_addr_aux + "[0] " + n_elems_addr);
 
   if (final_addr.back() == ']') {
-    tac->gen("assignw " + final_addr + "[0] " + final_addr_aux);
+    tac->gen("assignw " + final_addr_aux + "[0] " + final_addr_aux);
   }
 
   // Si el tipo base del hiper arreglo no es primitivo ni puntero, es decir, es una
@@ -89,7 +87,7 @@ void allocStruct(Type *t, string final_addr) {
   tac->gen("malloc " + final_addr_aux + " " + to_string(t->width));
 
   if (final_addr.back() == ']') {
-    tac->gen("assignw " + final_addr + "[0] " + final_addr_aux);
+    tac->gen("assignw " + final_addr_aux + "[0] " + final_addr_aux);
   }
 
   // Obtenemos el scope de definicion de la estructura.
@@ -128,40 +126,10 @@ void copyArray(Type *t, string dst_addr, string src_addr) {
   extern TAC *tac;
   extern map<string, Type*> predefinedTypes;
   ArrayType *at = (ArrayType*) t;
-  string type, src_addr_aux, dst_addr_aux, typesize_addr;
+  string type, src_addr_aux, dst_addr_aux, n_elems_addr;
   
   // Obtenemos el tipo interno
   t = at->type;
-
-  if (at->size->addr.back() == ']') {
-    typesize_addr = tac->newTemp();
-    tac->gen("assignw " + typesize_addr + " " + at->size->addr);
-  }
-  else {
-    typesize_addr = at->size->addr;
-  }
-
-  if (dst_addr.back() == ']') {
-    dst_addr_aux = tac->newTemp();
-    tac->gen("assign " + dst_addr_aux + " " + dst_addr);
-  }
-  else {
-    dst_addr_aux = dst_addr;
-  }
-
-  // Obtenemos la longitud del hiper arreglo y lo reservamos
-  string size_addr = tac->newTemp();
-  tac->gen("assignw " + size_addr + " " + to_string(t->width));
-  tac->gen("mult " + size_addr + " " + size_addr + " " + typesize_addr);
-  tac->gen("malloc " + dst_addr_aux + " " + size_addr);
-
-  if (dst_addr.back() == ']') {
-    tac->gen("assignw " + dst_addr + "[0] " + dst_addr_aux);
-  }
-
-  // Si el tipo base del hiper arreglo no es primitivo ni puntero, es decir, es una
-  // estructura, hay que reservar y copiar la memoria de cada uno explicitamente.
-  type = t->toString();
 
   if (src_addr.back() == ']') {
     src_addr_aux = tac->newTemp();
@@ -170,6 +138,32 @@ void copyArray(Type *t, string dst_addr, string src_addr) {
   else {
     src_addr_aux = src_addr;
   }
+
+  if (dst_addr.back() == ']') {
+    dst_addr_aux = tac->newTemp();
+    tac->gen("assignw " + dst_addr_aux + " " + dst_addr);
+  }
+  else {
+    dst_addr_aux = dst_addr;
+  }
+
+  n_elems_addr = tac->newTemp();
+  tac->gen("assignw " + n_elems_addr + " " + src_addr_aux + "[0]");
+
+  // Obtenemos la longitud del hiper arreglo y lo reservamos
+  string size_addr = tac->newTemp();
+  tac->gen("assignw " + size_addr + " " + to_string(t->width));
+  tac->gen("mult " + size_addr + " " + size_addr + " " + n_elems_addr);
+  tac->gen("add " + size_addr + " " + size_addr + " 4");
+  tac->gen("malloc " + dst_addr_aux + " " + size_addr);
+
+  if (dst_addr.back() == ']') {
+    tac->gen("assignw " + dst_addr_aux + "[0] " + dst_addr_aux);
+  }
+
+  // Si el tipo base del hiper arreglo no es primitivo ni puntero, es decir, es una
+  // estructura, hay que reservar y copiar la memoria de cada uno explicitamente.
+  type = t->toString();
 
   if (type.back() == ']' || (! predefinedTypes.count(type) && type[0] != '^')) {
 
@@ -216,10 +210,10 @@ void copyStruct(Type *t, string dst_addr, string src_addr) {
   }
 
   // Reservamos la memoria para la estructura completa
-  tac->gen("malloc " + dst_addr + " " + to_string(t->width));
+  tac->gen("malloc " + dst_addr_aux + " " + to_string(t->width));
 
   if (dst_addr.back() == ']') {
-    tac->gen("assignw " + dst_addr + "[0] " + dst_addr_aux);
+    tac->gen("assignw " + dst_addr_aux + "[0] " + dst_addr_aux);
   }
 
   if (src_addr.back() == ']') {
@@ -290,19 +284,13 @@ void freeArray(Type *t, string final_addr) {
   // estructura, hay que liberar la memoria de cada uno explicitamente.
   type = t->toString();
   if (type.back() == ']' || (! predefinedTypes.count(type) && type[0] != '^')) {
-    string typesize_addr;
-    if (at->size->addr.back() == ']') {
-      typesize_addr = tac->newTemp();
-      tac->gen("assignw " + typesize_addr + " " + at->size->addr);
-    }
-    else {
-      typesize_addr = at->size->addr;
-    }
+    string n_elems_addr = tac->newTemp();
+    tac->gen("assignw " + n_elems_addr + " " + final_addr_aux + "[0]");
 
     // Obtenemos la longitud del hiper arreglo.
     string size_addr = tac->newTemp();
     tac->gen("assignw " + size_addr + " " + to_string(t->width));
-    tac->gen("mult " + size_addr + " " + size_addr + " " + typesize_addr);
+    tac->gen("mult " + size_addr + " " + size_addr + " " + n_elems_addr);
 
     // Creamos un bucle en el que se reserva memoria para cada elemento del hiper arreglo.
     string label = tac->newLabel();
