@@ -2,7 +2,7 @@
 
 def factRec(Int n) => Int {
 	if n < 0 then 
-		print("No esta definido el factorial para numeros negativos");
+		print("No esta definido el factorial para numeros negativos.");
 		exit(1);
 	elsif n == 0 then 
 		return 1;
@@ -13,7 +13,7 @@ def factRec(Int n) => Int {
 
 def factIter(Int n) => Int {
 	if n < 0 then 
-		print("No esta definido el factorial para numeros negativos");
+		print("No esta definido el factorial para numeros negativos.");
 		exit(1);
 	done 
 	let Int r = 1;

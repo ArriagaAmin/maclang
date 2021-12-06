@@ -14,69 +14,55 @@ register Perol {
 
 dec holandSort(Perol[] peroles, Int N);
 
-let Int LINE_SIZE = 512;
-
 let Perol[20] peroles;
-let Char[LINE_SIZE] buffer;
 let Int N, i;
-
+let Char option;
 
 while True do 
 	print("Desea organizar los peroles? [Y\n] ");
-	read(buffer);
-	if strcmp(buffer, "n") == 0 || strcmp(buffer, "N") == 0 then 
+	option = readc();
+	if option == 'n' || option == 'N' then 
 		print("Hasta luego!");
+		break;
 	done 
 
 	print("Indique el numero de peroles a organizar: ");
-	read(buffer);
-	N = stoi(buffer);
+	N = readi();
 
 	if N > 20 then 
 		print("No se pueden organizar mas de 20 peroles.");
-		print(nl);
 		continue;
 	done
 
 	i = 0;
 	while i < N do 
 		print("Indique el tipo del perol: ");
-		print(nl);
 		print("1. Booleano");
-		print(nl);
 		print("2. Caracter");
-		print(nl);
 		print("3. Entero");
-		print(nl);
 		print("4. De punto flotante");
-		print(nl);
-		read(buffer);
-		N = stoi(buffer);
+		N = readi();
 		peroles[i].tipo = N;
 
 		if N == 1 then 
 			print("El valor del perol es True? [Y/n] ");
-			read(buffer);
-			peroles[i].val.b = strcmp(buffer, "n") == 0 || strcmp(buffer, "N") == 0;
+			option == readc();
+			peroles[i].val.b = option != 'n' && option != 'N';
 
 		elsif N == 2 then 
 			print("Indique el caracter: ");
-			read(buffer);
-			peroles[i].val.c = buffer[0];
+			peroles[i].val.c = readc();
 
 		elsif N == 3 then 
 			print("Indique el entero: ");
-			read(buffer);
-			peroles[i].val.i = stoi(buffer);
+			peroles[i].val.i = readi();
 
 		elsif N == 4 then 
 			print("Indique el flotante: ");
-			read(buffer);
-			peroles[i].val.f = stof(buffer);
+			peroles[i].val.f = readf();
 
 		else 
 			print("Tipo invalido");
-			print(nl);
 			i = i - 1;
 		done 
 		i = i + 1;
@@ -84,33 +70,22 @@ while True do
 
 	holandSort(peroles, N);
 
-	print(nl);
-	print("Imprimimos los peroles ordenados:");
-	print(nl);
-	i = 0;
-	while i < N do 
+	print("%cImprimimos los peroles ordenados:", chars=['\n']);
+	for (i; 0; N) do 
 		if peroles[i].tipo == 1 then 
-			print("BOOL: ");
+			print("BOOL: ", end="");
 			if peroles[i].val.b then print("True"); done
 			print("False");
 
 		elsif peroles[i].tipo == 2 then 
-			print("CHAR: ");
-			print([peroles[i].val.c]);
+			print("CHAR: %c", chars=[peroles[i].val.c]);
 
 		elsif peroles[i].tipo == 3 then 
-			print("INT: ");
-			itos(buffer, peroles[i].val.i);
-			print(buffer);
+			print("INT: %i", ints=[peroles[i].val.i]);
 
 		else 
-			print("FLOAT: ");
-			ftos(buffer, peroles[i].val.f);
-			print(buffer);
+			print("FLOAT: %f", floats=[peroles[i].val.f]);
 		done 
-
-		print(nl);
-		i = i + 1;	
 	done
 done
 

@@ -93,10 +93,7 @@ def Hash_print(^Hash h) {
 	while i < ^h.size do 
 		he = ^(^h.table)[i];
 		while ^he.ID[0] != '\0' do 
-			print(^he.ID);
-			print(" => ");
-			ftos(fstr, ^he.value);
-			print(fstr);
+			print("%s  =>  %f%c", strings=[^he.ID], floats=[^he.value], chars=['\n']);
 			he = ^he.next;
 		done 
 		i = i + 1;

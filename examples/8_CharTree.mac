@@ -25,60 +25,39 @@ dec CharTree_print(^CharTree T);
 let ^CharNode NIL = new CharNode;
 ^NIL.key = '\0'; 
 
-let Int LINE_SIZE = 512;
-let Char[LINE_SIZE] buffer;
-let Int option;
 let ^CharTree T = CharTree_init();
 let ^CharNode N;
+let Int option;
+let Char c;
 
 while True do 
 	print("Menu principal. Escoja una de las siguientes opciones: ");
-	print(nl);
 	print("1. Insertar un valor en el arbol. ");
-	print(nl);
 	print("2. Eliminar un valor del arbol. ");
-	print(nl);
 	print("3. Buscar un valor en el arbol. ");
-	print(nl);
 	print("4. Mostrar arbol. ");
-	print(nl);
 	print("5. Salir. ");
-	print(nl);
-	read(buffer);
-	option = stoi(buffer);
+	option = readi();
 
 	if option == 1 then 
 		print("Indique el caracter a insertar: ");
-		read(buffer);
-		CharTree_insert(T, buffer[0]);
+		CharTree_insert(T, readc());
 
 	elsif option == 2 then 
 		print("Indique el caracter a borrar: ");
-		read(buffer);
-		if ! CharTree_erase(T, buffer[0]) then 
-			print("El caracter ");
-			print([buffer[0]]);
-			print(" no se encuentra en el arbol.");
-			print(nl);
+		c = readc();
+		if ! CharTree_erase(T, c) then 
+			print("El caracter %c no se encuentra en el arbol.", chars=[c]);
 		done
 
 	elsif option == 3 then 
 		print("Indique el caracter a buscar: ");
-		read(buffer);
-		N = CharTree_search(T, buffer[0]);
+		c = readc();
+		N = CharTree_search(T, c);
 		if CharNode_cmp(N, NIL) then 
-			print("El caracter ");
-			print([buffer[0]]);
-			print(" no se encuentra en el arbol.");
-			print(nl);
+			print("El caracter %c no se encuentra en el arbol.", chars=[c]);
 		else 
-			print("El caracter ");
-			print([buffer[0]]);
-			print(" se encuentra ");
-			itos(buffer, ^N.count);
-			print(buffer);
-			print(" veces en el arbol.");
-			print(nl);
+			print("Hay %i caracteres '%c' en el arbol.", ints=[^N.count], chars=[c]);
 		done 
 
 	elsif option == 4 then 
@@ -86,13 +65,11 @@ while True do
 
 	elsif option == 5 then 
 		print("Hasta pronto!");
-		print(nl);
 		CharTree_destroy(T);
 		break;
 
 	else 
 		print("Opcion invalida");
-		print(nl);
 	done
 done
 
@@ -148,10 +125,9 @@ def CharNode_removeMin(^CharNode N) => ^CharNode {
 }
 
 def CharNode_print(^CharNode N, Int level) {
-	let Int i = 0; 
 	let Char[32] buffer;
 
-	while i < level do print("    "); done 
+	for (i; 0; level) do print("    "); done 
 
 	if CharNode_cmp(N, NIL) then
 		print("-");

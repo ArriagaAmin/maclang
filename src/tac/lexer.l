@@ -33,7 +33,10 @@
 "@staticv"                    { return MI_STATICV; }
 "@string"                     { return MI_STRING; }
 "@label"                      { return MI_LABEL; }
-"assign"                      { return I_ASSIGN; }
+"@function"                   { return MI_FUNCTION; }
+"@endfunction"                { return MI_ENDFUNCTION; }
+"assignw"                     { return I_ASSIGNW; }
+"assignb"                     { return I_ASSIGNB; }
 "add"                         { return I_ADD; }
 "sub"                         { return I_SUB; }
 "mult"                        { return I_MULT; }
@@ -48,12 +51,22 @@
 "geq"                         { return I_GEQ; }
 "goto"                        { return I_GOTO; }
 "goif"                        { return I_GOIF; }
+"goifnot"                     { return I_GOIFNOT; }
 "malloc"                      { return I_MALLOC; }
+"memcpy"                      { return I_MEMCPY; }
 "free"                        { return I_FREE; }
 "param"                       { return I_PARAM; }
 "call"                        { return I_CALL; }
 "return"                      { return I_RETURN; }
 "exit"                        { return I_EXIT; }
+"printc"                      { return I_PRINTC; }
+"printi"                      { return I_PRINTI; }
+"printf"                      { return I_PRINTF; }
+"print"                       { return I_PRINT; }
+"readc"                       { return I_READC; }
+"readi"                       { return I_READI; }
+"readf"                       { return I_READF; }
+"read"                        { return I_READ; }
 "["                           { return OPEN_BRACKET; }
 "]"                           { return CLOSE_BRACKET; }
 "False"                       { return FALSE; }
@@ -68,7 +81,7 @@
 \n                            { return NL; } 
 .                             { 
                                 /* add error to queue */
-                                pushError(); 
+                                pushError();  
                               }
 %%
 

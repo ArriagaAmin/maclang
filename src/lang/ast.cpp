@@ -247,7 +247,7 @@
     this->value = value;
     this->type = new ArrayType(predefinedTypes["Char"], new NodeINT(value.size()), true);
     this->is_lvalue = false;
-    this->is_lit = false;
+    this->is_lit = true;
   }
   void NodeSTRING::printTree(vector<bool> *identation) {
     cout << "STRING: \033[1;36m" << this->value << "\033[0m\n";
@@ -799,12 +799,12 @@
     if (this->step != NULL) {
       printIdentation(identation);
       identation->push_back(true);
-      cout << "├── \033[1;34mStep: \033[0m";
+      cout << "└── \033[1;34mStep: \033[0m";
       this->step->printTree(identation);
       identation->pop_back();
     } else {
       printIdentation(identation);
-      cout << "├── \033[1;34mStep: \033[0mNULL\n";
+      cout << "└── \033[1;34mStep: \033[0m 1\n";
     }
   }
 

@@ -1,2 +1,8 @@
-let String nl = ['a'];
-nl;
+def f(String s) {
+
+}
+def g(String s) {
+	f(s);
+}
+let String s = "AAAAAAAAAAAAAA";
+g(s);

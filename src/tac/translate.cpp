@@ -424,5 +424,4 @@ void T_Block::translateMetaIntruction(T_Instruction instruction)
     {
         data.push_back(instruction.result + ": " + instruction.operands[0]);
         return;
-    }
 }

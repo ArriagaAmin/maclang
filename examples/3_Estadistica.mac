@@ -1,65 +1,32 @@
 execonce "Math.mac";
 execonce "String.mac";
 
-let Int LINE_SIZE = 512;
-
-let Char[LINE_SIZE] buffer;
-let Int N, i;
+let Int N;
+let Char option;
 
 while True do 
 	print("Desea iniciar un calculo estadistico? [Y\n] ");
-	read(buffer);
-	if strcmp(buffer, "n") == 0 || strcmp(buffer, "N") == 0 then 
+	option = readc();
+	if option == 'n' || option == 'N' then 
 		print("Hasta luego!");
+		break;
 	done 
 
 	print("Indique el numero de muestras: ");
-	read(buffer);
-	N = stoi(buffer);
-	itos(buffer, N);
+	N = readi();
 
+	print("Indique las %i muestras: ", ints=[N]);
 	let Float[N] sample;
-	print("Indique las ");
-	print(buffer);
-	print(" muestras:");
-	print(nl);
-
-	i = 0;
-	while i < N do 
-		read(buffer);
-		sample[i] = stof(buffer);
-		i = i + 1;
+	for (i; 0; N) do
+		sample[i] = readf();
 	done 
 
-	itos(buffer, N);
-	print("Cantidad de muestras: ");
-	print(buffer);
-	print(nl);
-
-	ftos(buffer, prom(sample, N));
-	print("Promedio: ");
-	print(buffer);
-	print(nl);
-
-	ftos(buffer, variance(sample, N));
-	print("Varianza: ");
-	print(buffer);
-	print(nl);
-
-	ftos(buffer, std_dev(sample, N));
-	print("Desviacion estandar: ");
-	print(buffer);
-	print(nl);
-
-	ftos(buffer, min(sample, N));
-	print("Minimo: ");
-	print(buffer);
-	print(nl);
-
-	ftos(buffer, max(sample, N));
-	print("Maximo: ");
-	print(buffer);
-	print(nl);
+	print("Cantidad de muestras: %i.", ints=[N]);
+	print("Promedio: %f.", floats=[prom(sample, N)]);
+	print("Varianza: %f.", floats=[variance(sample, N)]);
+	print("Desviacion estandar: %f.", floats=[std_dev(sample, N)]);
+	print("Minimo: %f.", floats=[min(sample, N)]);
+	print("Maximo: %f.", floats=[max(sample, N)]);
 done
 
 

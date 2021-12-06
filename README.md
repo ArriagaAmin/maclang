@@ -37,38 +37,67 @@ have the following values:
 
 ## TAC 
 
-Asignacion
-  * `assign ADDR X` 
+```
+S    -> Data Text
 
-Saltos
-  * `goto LABEL`
-  * `goif LABEL X`
+Data -> *lambda* 
+      | D Data
 
-Comparacion
-  * `eq  ADDR X Y`
-  * `neq ADDR X Y`
-  * `lt  ADDR X Y`
-  * `leq ADDR X Y`
-  * `gt  ADDR X Y`
-  * `geq ADDR X Y`
+D    -> @staticv INT \n
+      | @string  STRING \n
 
-Aritmetica
-  * `add  ADDR X Y`
-  * `sub  ADDR X Y`
-  * `mult ADDR X Y`
-  * `div  ADDR X Y`
-  * `mod  ADDR X Y`
+Text -> *lambda*
+      | T \n Text 
 
-Memoria
-  * `new ADDR X`
-  * `deref ADDR X`
-  * `free ADDR`
+T    -> I 
+      | F
 
-Funciones
-  * `param ADDR`
-  * `call  ADDR X`
-  * `return X`
+I    -> *lambda*
+      | @label ID
+      | assignw Acc Val
+      | assignw ID RVal
+      | assignb Acc Val
+      | assignb ID RVal
+      | add     ID Val Val
+      | sub     ID Val Val
+      | mult    ID Val Val
+      | div     ID Val Val
+      | mod     ID Val Val
+      | minus   ID Val
+      | eq      ID Val Val
+      | neq     ID Val Val
+      | lt      ID Val Val
+      | leq     ID Val Val
+      | gt      ID Val Val
+      | geq     ID Val Val
+      | goto    ID
+      | goif    ID Val
+      | goifnot ID Val
+      | malloc  ID Val
+      | memcpy  ID ID INT
+      | free    ID
+      | exit    Val
+      | param   ID Val
+      | return  Val
+      | call    ID ID
+      | printc  Val
+      | printi  Val
+      | printf  Val
+      | print   ID
+      | readc   Val
+      | readi   Val
+      | readf   Val
+      | read    ID
 
+F    -> @function ID INT \n Inst @endfunction INT
+
+Inst -> *lambda*
+      | I \n Inst
+
+Acc  -> ID [ Val ]
+Val  -> TRUE | FALSE | CHAR | INT | FLOAT | ID
+RVal -> Val | Acc
+```
 
 ## Developers
 * Amin Arriaga *(16-10072)*

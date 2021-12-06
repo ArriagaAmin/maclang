@@ -9,9 +9,6 @@ dec quicksortFloat(Float[] A, Int m, Int n);
 # Quicksort sobre caracteres
 dec quicksortChar(String A, Int m, Int n);
 
-let Int LINE_SIZE = 512;
-
-let Char[LINE_SIZE] buffer;
 let Int option, N, i;
 let Int[100] integers;
 let Float[100] floats;
@@ -20,111 +17,68 @@ let Char[100] chars;
 
 while True do 
 	print("Menu principal. Escoja una de las siguientes opciones: ");
-	print(nl);
 	print("1. Ordenar numeros enteros. ");
-	print(nl);
 	print("2. Ordenar numeros en punto flotante. ");
-	print(nl);
 	print("3. Ordenar caracteres. ");
-	print(nl);
 	print("4. Salir. ");
-	print(nl);
-	read(buffer);
-	option = stoi(buffer);
+	option = readi();
 	
 	if 0 < option && option < 4 then 
 		print("Indique el numero de elementos a ordenar. Recuerde que debe estar entre 1 y 100: ");
-		read(buffer);
-		N = stoi(buffer);
+		N = readi();
 
 		if N < 1 || N > 100 then 
 			print("Numero de elementos invalido.");
-			print(nl);
 			continue;
 		done
 
-		i = 0;
 		print("Indique los elementos: ");
 		if option == 1 then 
-			while i < N do 
-				read(buffer);
-				integers[i] = stoi(buffer);
-				i = i + 1;
+			for (i; 0; N) do 
+				integers[i] = readi();
 			done 
 
 			quicksortInt(integers, 0, N);
-			print(nl);
-			print("El arreglo ordenado de enteros es:");
-			print(['\n', '[']);
+			print("%cEl arreglo ordenado de enteros es:%c[", chars=['\n', '[']);
 
-			i = 0;
-			while i < N-1 do 
-				itos(buffer, integers[i]);
-				print(buffer);
-				print(", ");
-				i = i + 1;
+			for (i; 0; N-1) do 
+				print("%i, ", ints=[integers[i]]);
 			done 
-			itos(buffer, integers[i]);
-			print(buffer);
-			print("]");
-			print(['\n', '\n']);
+			print("%i]%c", ints=[integers[N-1]], chars=['\n']);
 
 		elsif option == 2 then  
-			while i < N do 
-				read(buffer);
-				floats[i] = stof(buffer);
-				i = i + 1;
+			for (i; 0; N) do 
+				floats[i] = readf();
 			done 
 
 			quicksortFloat(floats, 0, N);
-			print(nl);
-			print("El arreglo ordenado de flotantes es:");
-			print(['\n', '[']);
+			print("%cEl arreglo ordenado de flotantes es:%c[", chars=['\n', '[']);
 
-			i = 0;
-			while i < N-1 do 
-				ftos(buffer, floats[i]);
-				print(buffer);
-				print(", ");
-				i = i + 1;
+			for (i; 0; N-1) do 
+				print("%f, ", floats=[floats[i]]);
 			done 
-			ftos(buffer, floats[i]);
-			print(buffer);
-			print("]");
-			print(['\n', '\n']);
+			print("%f]%c", floats=[floats[N-1]], chars=['\n']);
 
 		elsif option == 2 then  
-			while i < N do 
-				read(buffer);
-				chars[i] = buffer[0];
-				i = i + 1;
+			for (i; 0; N) do 
+				chars[i] = readc();
 			done 
 
 			quicksortChar(chars, 0, N);
-			print(nl);
-			print("El arreglo ordenado de caracteres es:");
-			print(['\n', '[']);
+			print("%cEl arreglo ordenado de caracteres es:%c[", chars=['\n', '[']);
 
-			i = 0;
-			while i < N-1 do 
-				print([chars[i]]);
-				print(", ");
-				i = i + 1;
+			for (i; 0; N-1) do 
+				print("%c, ", chars=[chars[i]]);
 			done 
-			print([chars[i]]);
-			print("]");
-			print(['\n', '\n']);
+			print("%c]%c", chars=[chars[N-1], '\n']);
 		done
 	
 	elsif option == 4 then 
 		print("Hasta luego!");
-		print(nl);
 		break;
 
 	else 
-		print("Opcion invalida.");
-		print(nl);
-		print(nl);
+		print("Opcion invalida.", end=['\n', '\n']);
 	done
 done
 
