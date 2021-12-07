@@ -60,13 +60,11 @@
   D       : 
             MI_STATICV ID INT NL 
             {
-              T_Instruction inst = {*$1, *$2, {to_string($3)}};
-              CB->insertInstruction(inst);
+              CB->insertInstruction(new T_Instruction{*$1, *$2, {to_string($3)}});
             }
           | MI_STRING  ID STRING NL
             {
-              T_Instruction inst = {*$1, *$2, {*$3}};
-              CB->insertInstruction(inst);
+              CB->insertInstruction(new T_Instruction{*$1, *$2, {*$3}});
             }
           ;
 
@@ -88,15 +86,15 @@
 
           | MI_LABEL ID
             {
-              CB->insertInstruction({*$1, *$2, {}});
+              CB->insertInstruction(new T_Instruction{*$1, *$2, {}});
             }
           | I_ASSIGNW Acc Val
             {
 
             }
           | I_ASSIGNW ID RVal
-            {
-
+            { 
+              CB->insertInstruction(new T_Instruction{*$1, *$2, {*$3}});
             }
           | I_ASSIGNB Acc Val
             {
@@ -108,8 +106,7 @@
             }
           | I_ADD     ID Val Val
             {
-              T_Instruction inst = {"add", *$2, {*$3, *$4}};
-              CB->insertInstruction(inst);
+              CB->insertInstruction(new T_Instruction{*$1, *$2, {*$3, *$4}});
             }
           | I_SUB     ID Val Val
             {
@@ -257,7 +254,8 @@
             }
           | INT 
             {
-
+              string value = to_string($1);
+              $$ = &value;
             }
           | FLOAT 
             {
@@ -271,7 +269,7 @@
 
   RVal    : Val 
             {
-
+              $$ = $1;
             }
           | Acc
             {
@@ -316,6 +314,7 @@ int main(int argc, char **argv) {
 
   CB->translate();
   CB->print();
+  CB->printVariablesDescriptors();
 
   return 0;
 }

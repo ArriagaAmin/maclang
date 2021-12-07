@@ -30,7 +30,7 @@ T_Block::T_Block()
     }
 }
 
-void T_Block::insertInstruction(T_Instruction instruction)
+void T_Block::insertInstruction(T_Instruction* instruction)
 {
     m_instructions.push_back(instruction);
 }
@@ -60,11 +60,13 @@ bool T_Block::insertVariable(string id)
 
 void T_Block::print()
 {
+    cout << ".data" << endl;
     for(string inst : data)
     {
         cout << inst << endl;
     }
 
+    cout << ".text" << endl;
     for(string inst : text)
     {
         cout << inst << endl;
@@ -75,7 +77,7 @@ bool T_Block::insertElementToDescriptor(unordered_map<string, vector<string>> &d
 {
     auto found = descriptors.find(key);
 
-    if(found != descriptors.end()) 
+    if(found == descriptors.end()) 
         return false;
     
     if(replace)
@@ -118,8 +120,9 @@ vector<string> T_Block::getVariableDescriptor(string id)
     return m_variables[id];
 }
 
-string T_Block::findOptimalLocation(vector<string> const &descriptor)
-{
+string T_Block::findOptimalLocation(string id)
+{    
+    vector<string> descriptor = getVariableDescriptor(id);
     // Por ahora solamente devolver el primero
     return descriptor[0];
 }
@@ -174,7 +177,7 @@ string T_Block::recycleRegister(T_Instruction instruction)
             
             // Verificar que el valor actual sea el resultado y si lo es que no sea operando
             bool found = false;
-            for(int i = 0; i < 2; i++)
+            for(int i = 0; i < (int) instruction.operands.size(); i++)
             {
                 if(instruction.operands[i].compare(element) == 0)
                 {
@@ -288,10 +291,12 @@ vector<string> T_Block::getReg(T_Instruction instruction, bool is_copy)
 
 void T_Block::translate()
 {
-    for(T_Instruction current_inst : m_instructions)
+    for(T_Instruction *current_inst : m_instructions)
     {
-        translateInstruction(current_inst);
+        translateInstruction(*current_inst);
     }
+
+    // AL TERMINAR EL BLOQUE BASICO ACTUALIZAR
 }
 
 void T_Block::translateInstruction(T_Instruction instruction)
@@ -340,18 +345,46 @@ void T_Block::translateInstruction(T_Instruction instruction)
     // Instrucciones para funciones
 
     // Instrucciones de operadores
+    if(instruction.id.find("assign") != string::npos)
+    {
+        string temporal_decl = instruction.result + decl;
+
+        if(instruction.id.back() == 'w')
+        {
+            temporal_decl += mips_instructions.at("word") + space + "1";
+        }
+        else
+        {
+            temporal_decl += mips_instructions.at("byte") + space + "1";
+        }
+
+        data.push_back(temporal_decl);
+
+        translateOperationInstruction(instruction, true);
+        return;
+    }
+
+    translateArithmeticOperation(instruction);
+}
+
+void T_Block::translateArithmeticOperation(T_Instruction instruction)
+{
+    data.push_back(instruction.result + decl + mips_instructions.at("word") + space + "1");
+
     translateOperationInstruction(instruction);
 }
 
-void T_Block::translateOperationInstruction(T_Instruction instruction)
+void T_Block::translateLogicalOperation(T_Instruction instruction)
+{
+
+}
+
+void T_Block::translateOperationInstruction(T_Instruction instruction, bool is_copy)
 {
     // Intentar crear descriptores de variables
     insertVariable(instruction.result);
-    for(string op : instruction.operands)
-        insertVariable(op);
-    
-    // Verificamos si es una instruccion de copia para luego actualizar los descriptores
-    bool is_copy = instruction.id.compare("assign") == 0 ? true : false;
+
+    // Buscar los registros
     vector<string> op_registers = getReg(instruction, is_copy);
     int op_index = 1;
 
@@ -362,8 +395,14 @@ void T_Block::translateOperationInstruction(T_Instruction instruction)
         vector<string> reg_descriptor = getRegisterDescriptor(current_reg);
         if ( find(reg_descriptor.begin(), reg_descriptor.end(), current_operand) == reg_descriptor.end() )
         {
-            // Buscar el y' mas economico
-            string best_location = findOptimalLocation(getVariableDescriptor(current_operand));
+            string best_location = current_operand;
+            // Si es un temporal se busca en su descriptor la mejor posicion
+            if(!isdigit(current_operand[0]))
+            {
+                // Buscar el y' mas economico
+                string best_location = findOptimalLocation(current_operand);
+            }
+
             text.push_back(mips_instructions.at("load") + space + current_reg + sep + best_location);
 
             // Mantener descriptores
@@ -418,5 +457,17 @@ void T_Block::translateMetaIntruction(T_Instruction instruction)
     {
         data.push_back(instruction.result + decl + instruction.operands[0]);
         return;
+    }
+}
+
+void T_Block::printVariablesDescriptors()
+{
+    for(auto vari : m_variables)
+    {
+        cout << vari.first << endl;
+        for(auto element : vari.second)
+        {
+            cout << element << endl;
+        }
     }
 }
