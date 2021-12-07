@@ -12,27 +12,57 @@
 
 using namespace std;
 
-const unsigned NUMBER_OF_REGISTERS = 23;
+const string space = "  ";
+const string sep = ", ";
+const string decl = ": ";
 
-// TODAVIA FALTAN MUCHAS INSTRUCCIONES
 const unordered_map<string, string> mips_instructions ({
-    {"assign", "move"},
+    // Operaciones aritmeticas
     {"add", "add"},
     {"sub", "sub"},
     {"mult", "mul"},
     {"div", "div"}, // Esta en el low
     {"mod", "div"}, // Esta en el high
     {"minus", "negu"},
+
+    //Operaciones logicas
+    {"not", "not"},
     {"and", "and"},
     {"or", "or"},
-    {"not", "not"},
-    {"goto", "b"},
+    {"eq", "beq"},
+    {"neq", "bne"},
+    {"geq", "bge"},
+    {"gt", "bgt"},
+    {"leq", "ble"},
+    {"lt", "blt"},
+
+    // Saltos y accesos a memoria
+    {"goto", "j"},
+    {"assign", "move"},
     {"goif", "bnez"},
     {"goifnot", "bez"},
     {"param", "sw"},
     {"call", "jal"},
-    {"@string", ".asciiz"}
+    {"return", "jr"},
+    {"low", "mflow"},
+    {"high", "mfhi"},
+    {"load", "lw"},
+    {"store", "sw"},
+
+    // Registros especiales
+    {"ra", "$ra"},
+    {"sp", "$sp"},
+    {"zero", "$zero"},
+
+    // .Data
+    {"@string", ".asciiz"},
 });
+
+/*
+li
+la
+syscall
+    */
 
 struct T_Instruction
 {
@@ -49,7 +79,6 @@ private:
     unordered_map<string, vector<string>> m_variables;
     vector<string> data;
     vector<string> text;
-    vector<string> functions;
     
     // Funciones para descriptores
     bool insertElementToDescriptor(unordered_map<string, vector<string>> &descriptors, string key, string element, bool replace = false);

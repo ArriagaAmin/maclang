@@ -69,11 +69,6 @@ void T_Block::print()
     {
         cout << inst << endl;
     }
-
-    for(string inst : functions)
-    {
-        cout << inst << endl;
-    }
 }
 
 bool T_Block::insertElementToDescriptor(unordered_map<string, vector<string>> &descriptors, string key, string element, bool replace)
@@ -194,7 +189,7 @@ string T_Block::recycleRegister(T_Instruction instruction)
             // Verificar que el valor actual no tenga usos posteriores
 
             // Si aun este registro no es seguro
-            text.push_back("sw " + element + ", " + current_register.first);
+            text.push_back(mips_instructions.at("store") + space + element + sep + current_register.first);
 
             // Mantener descriptores
             availability(element, element);
@@ -316,12 +311,12 @@ void T_Block::translateInstruction(T_Instruction instruction)
             if(instruction.id.find("_out") != std::string::npos)
                 return;
             
-            text.push_back(mips_instructions.at(instruction.id) + " " + instruction.result);
+            text.push_back(mips_instructions.at(instruction.id) + space + instruction.result);
         }
         else
         {
             vector<string> reg = getReg(instruction);
-            text.push_back(mips_instructions.at(instruction.id) + " " + reg[0] + ", " + instruction.result);
+            text.push_back(mips_instructions.at(instruction.id) + space + reg[0] + sep + instruction.result);
         }
         return;
     }
@@ -330,7 +325,7 @@ void T_Block::translateInstruction(T_Instruction instruction)
     if(instruction.id.compare("param") == 0)
     {
         vector<string> reg = getReg(instruction);
-        text.push_back(mips_instructions.at(instruction.id) + " " + reg[0] + ", 0($sp)");
+        text.push_back(mips_instructions.at(instruction.id) + space + reg[0] + sep + "0($sp)");
         text.push_back("addi $sp, $sp, -4"); // El tamano depende de lo que se le este pasando
         return;
     }
@@ -338,7 +333,7 @@ void T_Block::translateInstruction(T_Instruction instruction)
     if(instruction.id.compare("call") == 0)
     {
         // Falta usar el numero de parametros
-        text.push_back(mips_instructions.at(instruction.id) + instruction.result);
+        text.push_back(mips_instructions.at(instruction.id) + space + instruction.result);
         return;
     }
 
@@ -369,7 +364,7 @@ void T_Block::translateOperationInstruction(T_Instruction instruction)
         {
             // Buscar el y' mas economico
             string best_location = findOptimalLocation(getVariableDescriptor(current_operand));
-            text.push_back("lw " + current_reg + ", " + best_location);
+            text.push_back(mips_instructions.at("load") + space + current_reg + sep + best_location);
 
             // Mantener descriptores
             assignment(current_reg, current_operand, true);
@@ -386,7 +381,7 @@ void T_Block::translateOperationInstruction(T_Instruction instruction)
     
 
     // Emitir codigo dependiendo del operador
-    string emit = mips_instructions.at(instruction.id) + " ";
+    string emit = mips_instructions.at(instruction.id) + space;
     for (int i = 0; i < (int) op_registers.size(); i++)
     {
         if(i == (int) op_registers.size() - 1)
@@ -395,7 +390,7 @@ void T_Block::translateOperationInstruction(T_Instruction instruction)
             continue;
         }
 
-        emit += op_registers[i] + ", ";
+        emit += op_registers[i] + sep;
     }
     text.push_back(emit);
 
@@ -409,19 +404,19 @@ void T_Block::translateMetaIntruction(T_Instruction instruction)
 {
     if(instruction.id.compare("@label") == 0)
     {
-        text.push_back(instruction.result + ": ");
+        text.push_back(instruction.result + decl);
         return;
     }
 
     if(instruction.id.compare("@string") == 0)
     {
-        string instruction_type = mips_instructions.at(instruction.id);
-        data.push_back(instruction.result + ": " + instruction_type + " " + instruction.operands[0]);
+        data.push_back(instruction.result + decl + mips_instructions.at(instruction.id) + space + instruction.operands[0]);
         return;
     }
     
     if(instruction.id.compare("@staticv") == 0)
     {
-        data.push_back(instruction.result + ": " + instruction.operands[0]);
+        data.push_back(instruction.result + decl + instruction.operands[0]);
         return;
+    }
 }

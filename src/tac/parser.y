@@ -15,7 +15,7 @@
   extern char *filename;
   extern queue<string> errors;
 
-  CodeBlock *CB;
+  T_Block *CB;
 %}
 
 %define parse.lac full
@@ -47,7 +47,7 @@
 %token <boolean>  FALSE
 %token <str>      ID
 
-%type <str> T Lvalue Rvalue
+%type <str> T Val RVal
 
 %%
   S       : Data Text
@@ -60,11 +60,13 @@
   D       : 
             MI_STATICV ID INT NL 
             {
-              CB->Translate({*$1, *$2, {to_string($3)}});
+              T_Instruction inst = {*$1, *$2, {to_string($3)}};
+              CB->insertInstruction(inst);
             }
           | MI_STRING  ID STRING NL
             {
-              CB->Translate({*$1, *$2, {*$3}});
+              T_Instruction inst = {*$1, *$2, {*$3}};
+              CB->insertInstruction(inst);
             }
           ;
 
@@ -86,7 +88,7 @@
 
           | MI_LABEL ID
             {
-              CB->Translate({*$1, *$2, {}});
+              CB->insertInstruction({*$1, *$2, {}});
             }
           | I_ASSIGNW Acc Val
             {
@@ -94,10 +96,7 @@
             }
           | I_ASSIGNW ID RVal
             {
-              T_Instruction inst;
-              inst.id = "@label";
-              inst.result = *$2;
-              block->insertInstruction(inst);
+
             }
           | I_ASSIGNB Acc Val
             {
@@ -105,12 +104,12 @@
             }
           | I_ASSIGNB ID RVal
             {
-              T_Instruction inst = {"add", *$2, *$3, *$4};
-              block->insertInstruction(inst);
+              
             }
           | I_ADD     ID Val Val
             {
-
+              T_Instruction inst = {"add", *$2, {*$3, *$4}};
+              CB->insertInstruction(inst);
             }
           | I_SUB     ID Val Val
             {
@@ -214,7 +213,7 @@
             }
           | I_READC   Val
             {
-              $$ = $1;
+              
             }
           | I_READI   Val
             {
@@ -266,7 +265,7 @@
             }
           | ID 
             {
-
+              $$ = $1;
             }
           ;
 
@@ -302,7 +301,7 @@ int main(int argc, char **argv) {
   // reset lines and columns
   yylineno = 1; 
 
-  CB = new CodeBlock;
+  CB = new T_Block;
 
   // start parsing
   yyparse();
@@ -315,6 +314,7 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+  CB->translate();
   CB->print();
 
   return 0;
