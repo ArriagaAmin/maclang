@@ -3468,7 +3468,7 @@ void scope0(void) {
   NULLarray->addr = "0";
 
   fe = new FunctionEntry("print", 0, "Function");
-  fe->args.push_back({"text", "(Char)[]", false, NULL});
+  fe->args.push_back({"buffer", "(Char)[]", false, NULL});
   fe->args.push_back({"chars", "(Char)[]", false, NULLarray});
   fe->args.push_back({"ints", "(Int)[]", false, NULLarray});
   fe->args.push_back({"floats", "(Float)[]", false, NULLarray});

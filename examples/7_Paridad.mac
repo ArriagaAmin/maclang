@@ -1,4 +1,4 @@
-execonce "examples/String.mac";
+execonce "String.mac";
 
 let Int N;
 let Char option;

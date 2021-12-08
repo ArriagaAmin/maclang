@@ -51,8 +51,14 @@ void createTypeGraph(void) {
   binaryOpGraph["-"] = binaryOpGraph["+"];
   binaryOpGraph["*"] = binaryOpGraph["+"];
   binaryOpGraph["/"] = binaryOpGraph["+"];
-  binaryOpGraph["%"] = binaryOpGraph["+"];
-  binaryOpGraph["**"] = binaryOpGraph["+"];
+
+  binaryOpGraph["%"] = {
+    {{"Int", "Int"},      predefinedTypes["Int"]},
+  };
+  binaryOpGraph["**"] = {
+    {{"Int", "Int"},      predefinedTypes["Int"]},
+    {{"Float", "Int"},    predefinedTypes["Float"]}
+  };
 
   // Operaciones unarias
   unaryOpGraph["!"] = {

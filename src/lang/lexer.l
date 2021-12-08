@@ -112,7 +112,6 @@
 
 \'.\'                         { yylval.integer = yytext[1]; return CHAR; }
 \'\\\'\'                      { yylval.integer = '\'';      return CHAR; }
-\'\\\"\'                      { yylval.integer = '"' ;      return CHAR; }
 \'\\\\\'                      { yylval.integer = '\\';      return CHAR; }
 \'\\a\'                       { yylval.integer = '\a';      return CHAR; }
 \'\\b\'                       { yylval.integer = '\b';      return CHAR; }
