@@ -1,8 +1,12 @@
-def f(String s) {
+let Int i = 0, n = 0;
+def F(Int a=0) => Int {
+	if a > 0 then return a;
+	else return -a;
+	done
+}
+i + i + i;
 
-}
-def g(String s) {
-	f(s);
-}
-let String s = "AAAAAAAAAAAAAA";
-g(s);
+while i < 10 do
+	if i % 2 == 0 then n = n + i; done 
+done
+F(i);

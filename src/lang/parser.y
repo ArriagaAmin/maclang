@@ -2857,9 +2857,6 @@
                 tac->gen("assignw lastbase BASE");
                 tac->gen("return 0");
                 tac->gen("@endfunction " + func_size);
-
-                tac->gen("@label " + $1->addr + "_out");
-                tac->backpatch($1->nextlist, $1->addr + "_out");
               }
             ; 
 
@@ -2966,7 +2963,6 @@
 
                 if (fe != NULL) {
                   $$->nextlist = {tac->instructions.size()};
-                  tac->gen("goto _");
                   $$->addr = fe->addr;
                   tac->gen("@function " + $$->addr + " _");
                 }

@@ -1,15 +1,14 @@
 #pragma once
 
-#include <iostream>
-#include <string>
-
-#include <vector>
 #include <map>
+#include <string>
+#include <vector>
+#include <ctype.h>
+#include <iostream>
+#include <algorithm>
 #include <unordered_map>
 
-#include <algorithm>
-#include <iostream>
-#include <ctype.h>
+#include "FlowGraph.hpp"
 
 using namespace std;
 
@@ -81,13 +80,6 @@ li
 la
 syscall
     */
-
-struct T_Instruction
-{
-    string id;
-    string result;
-    vector<string> operands;
-};
 
 class T_Block
 {

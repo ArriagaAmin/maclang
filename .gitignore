@@ -3,7 +3,7 @@
 *.output
 *.tab.h
 *.tab.c
-maclang
+eumaclang
 tac2mips
 
 # flex
