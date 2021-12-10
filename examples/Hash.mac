@@ -50,7 +50,8 @@ def Hash_value(^Hash h, String s) => Int {
 	let Int val = 0, i = 0;
 
 	while s[i] != '\0' do 
-		val = ctoi(s[i]) + val * ^h.hash_val ;
+		val = ctoi(s[i]) + val * ^h.hash_val;
+		i = i + 1;
 	done
 
 	return val % ^h.size;

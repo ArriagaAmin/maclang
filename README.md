@@ -171,12 +171,14 @@ Operations between basic types:
 
 There are the following functions to convert between basic types:
 
-|      |Int                       |Float                       |String                      |
-|------|--------------------------|----------------------------|----------------------------|
-|Char  |`ctoi(Char c) => Int`     |                            |                            |
-|Int   |                          |`itof(Int n) => Float`      |`itos(String text, Int n)`  |
-|Float |`ftoi(Float n) => Int`    |                            |`ftos(String text, Float n)`|
-|String|`stoi(String text) => Int`|`stof(String text) => Float`|                            |
+|      |Int                                |Float                                |String                       |
+|------|-----------------------------------|-------------------------------------|-----------------------------|
+|Char  |`ctoi(Char c) => Int`              |                                     |                             |
+|Int   |                                   |`itof(Int n) => Float`               |`itos(String @text, Int n)`  |
+|Float |`ftoi(Float n) => Int`             |                                     |`ftos(String @text, Float n)`|
+|String|`stoi(String text, Int @n) => Bool`|`stof(String text, Float @n) => Bool`|                             |
+
+where `ctoi` convert a char to its ASCII representation.
 
 ### **Arrays**
 
@@ -575,9 +577,9 @@ I    -> *lambda*
       | printi  Val
       | printf  Val
       | print   ID
-      | readc   Val
-      | readi   Val
-      | readf   Val
+      | readc   ID
+      | readi   ID
+      | readf   ID
       | read    ID
 
 F    -> @function ID INT \n Inst @endfunction INT

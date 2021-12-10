@@ -3427,30 +3427,164 @@ void scope0(void) {
 
   // FUNCTIONS.
   FunctionEntry *fe;
+  vector<string> temps = vector<string>(12);
+  vector<string> labels = vector<string>(6);
 
   // Read functions
   fe = new FunctionEntry("read", 0, "Function");
-  fe->args.push_back({"text", "(Char)[]", false, NULL});
+  fe->args.push_back({"text", "(Char)[]", true, NULL});
   fe->return_type = predefinedTypes["Unit"];
   fe->addr = "READ";
   fe->def_scope = 0;
   table->insert(fe);
+  // Generamos el tac;
+  tac->gen("@function " + fe->addr + " 4");
+  temps[0] = tac->newTemp();
+  tac->gen("assignw " + temps[0] + " BASE[0]");
+  tac->gen("read " + temps[0]);
+  tac->gen("return 0");
+  tac->gen("@endfunction 4");
 
   fe = new FunctionEntry("readc", 0, "Function");
   fe->return_type = predefinedTypes["Char"];
   fe->addr = "READC";
   fe->def_scope = 0;
   table->insert(fe);
+  // Generamos el tac;
+  tac->gen("@function " + fe->addr + " 0");
+  temps[0] = tac->newTemp();
+  tac->gen("readc " + temps[0]);
+  tac->gen("return " + temps[0]);
+  tac->gen("@endfunction 0");
 
   fe = new FunctionEntry("readi", 0, "Function");
   fe->return_type = predefinedTypes["Int"];
   fe->addr = "READI";
   fe->def_scope = 0;
   table->insert(fe);
+  // Generamos el tac
+  tac->gen("@function " + fe->addr + " 0");
+  temps[0] = tac->newTemp();
+  tac->gen("readi " + temps[0]);
+  tac->gen("return " + temps[0]);
+  tac->gen("@endfunction 0");
 
   fe = new FunctionEntry("readf", 0, "Function");
   fe->return_type = predefinedTypes["Float"];
   fe->addr = "READF";
+  fe->def_scope = 0;
+  table->insert(fe);
+  // Generamos el tac
+  tac->gen("@function " + fe->addr + " 0");
+  temps[0] = tac->newTemp();
+  tac->gen("readf " + temps[0]);
+  tac->gen("return " + temps[0]);
+  tac->gen("@endfunction 0");
+
+  // Adding float to integer function.
+  fe = new FunctionEntry("ftoi", 0, "Function");
+  fe->args.push_back({"n", "Float", false, NULL});
+  fe->return_type = predefinedTypes["Int"];
+  fe->addr = "FTOI";
+  fe->def_scope = 0;
+  table->insert(fe);
+
+  // Adding char to integer function.
+  fe = new FunctionEntry("ctoi", 0, "Function");
+  fe->args.push_back({"c", "Char", false, NULL});
+  fe->return_type = predefinedTypes["Int"];
+  fe->addr = "CTOI";
+  fe->def_scope = 0;
+  table->insert(fe);
+  // Generamos el tac
+  tac->gen("@function " + fe->addr + " 1");
+  temps[0] = tac->newTemp();
+  tac->gen("assignw " + temps[0] + " BASE[0]");
+  tac->gen("return " + temps[0]);
+  tac->gen("@endfunction 1");
+
+  // Adding integer to string function.
+  fe = new FunctionEntry("itos", 0, "Function");
+  fe->args.push_back({"text", "(Char)[]", true, NULL});
+  fe->args.push_back({"n", "Int", false, NULL});
+  fe->return_type = predefinedTypes["Int"];
+  fe->addr = "ITOS";
+  fe->def_scope = 0;
+  table->insert(fe);
+  // Generamos el tac
+  for (int i = 0; i < 7; i++) temps[i] = tac->newTemp();
+  for (int i = 0; i < 4; i++) labels[i] = tac->newLabel();
+  tac->gen("@function " + fe->addr + " 8");
+  tac->gen("assignw " + temps[0] + " BASE[0]");
+  tac->gen("assignw " + temps[1] + " BASE[4]");
+  tac->gen("neq test " + temps[1] + " 0");
+  tac->gen("goif " + labels[0] + " test");
+  tac->gen("assignb " + temps[0] + "[0] 48");
+  tac->gen("assignb " + temps[0] + "[1] 0");
+  tac->gen("return 1");
+  tac->gen("@label " + labels[0]);
+  tac->gen("assignw " + temps[2] + " 0");
+  tac->gen("geq test " + temps[1] + " 0");
+  tac->gen("goif " + labels[1] + " test");
+  tac->gen("mult " + temps[1] + " " + temps[1] + " -1");
+  tac->gen("assignb " + temps[0] + "[0] 45");
+  tac->gen("add " + temps[2] + " " + temps[2] + " 1");
+  tac->gen("@label " + labels[1]);
+  tac->gen("assignw " + temps[3] + " 8");
+  tac->gen("@label " + labels[2]);
+  tac->gen("leq test " + temps[1] + " 0");
+  tac->gen("goif " + labels[3] + " test");
+  tac->gen("mod " + temps[4] + " " + temps[1] + " 10");
+  tac->gen("div " + temps[1] + " " + temps[1] + " 10");
+  tac->gen("add " + temps[5] + " " + temps[4] + " 48");
+  tac->gen("assignb BASE[" + temps[3] + "] " + temps[5]);
+  tac->gen("add " + temps[3] + " " + temps[3] + " 1");
+  tac->gen("goto " + labels[2]);
+  tac->gen("@label " + labels[3]);
+  tac->gen("leq test " + temps[3] + " 8");
+  tac->gen("goif " + labels[3] + "_end test");
+  tac->gen("sub " + temps[3] + " " + temps[3] + " 1");
+  tac->gen("assignb " + temps[6] + " BASE[" + temps[3] + "]");
+  tac->gen("assignb " + temps[0] + "[" + temps[2] + "] " + temps[6]);
+  tac->gen("add " + temps[2] + " " + temps[2] + " 1");
+  tac->gen("goto " + labels[3]);
+  tac->gen("@label " + labels[3] + "_end");
+  tac->gen("assignb " + temps[0] + "[" + temps[2] + "] 0");
+  tac->gen("return " + temps[2]);
+  tac->gen("@endfunction 8");
+
+  // Adding float to string function.
+  fe = new FunctionEntry("ftos", 0, "Function");
+  fe->args.push_back({"text", "(Char)[]", false, NULL});
+  fe->args.push_back({"n", "Float", false, NULL});
+  fe->return_type = predefinedTypes["Unit"];
+  fe->addr = "FTOS";
+  fe->def_scope = 0;
+  table->insert(fe);
+
+  // Adding string to integer function.
+  fe = new FunctionEntry("stoi", 0, "Function");
+  fe->args.push_back({"text", "(Char)[]", false, NULL});
+  fe->args.push_back({"n", "Int", true, NULL});
+  fe->return_type = predefinedTypes["Bool"];
+  fe->addr = "STOI";
+  fe->def_scope = 0;
+  table->insert(fe);
+
+
+  // Adding string to float function.
+  fe = new FunctionEntry("stof", 0, "Function");
+  fe->args.push_back({"text", "(Char)[]", false, NULL});
+  fe->return_type = predefinedTypes["Float"];
+  fe->addr = "STOF";
+  fe->def_scope = 0;
+  table->insert(fe);
+
+  // Adding integer to float function.
+  fe = new FunctionEntry("itof", 0, "Function");
+  fe->args.push_back({"n", "Int", false, NULL});
+  fe->return_type = predefinedTypes["Float"];
+  fe->addr = "ITOF";
   fe->def_scope = 0;
   table->insert(fe);
 
@@ -3475,61 +3609,64 @@ void scope0(void) {
   fe->def_scope = 0;
   table->insert(fe);
 
-  // Adding integer to string function.
-  fe = new FunctionEntry("itos", 0, "Function");
-  fe->args.push_back({"text", "(Char)[]", false, NULL});
-  fe->args.push_back({"n", "Int", false, NULL});
-  fe->return_type = predefinedTypes["Unit"];
-  fe->addr = "ITOS";
-  fe->def_scope = 0;
-  table->insert(fe);
-
-  // Adding float to string function.
-  fe = new FunctionEntry("ftos", 0, "Function");
-  fe->args.push_back({"text", "(Char)[]", false, NULL});
-  fe->args.push_back({"n", "Float", false, NULL});
-  fe->return_type = predefinedTypes["Unit"];
-  fe->addr = "FTOS";
-  fe->def_scope = 0;
-  table->insert(fe);
-
-  // Adding string to integer function.
-  fe = new FunctionEntry("stoi", 0, "Function");
-  fe->args.push_back({"text", "(Char)[]", false, NULL});
-  fe->return_type = predefinedTypes["Int"];
-  fe->addr = "STOI";
-  fe->def_scope = 0;
-  table->insert(fe);
-
-  // Adding float to integer function.
-  fe = new FunctionEntry("ftoi", 0, "Function");
-  fe->args.push_back({"n", "Float", false, NULL});
-  fe->return_type = predefinedTypes["Int"];
-  fe->addr = "FTOI";
-  fe->def_scope = 0;
-  table->insert(fe);
-
-  // Adding char to integer function.
-  fe = new FunctionEntry("ctoi", 0, "Function");
-  fe->args.push_back({"c", "Char", false, NULL});
-  fe->return_type = predefinedTypes["Int"];
-  fe->addr = "CTOI";
-  fe->def_scope = 0;
-  table->insert(fe);
-
-  // Adding string to float function.
-  fe = new FunctionEntry("stof", 0, "Function");
-  fe->args.push_back({"text", "(Char)[]", false, NULL});
-  fe->return_type = predefinedTypes["Float"];
-  fe->addr = "STOF";
-  fe->def_scope = 0;
-  table->insert(fe);
-
-  // Adding integer to float function.
-  fe = new FunctionEntry("itof", 0, "Function");
-  fe->args.push_back({"n", "Int", false, NULL});
-  fe->return_type = predefinedTypes["Float"];
-  fe->addr = "ITOF";
-  fe->def_scope = 0;
-  table->insert(fe);
+  // Generamos el tac
+  for (int i = 0; i < 12; i++) temps[i] = tac->newTemp();
+  for (int i = 0; i < 6; i++) labels[i] = tac->newLabel();
+  tac->gen("@function " + fe->addr + " 24");
+  tac->gen("assignw " + temps[0] + " 0");
+  tac->gen("assignw " + temps[1] + " 0");
+  tac->gen("assignw " + temps[2] + " 0");
+  tac->gen("assignw " + temps[3] + " 0");
+  tac->gen("assignw " + temps[4] + " 0");
+  tac->gen("assignw " + temps[5] + " BASE[0]");
+  tac->gen("@label " + labels[0]);
+  tac->gen("assignb " + temps[6] + " " + temps[5] + "[" + temps[0] + "]");
+  tac->gen("eq test " + temps[6] + " 0");
+  tac->gen("goif " + labels[0] + "_end test");
+  tac->gen("eq test " + temps[6] + " '%'");
+  tac->gen("goif " + labels[1] + " test");
+  tac->gen("printc " + temps[6]);
+  tac->gen("add " + temps[0] + " " + temps[0] + " 1");
+  tac->gen("goto " + labels[0]);
+  tac->gen("@label " + labels[1]);
+  tac->gen("assignb " + temps[6] + " " + temps[5] + "[" + temps[0] + "]");
+  tac->gen("add " + temps[0] + " " + temps[0] + " 1");
+  tac->gen("eq test " + temps[6] + " 'c'");
+  tac->gen("goif " + labels[2] + " test");
+  tac->gen("eq test " + temps[6] + " 'i'");
+  tac->gen("goif " + labels[3] + " test");
+  tac->gen("eq test " + temps[6] + " 'f'");
+  tac->gen("goif " + labels[4] + " test");
+  tac->gen("eq test " + temps[6] + " 's'");
+  tac->gen("goif " + labels[5] + " test");
+  tac->gen("goto " + labels[0]);
+  tac->gen("@label " + labels[2]);
+  tac->gen("assignw " + temps[7] + " BASE[4]");
+  tac->gen("assignb " + temps[8] + " " + temps[7] + "[" + temps[1] + "]");
+  tac->gen("printc " + temps[8]);
+  tac->gen("add " + temps[1] + " " + temps[1] + " 1");
+  tac->gen("goto " + labels[0]);
+  tac->gen("@label " + labels[3]);
+  tac->gen("assignw " + temps[7] + " BASE[8]");
+  tac->gen("assignw " + temps[9] + " " + temps[7] + "[" + temps[2] + "]");
+  tac->gen("printi " + temps[9]);
+  tac->gen("add " + temps[2] + " " + temps[2] + " 1");
+  tac->gen("goto " + labels[0]);
+  tac->gen("@label " + labels[4]);
+  tac->gen("assignw " + temps[7] + " BASE[12]");
+  tac->gen("assignw " + temps[10] + " " + temps[7] + "[" + temps[3] + "]");
+  tac->gen("printf " + temps[10]);
+  tac->gen("add " + temps[3] + " " + temps[3] + " 1");
+  tac->gen("goto " + labels[0]);
+  tac->gen("@label " + labels[5]);
+  tac->gen("assignw " + temps[7] + " BASE[16]");
+  tac->gen("assignw " + temps[11] + " " + temps[7] + "[" + temps[4] + "]");
+  tac->gen("print " + temps[11]);
+  tac->gen("add " + temps[4] + " " + temps[4] + " 1");
+  tac->gen("goto " + labels[0]);
+  tac->gen("@label " + labels[0] + "_end");
+  tac->gen("assignw " + temps[7] + " BASE[20]");
+  tac->gen("print " + temps[7]);
+  tac->gen("return 0");
+  tac->gen("@endfunction 24");
 }

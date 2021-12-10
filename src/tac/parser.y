@@ -17,6 +17,9 @@
 
   T_Function *global = new T_Function, *current_function;
   vector<T_Function*> functions = {global};
+  // Indica que funciones han sido llamadas.
+  set<string> calls;
+  bool err = false;
 
   T_Block *CB;
 %}
@@ -62,7 +65,8 @@
               for (string label : global->labels_leaders) {
                 if (global->labels2instr.count(label) == 0) {
                   cout << "\033[1;31mError\033[0m: Undefined label \033[1;3m" + 
-                    label + "\033[0m.";
+                    label + "\033[0m.\n";
+                  err = true;
                 }
                 else {
                   global->leaders.insert(global->labels2instr[label]);
@@ -75,8 +79,18 @@
               }
               global->leaders.clear();
 
-              FlowGraph fg = FlowGraph(functions);
-              fg.print();
+              // Filtramos aquellas funciones que nunca fueron llamadas.
+              vector<T_Function*> filtered_functions = {global};
+              for (T_Function *f : functions) {
+                if (calls.count(f->name)) {
+                  filtered_functions.push_back(f);
+                }
+              }
+
+              if (! err) {
+                FlowGraph fg = FlowGraph(filtered_functions);
+                fg.print();
+              }
             }
           ;
 
@@ -228,6 +242,7 @@
           | I_CALL    ID ID INT
             {
               current_function->instructions.push_back({*$1, *$2, {*$3, to_string($4)}});
+              calls.insert(*$3);
             }
           | I_PRINTC  Val
             {
@@ -245,15 +260,15 @@
             {
               current_function->instructions.push_back({*$1, *$2, {}});
             }
-          | I_READC   Val
+          | I_READC   ID
             {
               current_function->instructions.push_back({*$1, *$2, {}});
             }
-          | I_READI   Val
+          | I_READI   ID
             {
               current_function->instructions.push_back({*$1, *$2, {}});
             }
-          | I_READF   Val
+          | I_READF   ID
             {
               current_function->instructions.push_back({*$1, *$2, {}});
             }
@@ -269,7 +284,8 @@
               for (string label : current_function->labels_leaders) {
                 if (current_function->labels2instr.count(label) == 0) {
                   cout << "\033[1;31mError\033[0m: Undefined label \033[1;3m" + 
-                    label + "\033[0m.";
+                    label + "\033[0m.\n";
+                  err = true;
                 }
                 else {
                   current_function->leaders.insert(current_function->labels2instr[label]);
