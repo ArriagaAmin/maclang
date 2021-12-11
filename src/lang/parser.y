@@ -301,7 +301,7 @@
                 }
                 else if ($2->addr.back() == ']') {
                   string assign_type = $2->type->width == 1 ? "assignb" : "assignw";
-                  addr = tac->newTemp();
+                  addr = type == "Float" ? tac->newFloat() : tac->newTemp();
                   tac->gen(assign_type + " " + addr + " " + $2->addr);
                 }
                 else {
@@ -425,8 +425,7 @@
                     string raddr;
 
                     if ($2->addr.back() == ']') {
-                      raddr = tac->newTemp();
-                      tac->gen("assignw " + raddr + " " + $2->addr);
+                      raddr = type == "Float" ? tac->newFloat(): tac->newTemp();
                     }
                     else {
                       raddr = $2->addr;
@@ -474,7 +473,7 @@
                     string raddr;
                     string assign_type = ltype == "Bool" || ltype == "Char" ? "assignb" : "assignw";
                     if ($4->addr.back() == ']' && $1->addr.back() == ']') {
-                      raddr = tac->newTemp();
+                      raddr = ltype == "Float" ? tac->newFloat() : tac->newTemp();
                       tac->gen(assign_type + " " + raddr + " " + $4->addr);
                     }
                     else {
@@ -545,6 +544,9 @@
                         if (table->ret_type != "") {
                           addr = "BASE[" + to_string(offset) + "]";
                         } 
+                        else if (type == "Float") {
+                          addr = tac->newFloat();
+                        }
                         else {
                           addr = tac->newTemp();
                         }
@@ -582,7 +584,7 @@
                           if (rtype != "Bool") {
                             string raddr;
                             if (addr.back() == ']' && exp->addr.back() == ']') {
-                              raddr = tac->newTemp();
+                              raddr = rtype == "Float" ? tac->newFloat() : tac->newTemp();
                               tac->gen(assign_type + " " + raddr + " " + exp->addr);
                             }
                             else {
@@ -804,7 +806,7 @@
             }
 
             string assign = $1->type->width == 1 ? "assignb" : "assignw";
-            tac->genTACinstr(assign, "eq", "test", $1->addr, $4->addr);
+            tac->genTACinstr(assign, "eq", "test", $1->addr, $4->addr, false, false);
 
             // Como el resultado es booleano, creamos la truelist y falselist 
             // correspondiente.
@@ -859,7 +861,7 @@
             }
 
             string assign = $1->type->width == 1 ? "assignb" : "assignw";
-            tac->genTACinstr(assign, "neq", "test", $1->addr, $4->addr);
+            tac->genTACinstr(assign, "neq", "test", $1->addr, $4->addr, false, false);
 
             // Como el resultado es booleano, creamos la truelist y falselist 
             // correspondiente.
@@ -916,7 +918,8 @@
             Type *type = verifyBinayOpType(*$2, t1->toString(), t2->toString());
             $$ = new NodeBinaryOperator($1, *$2, $3, type);  
 
-            tac->genTACinstr("assignw", "lt", "test", $1->addr, $3->addr);
+            bool f1 = t1->toString() == "Float", f2 = t2->toString() == "Float";
+            tac->genTACinstr("assignw", "lt", "test", $1->addr, $3->addr, f1, f2);
 
             // Aplicamos backpatching.
             $$->truelist = {tac->instructions.size()};
@@ -933,7 +936,8 @@
             Type *type = verifyBinayOpType(*$2, t1->toString(), t2->toString());
             $$ = new NodeBinaryOperator($1, *$2, $3, type); 
 
-            tac->genTACinstr("assignw", "leq", "test", $1->addr, $3->addr);
+            bool f1 = t1->toString() == "Float", f2 = t2->toString() == "Float";
+            tac->genTACinstr("assignw", "leq", "test", $1->addr, $3->addr, f1, f2);
 
             // Aplicamos backpatching.
             $$->truelist = {tac->instructions.size()};
@@ -950,7 +954,8 @@
             Type *type = verifyBinayOpType(*$2, t1->toString(), t2->toString());
             $$ = new NodeBinaryOperator($1, *$2, $3, type); 
 
-            tac->genTACinstr("assignw", "gt", "test", $1->addr, $3->addr);
+            bool f1 = t1->toString() == "Float", f2 = t2->toString() == "Float";
+            tac->genTACinstr("assignw", "gt", "test", $1->addr, $3->addr, f1, f2);
 
             // Aplicamos backpatching.
             $$->truelist = {tac->instructions.size()};
@@ -967,7 +972,8 @@
             Type *type = verifyBinayOpType(*$2, t1->toString(), t2->toString());
             $$ = new NodeBinaryOperator($1, *$2, $3, type); 
 
-            tac->genTACinstr("assignw", "geq", "test", $1->addr, $3->addr);
+            bool f1 = t1->toString() == "Float", f2 = t2->toString() == "Float";
+            tac->genTACinstr("assignw", "geq", "test", $1->addr, $3->addr, f1, f2);
 
             // Aplicamos backpatching.
             $$->truelist = {tac->instructions.size()};
@@ -985,8 +991,9 @@
             $$ = new NodeBinaryOperator($1, *$2, $3, type); 
 
             // Agregamos las instrucciones del TAC.
-            $$->addr = tac->newTemp();
-            tac->genTACinstr("assignw", "add", $$->addr, $1->addr, $3->addr);
+            $$->addr = type->toString() == "Float" ? tac->newFloat(): tac->newTemp();
+            bool f1 = t1->toString() == "Float", f2 = t2->toString() == "Float";
+            tac->genTACinstr("assignw", "add", $$->addr, $1->addr, $3->addr, f1, f2);
           }
 
         | Exp MINUS Exp 
@@ -998,8 +1005,9 @@
             $$ = new NodeBinaryOperator($1, *$2, $3, type); 
 
             // Agregamos las instrucciones del TAC.
-            $$->addr = tac->newTemp();
-            tac->genTACinstr("assignw", "sub", $$->addr, $1->addr, $3->addr);
+            $$->addr = type->toString() == "Float" ? tac->newFloat(): tac->newTemp();
+            bool f1 = t1->toString() == "Float", f2 = t2->toString() == "Float";
+            tac->genTACinstr("assignw", "sub", $$->addr, $1->addr, $3->addr, f1, f2);
           }
 
         | Exp ASTERISK Exp 
@@ -1011,8 +1019,9 @@
             $$ = new NodeBinaryOperator($1, *$2, $3, type); 
 
             // Agregamos las instrucciones del TAC.
-            $$->addr = tac->newTemp();
-            tac->genTACinstr("assignw", "mult", $$->addr, $1->addr, $3->addr);
+            $$->addr = type->toString() == "Float" ? tac->newFloat(): tac->newTemp();
+            bool f1 = t1->toString() == "Float", f2 = t2->toString() == "Float";
+            tac->genTACinstr("assignw", "mult", $$->addr, $1->addr, $3->addr, f1, f2);
           }
 
         | Exp DIV Exp 
@@ -1024,8 +1033,9 @@
             $$ = new NodeBinaryOperator($1, *$2, $3, type); 
 
             // Agregamos las instrucciones del TAC.
-            $$->addr = tac->newTemp();
-            tac->genTACinstr("assignw", "div", $$->addr, $1->addr, $3->addr);
+            $$->addr = type->toString() == "Float" ? tac->newFloat(): tac->newTemp();
+            bool f1 = t1->toString() == "Float", f2 = t2->toString() == "Float";
+            tac->genTACinstr("assignw", "div", $$->addr, $1->addr, $3->addr, f1, f2);
           }
 
         | Exp MODULE Exp 
@@ -1038,7 +1048,7 @@
 
             // Agregamos las instrucciones del TAC.
             $$->addr = tac->newTemp();
-            tac->genTACinstr("assignw", "mod", $$->addr, $1->addr, $3->addr);
+            tac->genTACinstr("assignw", "mod", $$->addr, $1->addr, $3->addr, false, false);
           }
 
         | MINUS Exp  
@@ -1048,11 +1058,12 @@
             $$ = new NodeUnaryOperator(*$1, $2, type); 
 
             // Agregamos las instrucciones del TAC.
-            $$->addr = tac->newTemp();
+            bool f = type->toString() == "Float";
+            $$->addr = f ? tac->newFloat() : tac->newTemp();
 
             string raddr;
             if ($2->addr.back() == ']') {
-              raddr = tac->newTemp();
+              raddr = f ? tac->newFloat() : tac->newTemp();
               tac->gen("assignw " + raddr + " " + $2->addr);
             }
             else {
@@ -1078,8 +1089,17 @@
             $$ = new NodeBinaryOperator($1, *$2, $3, type); 
 
             // Generamos el codigo TAC para la exponencial.
-            $$->addr = tac->newTemp();
-            string addr1 = tac->newTemp(), addr2 = tac->newTemp();
+            string addr1, addr2;
+            if (type->toString() == "Float") {
+              $$->addr = tac->newFloat();
+              addr1 = tac->newFloat(); 
+            }
+            else {
+              $$->addr = tac->newTemp();
+              addr1 = tac->newTemp(); 
+            }
+            addr2 = tac->newTemp();
+  
             tac->gen("assignw " + addr1 + " " + $1->addr);
             tac->gen("assignw " + addr2 + " " + $3->addr);
 
@@ -1410,7 +1430,7 @@
                   string assign_type = ltype == "Char" ? "assignb" : "assignw";
 
                   if ($2->addr.back() == ']' && $5->addr.back() == ']') {
-                    raddr = tac->newTemp();
+                    raddr = rtype == "Float" ? tac->newFloat() : tac->newTemp();
                     tac->gen(assign_type + " " + raddr + " " + $5->addr);
                   }
                   else {
@@ -1419,7 +1439,7 @@
 
                   // Si la expresion no es booleana, se realiza la asignacion al L-Value
                   // y a la expresion que retorna la asignacion.
-                  $$->addr = tac->newTemp();
+                  $$->addr = rtype == "Float" ? tac->newFloat() : tac->newTemp();
                   tac->gen(assign_type + " " + $2->addr + " " + raddr);
                   tac->gen(assign_type + " " + $$->addr + " " + raddr);
                 }
@@ -1483,7 +1503,7 @@
         | FLOAT 
           { 
             $$ = new NodeFLOAT($1); 
-            $$->addr = tac->newTemp();
+            $$->addr = tac->newFloat();
             tac->gen("assignw " + $$->addr + " " + to_string($1));
           }
 
@@ -1555,7 +1575,7 @@
 
                   while (--size >= 0) {
                     if (exp->rvalue->addr.back() == ']') {
-                      raddr = tac->newTemp();
+                      raddr = type == "Float" ? tac->newFloat() : tac->newTemp();
                       tac->gen(assign_type + " " + raddr + " " + exp->rvalue->addr);
                     }
                     else {
@@ -1691,7 +1711,7 @@
                       else {
                         Type *type = NULL;
                         Entry *e;
-                        vector<tuple<string, string, string>> refs;
+                        vector<tuple<string, string, string, bool>> refs;
 
                         if ((e = table->lookup(*$1)) == NULL) {
                           addError("'\033[1;3m" + *$1 + "\033[0m' wasn't declared.");
@@ -1706,7 +1726,7 @@
                         else {
                           FunctionEntry *fe = (FunctionEntry*) e;
                           bool correctTypes = true;
-                          string type_str, addr, paddr;
+                          string type_str, addr, paddr, raddr;
 
                           int numPositional = $3->positionalArgs.size(), i = 0;
                           int c_offset = 0;
@@ -1758,7 +1778,8 @@
                                 refs.push_back({
                                   assign_type,
                                   $3->positionalArgs[i]->addr,
-                                  "lastbase[" + to_string(c_offset) + "]"
+                                  "lastbase[" + to_string(c_offset) + "]",
+                                  type_str == "Float"
                                 });
                               }
                               // Si el pase no es por referencia, es un tipo arreglo y no
@@ -1794,7 +1815,7 @@
                               // Por ultimo, verificamos si la direccion es un acceso a
                               // memoria
                               if (addr.back() == ']') {
-                                addr = tac->newTemp();
+                                addr = type_str == "Float" ? tac->newFloat() : tac->newTemp();
                                 tac->gen(assign_type + " " + addr + " " + $3->positionalArgs[i]->addr);
                               }
 
@@ -1834,7 +1855,8 @@
                                 refs.push_back({
                                   assign_type,
                                   addr, 
-                                  "lastbase[" + to_string(c_offset) + "]"
+                                  "lastbase[" + to_string(c_offset) + "]",
+                                  type_str == "Floar"
                                 });
                               }
                               // Si el pase no es por referencia y es un tipo arreglo
@@ -1869,7 +1891,7 @@
                               // Por ultimo, verificamos si la direccion es un acceso a
                               // memoria
                               if (addr.back() == ']') {
-                                addr = tac->newTemp();
+                                addr = type_str == "Float" ? tac->newFloat() : tac->newTemp();
                                 tac->gen(assign_type + " " + addr + " " + $3->namedArgs[get<0>(arg)]->addr);
                               }
                               
@@ -1889,7 +1911,8 @@
 
                             else {
                               if (get<3>(arg)->addr.back() == ']') {
-                                addr = tac->newTemp();
+                                bool f = get<3>(arg)->type->toString() == "Float";
+                                addr = f ? tac->newFloat() : tac->newTemp();
                                 tac->gen(assign_type + " " + addr + " " + get<3>(arg)->addr);
                               }
                               else {
@@ -1924,7 +1947,7 @@
                           FunctionEntry *fe = (FunctionEntry*) e;
                           type = fe->return_type;
                           $$ = new NodeFunctionCall(*$1, $3, false, type); 
-                          $$->addr = tac->newTemp();
+                          $$->addr = type->toString() == "Float" ? tac->newFloat() : tac->newTemp();
                           string n_args = to_string(fe->args.size());
 
                           if (e->category == "Declaration") {
@@ -1952,15 +1975,9 @@
 
                           // Realizamos las asignaciones por referencia correspondientes.
                           string raddr;
-                          for (tuple<string, string, string> assign : refs) {
-                            if (get<2>(assign).back() == ']') {
-                              raddr = tac->newTemp();
-                              tac->gen(get<0>(assign) + " " + raddr + " " + get<2>(assign));
-                            }
-                            else {
-                              raddr = get<2>(assign);
-                            }
-
+                          for (tuple<string, string, string, bool> assign : refs) {
+                            raddr = get<3>(assign) ? tac->newFloat() : tac->newTemp();
+                            tac->gen(get<0>(assign) + " " + raddr + " " + get<2>(assign));
                             tac->gen(get<0>(assign) + " " + get<1>(assign) + " " + raddr);
                           }
 
@@ -3476,18 +3493,10 @@ void scope0(void) {
   table->insert(fe);
   // Generamos el tac
   tac->gen("@function " + fe->addr + " 0");
-  temps[0] = tac->newTemp();
+  temps[0] = tac->newFloat();
   tac->gen("readf " + temps[0]);
   tac->gen("return " + temps[0]);
   tac->gen("@endfunction 0");
-
-  // Adding float to integer function.
-  fe = new FunctionEntry("ftoi", 0, "Function");
-  fe->args.push_back({"n", "Float", false, NULL});
-  fe->return_type = predefinedTypes["Int"];
-  fe->addr = "FTOI";
-  fe->def_scope = 0;
-  table->insert(fe);
 
   // Adding char to integer function.
   fe = new FunctionEntry("ctoi", 0, "Function");
@@ -3503,82 +3512,35 @@ void scope0(void) {
   tac->gen("return " + temps[0]);
   tac->gen("@endfunction 1");
 
-  // Adding integer to string function.
-  fe = new FunctionEntry("itos", 0, "Function");
-  fe->args.push_back({"text", "(Char)[]", true, NULL});
+  // Adding integer to char function.
+  fe = new FunctionEntry("itoc", 0, "Function");
   fe->args.push_back({"n", "Int", false, NULL});
-  fe->return_type = predefinedTypes["Int"];
-  fe->addr = "ITOS";
+  fe->return_type = predefinedTypes["Char"];
+  fe->addr = "ITOC";
   fe->def_scope = 0;
   table->insert(fe);
   // Generamos el tac
-  for (int i = 0; i < 7; i++) temps[i] = tac->newTemp();
-  for (int i = 0; i < 4; i++) labels[i] = tac->newLabel();
-  tac->gen("@function " + fe->addr + " 8");
-  tac->gen("assignw " + temps[0] + " BASE[0]");
-  tac->gen("assignw " + temps[1] + " BASE[4]");
-  tac->gen("neq test " + temps[1] + " 0");
-  tac->gen("goif " + labels[0] + " test");
-  tac->gen("assignb " + temps[0] + "[0] 48");
-  tac->gen("assignb " + temps[0] + "[1] 0");
-  tac->gen("return 1");
-  tac->gen("@label " + labels[0]);
-  tac->gen("assignw " + temps[2] + " 0");
-  tac->gen("geq test " + temps[1] + " 0");
-  tac->gen("goif " + labels[1] + " test");
-  tac->gen("mult " + temps[1] + " " + temps[1] + " -1");
-  tac->gen("assignb " + temps[0] + "[0] 45");
-  tac->gen("add " + temps[2] + " " + temps[2] + " 1");
-  tac->gen("@label " + labels[1]);
-  tac->gen("assignw " + temps[3] + " 8");
-  tac->gen("@label " + labels[2]);
-  tac->gen("leq test " + temps[1] + " 0");
-  tac->gen("goif " + labels[3] + " test");
-  tac->gen("mod " + temps[4] + " " + temps[1] + " 10");
-  tac->gen("div " + temps[1] + " " + temps[1] + " 10");
-  tac->gen("add " + temps[5] + " " + temps[4] + " 48");
-  tac->gen("assignb BASE[" + temps[3] + "] " + temps[5]);
-  tac->gen("add " + temps[3] + " " + temps[3] + " 1");
-  tac->gen("goto " + labels[2]);
-  tac->gen("@label " + labels[3]);
-  tac->gen("leq test " + temps[3] + " 8");
-  tac->gen("goif " + labels[3] + "_end test");
-  tac->gen("sub " + temps[3] + " " + temps[3] + " 1");
-  tac->gen("assignb " + temps[6] + " BASE[" + temps[3] + "]");
-  tac->gen("assignb " + temps[0] + "[" + temps[2] + "] " + temps[6]);
-  tac->gen("add " + temps[2] + " " + temps[2] + " 1");
-  tac->gen("goto " + labels[3]);
-  tac->gen("@label " + labels[3] + "_end");
-  tac->gen("assignb " + temps[0] + "[" + temps[2] + "] 0");
-  tac->gen("return " + temps[2]);
-  tac->gen("@endfunction 8");
+  tac->gen("@function " + fe->addr + " 4");
+  temps[0] = tac->newTemp();
+  tac->gen("assignb " + temps[0] + " BASE[0]");
+  tac->gen("return " + temps[0]);
+  tac->gen("@endfunction 4");
 
-  // Adding float to string function.
-  fe = new FunctionEntry("ftos", 0, "Function");
-  fe->args.push_back({"text", "(Char)[]", false, NULL});
+  // Adding float to integer function.
+  fe = new FunctionEntry("ftoi", 0, "Function");
   fe->args.push_back({"n", "Float", false, NULL});
-  fe->return_type = predefinedTypes["Unit"];
-  fe->addr = "FTOS";
+  fe->return_type = predefinedTypes["Int"];
+  fe->addr = "FTOI";
   fe->def_scope = 0;
   table->insert(fe);
-
-  // Adding string to integer function.
-  fe = new FunctionEntry("stoi", 0, "Function");
-  fe->args.push_back({"text", "(Char)[]", false, NULL});
-  fe->args.push_back({"n", "Int", true, NULL});
-  fe->return_type = predefinedTypes["Bool"];
-  fe->addr = "STOI";
-  fe->def_scope = 0;
-  table->insert(fe);
-
-
-  // Adding string to float function.
-  fe = new FunctionEntry("stof", 0, "Function");
-  fe->args.push_back({"text", "(Char)[]", false, NULL});
-  fe->return_type = predefinedTypes["Float"];
-  fe->addr = "STOF";
-  fe->def_scope = 0;
-  table->insert(fe);
+  // Generamos el tac
+  temps[0] = tac->newFloat();
+  temps[1] = tac->newTemp();
+  tac->gen("@function " + fe->addr + " 4");
+  tac->gen("assignw " + temps[0] + " BASE[0]");
+  tac->gen("ftoi " + temps[1] + " " + temps[0]);
+  tac->gen("return " + temps[1]);
+  tac->gen("@endfunction 4");
 
   // Adding integer to float function.
   fe = new FunctionEntry("itof", 0, "Function");
@@ -3587,6 +3549,13 @@ void scope0(void) {
   fe->addr = "ITOF";
   fe->def_scope = 0;
   table->insert(fe);
+  temps[0] = tac->newTemp();
+  temps[1] = tac->newFloat();
+  tac->gen("@function " + fe->addr + " 4");
+  tac->gen("assignw " + temps[0] + " BASE[0]");
+  tac->gen("itof " + temps[1] + " " + temps[0]);
+  tac->gen("return " + temps[1]);
+  tac->gen("@endfunction 4");
 
   // Adding "print" function.
   // Primero creamos un arreglo vacio
@@ -3610,20 +3579,21 @@ void scope0(void) {
   table->insert(fe);
 
   // Generamos el tac
-  for (int i = 0; i < 12; i++) temps[i] = tac->newTemp();
+  for (int i = 0; i < 11; i++) temps[i] = tac->newTemp();
+  temps[11] = tac->newFloat();
   for (int i = 0; i < 6; i++) labels[i] = tac->newLabel();
   tac->gen("@function " + fe->addr + " 24");
-  tac->gen("assignw " + temps[0] + " 0");
-  tac->gen("assignw " + temps[1] + " 0");
-  tac->gen("assignw " + temps[2] + " 0");
-  tac->gen("assignw " + temps[3] + " 0");
-  tac->gen("assignw " + temps[4] + " 0");
+  tac->gen("assignw " + temps[0] + " 4");
+  tac->gen("assignw " + temps[1] + " 4");
+  tac->gen("assignw " + temps[2] + " 4");
+  tac->gen("assignw " + temps[3] + " 4");
+  tac->gen("assignw " + temps[4] + " 4");
   tac->gen("assignw " + temps[5] + " BASE[0]");
   tac->gen("@label " + labels[0]);
   tac->gen("assignb " + temps[6] + " " + temps[5] + "[" + temps[0] + "]");
   tac->gen("eq test " + temps[6] + " 0");
   tac->gen("goif " + labels[0] + "_end test");
-  tac->gen("eq test " + temps[6] + " '%'");
+  tac->gen("eq test " + temps[6] + " 37");
   tac->gen("goif " + labels[1] + " test");
   tac->gen("printc " + temps[6]);
   tac->gen("add " + temps[0] + " " + temps[0] + " 1");
@@ -3631,13 +3601,13 @@ void scope0(void) {
   tac->gen("@label " + labels[1]);
   tac->gen("assignb " + temps[6] + " " + temps[5] + "[" + temps[0] + "]");
   tac->gen("add " + temps[0] + " " + temps[0] + " 1");
-  tac->gen("eq test " + temps[6] + " 'c'");
+  tac->gen("eq test " + temps[6] + " 99");
   tac->gen("goif " + labels[2] + " test");
-  tac->gen("eq test " + temps[6] + " 'i'");
+  tac->gen("eq test " + temps[6] + " 105");
   tac->gen("goif " + labels[3] + " test");
-  tac->gen("eq test " + temps[6] + " 'f'");
+  tac->gen("eq test " + temps[6] + " 102");
   tac->gen("goif " + labels[4] + " test");
-  tac->gen("eq test " + temps[6] + " 's'");
+  tac->gen("eq test " + temps[6] + " 115");
   tac->gen("goif " + labels[5] + " test");
   tac->gen("goto " + labels[0]);
   tac->gen("@label " + labels[2]);
@@ -3650,19 +3620,19 @@ void scope0(void) {
   tac->gen("assignw " + temps[7] + " BASE[8]");
   tac->gen("assignw " + temps[9] + " " + temps[7] + "[" + temps[2] + "]");
   tac->gen("printi " + temps[9]);
-  tac->gen("add " + temps[2] + " " + temps[2] + " 1");
+  tac->gen("add " + temps[2] + " " + temps[2] + " 4");
   tac->gen("goto " + labels[0]);
   tac->gen("@label " + labels[4]);
   tac->gen("assignw " + temps[7] + " BASE[12]");
-  tac->gen("assignw " + temps[10] + " " + temps[7] + "[" + temps[3] + "]");
-  tac->gen("printf " + temps[10]);
-  tac->gen("add " + temps[3] + " " + temps[3] + " 1");
+  tac->gen("assignw " + temps[11] + " " + temps[7] + "[" + temps[3] + "]");
+  tac->gen("printf " + temps[11]);
+  tac->gen("add " + temps[3] + " " + temps[3] + " 4");
   tac->gen("goto " + labels[0]);
   tac->gen("@label " + labels[5]);
   tac->gen("assignw " + temps[7] + " BASE[16]");
-  tac->gen("assignw " + temps[11] + " " + temps[7] + "[" + temps[4] + "]");
-  tac->gen("print " + temps[11]);
-  tac->gen("add " + temps[4] + " " + temps[4] + " 1");
+  tac->gen("assignw " + temps[10] + " " + temps[7] + "[" + temps[4] + "]");
+  tac->gen("print " + temps[10]);
+  tac->gen("add " + temps[4] + " " + temps[4] + " 4");
   tac->gen("goto " + labels[0]);
   tac->gen("@label " + labels[0] + "_end");
   tac->gen("assignw " + temps[7] + " BASE[20]");

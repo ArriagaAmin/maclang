@@ -72,10 +72,21 @@ void FlowNode::print(void) {
 }
 
 void FlowNode::prettyPrint(void) {
-    string size = this->is_function ? " (" + to_string(this->function_size) + ")" : "";
-    cout << "\033[1m" << this->getName() << size << ":\033[0m\n";
+    if (this->is_function) {
+        string size = to_string(this->function_size);
+        cout << "\033[1;3;34m" << this->getName() << " (" + size << "):\033[0m\n";
+    }
+    else {
+        cout << "\033[1;3m" << this->getName() << ":\033[0m\n";
+    }
+
+    string space, max_instr = "assignw";
     for (T_Instruction instr : this->block) {
-        cout << "    " << instr.id << " " << instr.result << " ";
+        space = string(max_instr.size() - instr.id.size() + 1, ' ');
+        
+        cout << "    \033[3m" << instr.id << "\033[0m" 
+            << space << instr.result << " ";
+
         for (string operand : instr.operands) {
             cout << operand << " ";
         }

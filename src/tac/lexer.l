@@ -43,12 +43,16 @@
 "div"                         { return I_DIV; }
 "mod"                         { return I_MOD; }
 "minus"                       { return I_MINUS; }
+"ftoi"                        { return I_FTOI; }
+"itof"                        { return I_ITOF; }
 "eq"                          { return I_EQ; }
 "neq"                         { return I_NEQ; }
 "lt"                          { return I_LT; }
 "leq"                         { return I_LEQ; }
 "gt"                          { return I_GT; }
 "geq"                         { return I_GEQ; }
+"or"                          { return I_OR; }
+"and"                         { return I_AND; }
 "goto"                        { return I_GOTO; }
 "goif"                        { return I_GOIF; }
 "goifnot"                     { return I_GOIFNOT; }

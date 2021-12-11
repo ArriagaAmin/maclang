@@ -150,7 +150,7 @@ def ADR_I(^ADR analyzer) => Bool {
 			return False;
 		done
 
-		f = stof(^(^analyzer.stack[^analyzer.stackIndex - 1]).out);
+		stof(^(^analyzer.stack[^analyzer.stackIndex - 1]).out, f);
 		strcpy(
 			^(^analyzer.stack[^analyzer.stackIndex - 2]).out,
 			^(^analyzer.stack[^analyzer.stackIndex - 1]).out
@@ -183,7 +183,7 @@ def ADR_I(^ADR analyzer) => Bool {
 
 def ADR_E(^ADR analyzer) => Bool {
 	let String la = ADR_LA(analyzer);
-	let Float f;
+	let Float f, f1, f2;
 
 	if ('0' <= la[0] && la[0] <= '9') || ('a' <= la[0] && la[0] <= 'z') || strcmp(la, "(") == 0 then 
 		# E -> T
@@ -211,12 +211,14 @@ def ADR_E(^ADR analyzer) => Bool {
 
 			if strcmp(la, "+") == 0 then 
 				# E -> T + E
-				f = stof(^(^analyzer.stack[^analyzer.stackIndex - 2]).out) +
-					stof(^(^analyzer.stack[^analyzer.stackIndex - 1]).out);
+				stof(^(^analyzer.stack[^analyzer.stackIndex - 2]).out, f1);
+				stof(^(^analyzer.stack[^analyzer.stackIndex - 1]).out, f2);
+				f = f1 + f2;
 			else 
 				# E -> T - E;
-				f = stof(^(^analyzer.stack[^analyzer.stackIndex - 2]).out) -
-					stof(^(^analyzer.stack[^analyzer.stackIndex - 1]).out);
+				stof(^(^analyzer.stack[^analyzer.stackIndex - 2]).out, f1);
+				stof(^(^analyzer.stack[^analyzer.stackIndex - 1]).out, f2);
+				f = f1 - f2;
 			done 
 
 			ftos(^(^analyzer.stack[^analyzer.stackIndex - 2]).out, f);
@@ -233,7 +235,7 @@ def ADR_E(^ADR analyzer) => Bool {
 
 def ADR_T(^ADR analyzer) => Bool {
 	let String la = ADR_LA(analyzer);
-	let Float f;
+	let Float f, f1, f2;
 
 	if ('0' <= la[0] && la[0] <= '9') || ('a' <= la[0] && la[0] <= 'z') || strcmp(la, "(") == 0 then 
 		# T -> N
@@ -261,16 +263,19 @@ def ADR_T(^ADR analyzer) => Bool {
 
 			if strcmp(la, "+") == 0 then 
 				# T -> N * T
-				f = stof(^(^analyzer.stack[^analyzer.stackIndex - 2]).out) *
-					stof(^(^analyzer.stack[^analyzer.stackIndex - 1]).out);
+				stof(^(^analyzer.stack[^analyzer.stackIndex - 2]).out, f1);
+				stof(^(^analyzer.stack[^analyzer.stackIndex - 1]).out, f2);
+				f = f1 * f2;
 			else 
 				# T -> N / T;
-				if stof(^(^analyzer.stack[^analyzer.stackIndex - 1]).out) == 0 then 
+				stof(^(^analyzer.stack[^analyzer.stackIndex - 1]).out, f);
+				if f == 0 then 
 					print("No se puede dividir entre 0.");
 					return False;
 				done
-				f = stof(^(^analyzer.stack[^analyzer.stackIndex - 2]).out) /
-					stof(^(^analyzer.stack[^analyzer.stackIndex - 1]).out);
+				stof(^(^analyzer.stack[^analyzer.stackIndex - 2]).out, f1);
+				stof(^(^analyzer.stack[^analyzer.stackIndex - 1]).out, f2);
+				f = f1 / f2;
 			done 
 
 			ftos(^(^analyzer.stack[^analyzer.stackIndex - 2]).out, f);

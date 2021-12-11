@@ -42,7 +42,7 @@
 %token <str> I_ASSIGNW I_ASSIGNB I_ADD I_SUB I_MULT I_DIV I_MOD I_MINUS I_EQ I_NEQ I_LT 
 %token <str> I_LEQ I_GT I_GEQ I_GOTO I_GOIF I_GOIFNOT I_MALLOC I_MEMCPY  I_FREE I_PARAM 
 %token <str> I_CALL I_RETURN I_EXIT I_PRINTC I_PRINTI I_PRINTF I_PRINT I_READC I_READI
-%token <str> I_READF I_READ
+%token <str> I_READF I_READ I_FTOI I_ITOF I_OR I_AND
 %token OPEN_BRACKET CLOSE_BRACKET NL
 
 %token <integer>  INT
@@ -89,7 +89,7 @@
 
               if (! err) {
                 FlowGraph fg = FlowGraph(filtered_functions);
-                fg.print();
+                fg.prettyPrint();
               }
             }
           ;
@@ -172,6 +172,14 @@
             {
               current_function->instructions.push_back({*$1, *$2, {*$3}});
             }
+          | I_FTOI    ID Val
+            {
+              current_function->instructions.push_back({*$1, *$2, {*$3}});
+            }
+          | I_ITOF    ID Val
+            {
+              current_function->instructions.push_back({*$1, *$2, {*$3}});
+            }
           | I_EQ      ID Val Val
             {
               current_function->instructions.push_back({*$1, *$2, {*$3, *$4}});
@@ -193,6 +201,14 @@
               current_function->instructions.push_back({*$1, *$2, {*$3, *$4}});
             }
           | I_GEQ     ID Val Val
+            {
+              current_function->instructions.push_back({*$1, *$2, {*$3, *$4}});
+            }
+          | I_OR      ID Val Val
+            {
+              current_function->instructions.push_back({*$1, *$2, {*$3, *$4}});
+            }
+          | I_AND     ID Val Val
             {
               current_function->instructions.push_back({*$1, *$2, {*$3, *$4}});
             }
@@ -324,36 +340,30 @@
 
   Acc     : ID OPEN_BRACKET Val CLOSE_BRACKET
             {
-              string value = string(*$1 + "[" + *$3 + "]");
-              $$ = &value;
+              $$ = new string(*$1 + "[" + *$3 + "]");
             }
           ;
 
 
   Val     : TRUE
             {
-              string value = to_string($1);
-              $$ = &value;
+              $$ = new string(to_string($1));
             }
           | FALSE 
             {
-              string value = to_string($1);
-              $$ = &value;
+              $$ = new string(to_string($1));
             }
           | CHAR 
             {
-              string value = to_string($1);
-              $$ = &value;
+              $$ = new string(to_string($1));
             }
           | INT 
             {
-              string value = to_string($1);
-              $$ = &value;
+              $$ = new string(to_string($1));
             }
           | FLOAT 
             {
-              string value = to_string($1);
-              $$ = &value;
+              $$ = new string(to_string($1));
             }
           | ID 
             {

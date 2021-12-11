@@ -15,9 +15,10 @@ using namespace std;
 class TAC
 {
 private:
-    unsigned long long tempVarNumber = 0;
-    unsigned long long tempLabelNumber = 0;
-    unsigned long long tempFuncNumber = 0;
+    unsigned long long tempCount = 0;
+    unsigned long long tempFloatCount = 0;
+    unsigned long long labelCount = 0;
+    unsigned long long funcCount = 0;
     vector<pair<string, string>> strings;
     set<unsigned long long> numberLabels;
 
@@ -35,6 +36,7 @@ public:
     
     TAC() { }
     string newTemp();
+    string newFloat();
     string newLabel();
     string newFunc();
     string newStr(string str);
@@ -43,7 +45,15 @@ public:
     void backpatch(vector<unsigned long long> ps, unsigned long long l);
     void backpatch(vector<unsigned long long> ps, string l);
     void print(void);
-    void genTACinstr(string assign, string instr, string addrl, string addr1, string addr2);
+    void genTACinstr(
+        string assign, 
+        string instr, 
+        string addrl, 
+        string addr1, 
+        string addr2,
+        bool float1, 
+        bool float2
+    );
 };
 
 template <typename T>

@@ -20,7 +20,7 @@ def strcmp(String A, String B) => Int {
 	done
 }
 
-def strcpy(String A, String B) {
+def strcpy(String @A, String B) {
 	let Int n = strlen(B) + 1;
 	let Int i = 0;
 
@@ -30,7 +30,14 @@ def strcpy(String A, String B) {
 	done
 }
 
-def strconc(String[] S, Int N, String R) {
+def strrev(String @A, String B) {
+	let Int n = strlen(B);
+	for (i; 0; n) do 
+		A[n - i -1] = B[i];
+	done 
+}
+
+def strconc(String[] S, Int N, String @R) {
 	let Int i = 0, j = 0, k, n;
 	
 	while i < N do 
@@ -49,7 +56,7 @@ def strconc(String[] S, Int N, String R) {
 	R[j] = '\0';
 }
 
-def strtok(String S, String[] T, Char c) => Int {
+def strtok(String S, String[] @T, Char c) => Int {
 	let Int i = 0, j = 0, t = 0, N = strlen(S);
 	let Bool sep = True;
 
@@ -93,4 +100,117 @@ def isFloat(String S) => Bool {
 	done 
 
 	return dot && decimal;
+}
+
+def stoi(String S, Int @n) => Bool {
+	let Int digits = strlen(S), begin, pow;
+	n = 0;
+
+	if digits == 0 || (S[0] == '-' && digits == 1) then 
+		return False;
+	elsif S[0] == '-'  then 
+		pow = -1;
+		begin = 1;
+	else 
+		pow = 1;
+		begin = 0;
+	done
+
+	for (i; digits-1; begin-1; -1) do 
+		if S[i] < '0' || S[i] > '9' then 
+			n = 0;
+			return False;
+		done 
+
+		n = n + pow * (ctoi(S[i]) - ctoi('0'));
+		pow = pow * 10;
+	done
+
+	return True;
+}
+
+def stof(String S, Float f) => Bool {
+	let Int size = strlen(S);
+	let Char[size] int_str, decimal_str;
+	let Int begin, int, decimal_int;
+
+	let Int i = 0;
+	while S[i] != '.' && S[i] != '\0' do 
+		int_str[i] = S[i];
+		i = i + 1;
+	done 
+
+	if i == 0 then 
+		int = 0;
+	elsif ! stoi(int_str, int) then 
+		return False;
+	done 
+
+	if S[i] == '\0' then 
+		f = itof(int);
+		return True;
+	done 
+
+	i = i + 1;
+	begin = 0;
+	while S[i] != '\0' do
+		decimal_str[begin] = S[i];
+		i = i + 1;
+		begin = begin + 1;
+	done 
+
+	if begin == 0 then 
+		f = itof(int);
+		return True;
+	elsif ! stoi(decimal_str, decimal_int) then 
+		return False;
+	done 
+
+	f = itof(int) + itof(decimal_int) / (10 ** begin);
+	return True;
+}
+
+def itos(String @S, Int n) {
+	if n == 0 then
+		S[0] = '0';
+		S[1] = '\0';
+	done 
+
+	let Int n_aux, mod, index = 0;
+	let Char[strlen(S)] S_aux1, S_aux2;
+
+	if n < 0 then n_aux = -n;
+	else n_aux = n;
+	done 
+
+	while n_aux > 0 do 
+		S_aux1[index] = itoc(n_aux % 10 + ctoi('0'));
+		n_aux = n_aux / 10;
+	done 
+
+	strrev(S_aux2, S_aux1);
+	
+	if n < 0 then 
+		strconc(["-", S_aux2], 2, S);
+	else 
+		strcpy(S, S_aux2);
+	done 
+}
+
+def ftos(String @S, Float f) {
+	let Int integer, decimal_int;
+	let Float decimal;
+	let Char[strlen(S)] S_aux1, S_aux2;
+
+	integer = ftoi(f);
+	decimal = f - integer;
+
+	while decimal != ftoi(decimal) do 
+		decimal = decimal * 10;
+	done 
+	decimal_int = ftoi(decimal);
+
+	itos(S_aux1, integer);
+	itos(S_aux2, decimal_int);
+	strconc([S_aux1, ".", S_aux2], 3, S);
 }

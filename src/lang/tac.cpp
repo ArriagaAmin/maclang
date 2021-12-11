@@ -2,22 +2,29 @@
 
 string TAC::newTemp()
 {
-    string temp = "T" + to_string(tempVarNumber);
-    tempVarNumber++;
+    string temp = "T" + to_string(tempCount);
+    tempCount++;
+    return temp;
+}
+
+string TAC::newFloat()
+{
+    string temp = "f" + to_string(tempFloatCount);
+    tempFloatCount++;
     return temp;
 }
 
 string TAC::newLabel()
 {
-    string temp = "L" + to_string(tempLabelNumber);
-    tempLabelNumber++;
+    string temp = "L" + to_string(labelCount);
+    labelCount++;
     return temp;
 }
 
 string TAC::newFunc()
 {
-    string temp = "F" + to_string(tempFuncNumber);
-    tempFuncNumber++;
+    string temp = "Function" + to_string(funcCount);
+    funcCount++;
     return temp;
 }
 
@@ -84,22 +91,42 @@ void TAC::print(void) {
     }
 }
 
-void TAC::genTACinstr(string assign, string instr, string addrl, string addr1, string addr2) {
+void TAC::genTACinstr(
+    string assign, 
+    string instr, 
+    string addrl, 
+    string addr1, 
+    string addr2,
+    bool float1,
+    bool float2
+) {
     string addr1_aux, addr2_aux;
 
     if (addr1.back() == ']') {
-        addr1_aux = this->newTemp();
+        if (float1) {
+            addr1_aux = this->newFloat();
+        }
+        else {
+            addr1_aux = this->newTemp();
+        }
         this->gen(assign + " " + addr1_aux + " " + addr1);
     }
     else {
         addr1_aux = addr1;
     }
+
     if (addr2.back() == ']') {
-        addr2_aux = this->newTemp();
+        if (float2) {
+            addr2_aux = this->newFloat();
+        }
+        else {
+            addr2_aux = this->newTemp();
+        }
         this->gen(assign + " " + addr2_aux + " " + addr2);
     }
     else {
         addr2_aux = addr2;
     }
+
     this->gen(instr + " " + addrl + " " + addr1_aux + " " + addr2_aux);
 }

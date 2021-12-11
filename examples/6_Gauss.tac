@@ -1,28 +1,13 @@
 @string S0 "0000\n"
 @string S1 "0000-"
 @string S2 "0000."
-@string S3 "0000Desea organizar los peroles? [Y\n] "
+@string S3 "0000Desea resolver un sistema de ecuaciones? [Y/n] "
 @string S4 "0000Hasta luego!"
-@string S5 "0000Indique el numero de peroles a organizar: "
-@string S6 "0000No se pueden organizar mas de 20 peroles."
-@string S7 "0000Indique el tipo del perol: "
-@string S8 "00001. Booleano"
-@string S9 "00002. Caracter"
-@string S10 "00003. Entero"
-@string S11 "00004. De punto flotante"
-@string S12 "0000El valor del perol es True? [Y/n] "
-@string S13 "0000Indique el caracter: "
-@string S14 "0000Indique el entero: "
-@string S15 "0000Indique el flotante: "
-@string S16 "0000Tipo invalido"
-@string S17 "0000%cImprimimos los peroles ordenados:"
-@string S18 "0000BOOL: "
-@string S19 "0000"
-@string S20 "0000True"
-@string S21 "0000False"
-@string S22 "0000CHAR: %c"
-@string S23 "0000INT: %i"
-@string S24 "0000FLOAT: %f"
+@string S5 "0000Indique el numero de ecuaciones. Debe ser entre 1 y 10: "
+@string S6 "0000Indique los %i coeficientes flotantes de la %i-esima ecuacion:"
+@string S7 "0000El valor de las variables es: "
+@string S8 "0000X%i = %f"
+@string S9 "0000El sistema de ecuaciones no tiene solucion."
 assignw NULL 0
 assignw T0 1
 @function READ 4
@@ -1480,774 +1465,717 @@ call T608 Function4 3
 assignw lastbase BASE
 return 0
 @endfunction 32
-assignw T610 20
-assignw T612 T610
-assignw T613 8
-mult T613 T613 T612
-add T613 T613 4
-malloc T611 T613
-assignw T611[0] T612
+assignw T611 10
+assignw T612 11
+assignw T614 T612
+assignw T615 4
+mult T615 T615 T614
+add T615 T615 4
+malloc T613 T615
+assignw T613[0] T614
 @label L44
-sub T613 T613 8
-lt test T613 0
+sub T615 T615 4
+lt test T615 0
 goif L44_end test
-assignw T614 T611[T613]
-malloc T614 8
-assignw T614[0] T614
-assignw T615 T614[4]
-malloc T615 4
-assignw T615[0] T615
+assignw T616 T611
+assignw T617 T613[T615]
+assignw T618 4
+mult T618 T618 T616
+add T618 T618 4
+malloc T617 T618
+assignw T617[0] T616
+assignw T617[0] T617
 goto L44
 @label L44_end
 @label L45
-goto B1386
-@label B1386
-assignw S3[0] 35
-param T620 0
-assignw T620[0] S3
-param T621 4
-assignw T621[0] 0
-param T622 8
-assignw T622[0] 0
-param T623 12
+goto B1389
+@label B1389
+assignw S3[0] 47
+param T622 0
+assignw T622[0] S3
+param T623 4
 assignw T623[0] 0
-param T624 16
+param T624 8
 assignw T624[0] 0
-param T625 20
-assignw T625[0] S0
-call T626 PRINT 6
-call T627 READC 0
-assignb T618 T627
+param T625 12
+assignw T625[0] 0
+param T626 16
+assignw T626[0] 0
+param T627 20
+assignw T627[0] S0
+call T628 PRINT 6
+call T629 READC 0
+assignb T620 T629
 @label L46
-assignb T628 110
-eq test T618 T628
-goif B1412 test
-goto B1407
-@label B1407
+assignb T630 110
+eq test T620 T630
+goif B1415 test
+goto B1410
+@label B1410
 @label L47
-assignb T629 78
-eq test T618 T629
-goif B1412 test
-goto B1428
-@label B1412
+assignb T631 78
+eq test T620 T631
+goif B1415 test
+goto B1431
+@label B1415
 assignw S4[0] 12
-param T631 0
-assignw T631[0] S4
-param T632 4
-assignw T632[0] 0
-param T633 8
-assignw T633[0] 0
-param T634 12
+param T633 0
+assignw T633[0] S4
+param T634 4
 assignw T634[0] 0
-param T635 16
+param T635 8
 assignw T635[0] 0
-param T636 20
-assignw T636[0] S0
-call T637 PRINT 6
-goto B1937
-goto B1428
-@label B1428
-assignw S5[0] 42
-param T639 0
-assignw T639[0] S5
-param T640 4
-assignw T640[0] 0
-param T641 8
-assignw T641[0] 0
-param T642 12
+param T636 12
+assignw T636[0] 0
+param T637 16
+assignw T637[0] 0
+param T638 20
+assignw T638[0] S0
+call T639 PRINT 6
+goto B1639
+goto B1431
+@label B1431
+assignw S5[0] 56
+param T641 0
+assignw T641[0] S5
+param T642 4
 assignw T642[0] 0
-param T643 16
+param T643 8
 assignw T643[0] 0
-param T644 20
-assignw T644[0] S0
-call T645 PRINT 6
-call T646 READI 0
-assignw T616 T646
-assignw T647 20
-gt test T616 T647
-goif B1448 test
-goto B1464
-@label B1448
-assignw S6[0] 41
-param T649 0
-assignw T649[0] S6
-param T650 4
-assignw T650[0] 0
-param T651 8
-assignw T651[0] 0
-param T652 12
-assignw T652[0] 0
-param T653 16
-assignw T653[0] 0
-param T654 20
-assignw T654[0] S0
-call T655 PRINT 6
-goto L45
-goto B1464
-@label B1464
-assignw T656 0
-assignw T617 T656
+param T644 12
+assignw T644[0] 0
+param T645 16
+assignw T645[0] 0
+param T646 20
+assignw T646[0] S0
+call T647 PRINT 6
+call T648 READI 0
+assignw T619 T648
+assignw T649 0
+assignw T651 T649
 @label L48
-lt test T617 T616
-goif B1470 test
-goto B1691
-@label B1470
-assignw S7[0] 27
-param T658 0
-assignw T658[0] S7
-param T659 4
-assignw T659[0] 0
-param T660 8
+geq test T651 T619
+goif L48_end test
+assignw T650 T651
+assignw S6[0] 62
+assignw T653 1
+add T654 T619 T653
+assignw T655 2
+assignw T657 T655
+assignw T658 4
+mult T658 T658 T657
+add T658 T658 4
+malloc T656 T658
+assignw T656[0] T657
+assignw T656[8] T650
+assignw T656[4] T654
+param T659 0
+assignw T659[0] S6
+param T660 4
 assignw T660[0] 0
-param T661 12
-assignw T661[0] 0
-param T662 16
-assignw T662[0] 0
-param T663 20
-assignw T663[0] S0
-call T664 PRINT 6
-assignw S8[0] 11
-param T666 0
-assignw T666[0] S8
-param T667 4
-assignw T667[0] 0
-param T668 8
-assignw T668[0] 0
-param T669 12
-assignw T669[0] 0
-param T670 16
-assignw T670[0] 0
-param T671 20
-assignw T671[0] S0
-call T672 PRINT 6
-assignw S9[0] 11
-param T674 0
-assignw T674[0] S9
-param T675 4
-assignw T675[0] 0
-param T676 8
-assignw T676[0] 0
-param T677 12
-assignw T677[0] 0
-param T678 16
-assignw T678[0] 0
-param T679 20
-assignw T679[0] S0
-call T680 PRINT 6
-assignw S10[0] 9
-param T682 0
-assignw T682[0] S10
-param T683 4
-assignw T683[0] 0
-param T684 8
-assignw T684[0] 0
-param T685 12
-assignw T685[0] 0
-param T686 16
-assignw T686[0] 0
-param T687 20
-assignw T687[0] S0
-call T688 PRINT 6
-assignw S11[0] 20
-param T690 0
-assignw T690[0] S11
-param T691 4
-assignw T691[0] 0
-param T692 8
-assignw T692[0] 0
-param T693 12
-assignw T693[0] 0
-param T694 16
-assignw T694[0] 0
-param T695 20
-assignw T695[0] S0
-call T696 PRINT 6
-call T697 READI 0
-assignw T616 T697
-mult T698 8 T617
-add T698 T698 4
-assignw T699 T611[T698]
-assignw T699[0] T616
+assignw T662 T656[0]
+assignw T663 4
+mult T663 T663 T662
+add T663 T663 4
+malloc T661 T663
+memcpy T661 T656 T663
+param T664 8
+assignw T664[0] T661
+param T665 12
+assignw T665[0] 0
+param T666 16
+assignw T666[0] 0
+param T667 20
+assignw T667[0] S0
+call T668 PRINT 6
+assignw T669 0
+assignw T670 1
+add T671 T619 T670
+assignw T673 T669
 @label L49
-assignw T700 1
-eq test T616 T700
-goif B1551 test
-goto B1592
-@label B1551
-assignw S12[0] 34
-param T702 0
-assignw T702[0] S12
-param T703 4
-assignw T703[0] 0
-param T704 8
-assignw T704[0] 0
-param T705 12
-assignw T705[0] 0
-param T706 16
-assignw T706[0] 0
-param T707 20
-assignw T707[0] S0
-call T708 PRINT 6
-@label L50
-call T709 READC 0
-eq test T618 T709
-goif B1570 test
-goto B1570
-@label B1570
-mult T710 8 T617
-add T710 T710 4
-assignw T711 T611[T710]
-assignw T712 T711[4]
-assignb T713 T712[0]
-
-
-@label L51
-assignb T714 110
-neq test T618 T714
-goif B1582 test
-goto B1589
-@label B1582
-@label L52
-assignb T715 78
-neq test T618 T715
-goif B1587 test
-goto B1589
-@label B1587
-assignb T712[0] True
-goto Bool1590
-@label B1589
-assignb T712[0] False
-@label Bool1590
-goto B1687
-@label B1592
-@label L53
-assignw T716 2
-eq test T616 T716
-goif B1597 test
-goto B1618
-@label B1597
-assignw S13[0] 21
-param T718 0
-assignw T718[0] S13
-param T719 4
-assignw T719[0] 0
-param T720 8
-assignw T720[0] 0
-param T721 12
-assignw T721[0] 0
-param T722 16
-assignw T722[0] 0
-param T723 20
-assignw T723[0] S0
-call T724 PRINT 6
-mult T725 8 T617
-add T725 T725 4
-assignw T726 T611[T725]
-assignw T727 T726[4]
-call T728 READC 0
-assignb T727[0] T728
-goto B1687
-@label B1618
-@label L54
-assignw T729 3
-eq test T616 T729
-goif B1623 test
-goto B1644
-@label B1623
-assignw S14[0] 19
-param T731 0
-assignw T731[0] S14
-param T732 4
-assignw T732[0] 0
-param T733 8
-assignw T733[0] 0
-param T734 12
-assignw T734[0] 0
-param T735 16
-assignw T735[0] 0
-param T736 20
-assignw T736[0] S0
-call T737 PRINT 6
-mult T738 8 T617
-add T738 T738 4
-assignw T739 T611[T738]
-assignw T740 T739[4]
-call T741 READI 0
-assignw T740[0] T741
-goto B1687
-@label B1644
-@label L55
-assignw T742 4
-eq test T616 T742
-goif B1649 test
-goto B1670
-@label B1649
-assignw S15[0] 21
-param T744 0
-assignw T744[0] S15
-param T745 4
-assignw T745[0] 0
-param T746 8
-assignw T746[0] 0
-param T747 12
-assignw T747[0] 0
-param T748 16
-assignw T748[0] 0
-param T749 20
-assignw T749[0] S0
-call T750 PRINT 6
-mult T751 8 T617
-add T751 T751 4
-assignw T752 T611[T751]
-assignw T753 T752[4]
+geq test T673 T671
+goif L49_end test
+assignw T672 T673
+mult T674 4 T650
+add T674 T674 4
+assignw T675 T613[T674]
+mult T676 4 T672
+add T676 T676 4
 call f17 READF 0
-assignw T753[0] f17
-goto B1687
-@label B1670
-assignw S16[0] 13
-param T755 0
-assignw T755[0] S16
-param T756 4
-assignw T756[0] 0
-param T757 8
-assignw T757[0] 0
-param T758 12
-assignw T758[0] 0
-param T759 16
-assignw T759[0] 0
-param T760 20
-assignw T760[0] S0
-call T761 PRINT 6
-assignw T762 1
-sub T763 T617 T762
-assignw T617 T763
-@label B1687
-assignw T764 1
-add T765 T617 T764
-assignw T617 T765
+assignw T675[T676] f17
+add T673 T673 1
+goto L49
+@label L49_end
+add T651 T651 1
 goto L48
-@label B1691
-assignw T767 T611[0]
-assignw T768 8
-mult T768 T768 T767
-add T768 T768 4
-malloc T766 T768
-assignw T769 T768
-@label L56
-sub T769 T769 8
-lt test T769 0
-goif L56_end test
-assignw T770 T766[T769]
-malloc T770 8
-assignw T770[0] T770
-assignw T771 T611[T769]
-memcpy T770 T771 8
-assignw T772 T770[4]
-malloc T772 4
-assignw T772[0] T772
-assignw T773 T771[4]
-memcpy T772 T773 4
-goto L56
-@label L56_end
-param T774 0
-assignw T774[0] T766
-param T775 4
-assignw T775[0] T616
-call T776 Function11  2
-assignw S17[0] 35
-assignb T778 10
-assignw T779 1
-assignw T781 T779
-assignw T782 1
-mult T782 T782 T781
-add T782 T782 4
-malloc T780 T782
-assignw T780[0] T781
-assignb T780[4] T778
-param T783 0
-assignw T783[0] S17
-assignw T785 T780[0]
-assignw T786 1
-mult T786 T786 T785
-add T786 T786 4
-malloc T784 T786
-memcpy T784 T780 T786
-param T787 4
-assignw T787[0] T784
-param T788 8
-assignw T788[0] 0
-param T789 12
-assignw T789[0] 0
-param T790 16
-assignw T790[0] 0
-param T791 20
-assignw T791[0] S0
-call T792 PRINT 6
-assignw T793 0
-assignw T795 T793
-@label L57
-geq test T795 T616
-goif L57_end test
-assignw T794 T795
-mult T796 8 T794
-add T796 T796 4
-assignw T797 T611[T796]
-@label L58
-assignw T798 1
-assignw T799 T797[0]
-eq test T799 T798
-goif B1762 test
-goto B1814
-@label B1762
-assignw S18[0] 6
-assignw S19[0] 0
-param T802 0
-assignw T802[0] S18
-param T803 4
-assignw T803[0] 0
-param T804 8
-assignw T804[0] 0
-param T805 12
-assignw T805[0] 0
-param T806 16
-assignw T806[0] 0
-param T807 20
-assignw T807[0] S19
-call T808 PRINT 6
-mult T809 8 T794
-add T809 T809 4
-assignw T810 T611[T809]
-assignw T811 T810[4]
-assignb T812 T811[0]
-goif B1784 T812
-goto B1799
-@label B1784
-assignw S20[0] 4
-param T814 0
-assignw T814[0] S20
-param T815 4
-assignw T815[0] 0
-param T816 8
-assignw T816[0] 0
-param T817 12
-assignw T817[0] 0
-param T818 16
-assignw T818[0] 0
-param T819 20
-assignw T819[0] S0
-call T820 PRINT 6
-goto B1799
-@label B1799
-assignw S21[0] 5
-param T822 0
-assignw T822[0] S21
-param T823 4
-assignw T823[0] 0
-param T824 8
-assignw T824[0] 0
-param T825 12
-assignw T825[0] 0
-param T826 16
-assignw T826[0] 0
-param T827 20
-assignw T827[0] S0
-call T828 PRINT 6
-goto B1933
-@label B1814
-mult T829 8 T794
-add T829 T829 4
-assignw T830 T611[T829]
-@label L59
-assignw T831 2
-assignw T832 T830[0]
-eq test T832 T831
-goif B1823 test
-goto B1857
-@label B1823
-assignw S22[0] 8
-mult T834 8 T794
-add T834 T834 4
-assignw T835 T611[T834]
-assignw T836 T835[4]
-assignw T837 1
-assignw T839 T837
-assignw T840 1
-mult T840 T840 T839
-add T840 T840 4
-malloc T838 T840
-assignw T838[0] T839
-assignb T841 T836[0]
-assignb T838[4] T841
-param T842 0
-assignw T842[0] S22
-assignw T844 T838[0]
-assignw T845 1
-mult T845 T845 T844
-add T845 T845 4
-malloc T843 T845
-memcpy T843 T838 T845
-param T846 4
-assignw T846[0] T843
-param T847 8
-assignw T847[0] 0
-param T848 12
-assignw T848[0] 0
-param T849 16
-assignw T849[0] 0
-param T850 20
-assignw T850[0] S0
-call T851 PRINT 6
-goto B1933
-@label B1857
-mult T852 8 T794
-add T852 T852 4
-assignw T853 T611[T852]
-@label L60
-assignw T854 3
-assignw T855 T853[0]
-eq test T855 T854
-goif B1866 test
-goto B1900
-@label B1866
-assignw S23[0] 7
-mult T857 8 T794
-add T857 T857 4
-assignw T858 T611[T857]
-assignw T859 T858[4]
-assignw T860 1
-assignw T862 T860
-assignw T863 4
-mult T863 T863 T862
-add T863 T863 4
-malloc T861 T863
-assignw T861[0] T862
-assignw T864 T859[0]
-assignw T861[4] T864
-param T865 0
-assignw T865[0] S23
-param T866 4
-assignw T866[0] 0
-assignw T868 T861[0]
-assignw T869 4
-mult T869 T869 T868
-add T869 T869 4
-malloc T867 T869
-memcpy T867 T861 T869
-param T870 8
-assignw T870[0] T867
-param T871 12
-assignw T871[0] 0
-param T872 16
-assignw T872[0] 0
-param T873 20
-assignw T873[0] S0
-call T874 PRINT 6
-goto B1933
-@label B1900
-assignw S24[0] 9
-mult T876 8 T794
-add T876 T876 4
-assignw T877 T611[T876]
-assignw T878 T877[4]
-assignw T879 1
-assignw T881 T879
-assignw T882 4
-mult T882 T882 T881
-add T882 T882 4
-malloc T880 T882
-assignw T880[0] T881
-assignw f18 T878[0]
-assignw T880[4] f18
-param T883 0
-assignw T883[0] S24
-param T884 4
-assignw T884[0] 0
-param T885 8
-assignw T885[0] 0
-assignw T887 T880[0]
-assignw T888 4
-mult T888 T888 T887
-add T888 T888 4
-malloc T886 T888
-memcpy T886 T880 T888
-param T889 12
-assignw T889[0] T886
-param T890 16
-assignw T890[0] 0
-param T891 20
-assignw T891[0] S0
-call T892 PRINT 6
-@label B1933
-add T795 T795 1
-goto L57
-@label L57_end
+@label L48_end
+assignw T678 T613[0]
+assignw T679 4
+mult T679 T679 T678
+add T679 T679 4
+malloc T677 T679
+assignw T680 T679
+@label L50
+sub T680 T680 4
+lt test T680 0
+goif L50_end test
+assignw T681 T613[T680]
+assignw T682 T677[T680]
+assignw T683 T681[0]
+assignw T684 4
+mult T684 T684 T683
+add T684 T684 4
+malloc T682 T684
+assignw T682[0] T682
+memcpy T682 T681 T684
+goto L50
+@label L50_end
+param T685 0
+assignw T685[0] T677
+param T686 4
+assignw T686[0] T619
+call T687 Function14  2
+goif B1533 T687
+goto B1605
+@label B1533
+assignw S7[0] 30
+param T689 0
+assignw T689[0] S7
+param T690 4
+assignw T690[0] 0
+param T691 8
+assignw T691[0] 0
+param T692 12
+assignw T692[0] 0
+param T693 16
+assignw T693[0] 0
+param T694 20
+assignw T694[0] S0
+call T695 PRINT 6
+assignw T696 0
+assignw T698 T696
+@label L51
+geq test T698 T619
+goif L51_end test
+assignw T697 T698
+assignw S8[0] 8
+assignw T700 1
+assignw T702 T700
+assignw T703 4
+mult T703 T703 T702
+add T703 T703 4
+malloc T701 T703
+assignw T701[0] T702
+assignw T701[4] T697
+mult T704 4 T697
+add T704 T704 4
+assignw T705 T613[T704]
+mult T706 4 T619
+add T706 T706 4
+assignw T707 1
+assignw T709 T707
+assignw T710 4
+mult T710 T710 T709
+add T710 T710 4
+malloc T708 T710
+assignw T708[0] T709
+assignw f18 T705[T706]
+assignw T708[4] f18
+param T711 0
+assignw T711[0] S8
+param T712 4
+assignw T712[0] 0
+assignw T714 T701[0]
+assignw T715 4
+mult T715 T715 T714
+add T715 T715 4
+malloc T713 T715
+memcpy T713 T701 T715
+param T716 8
+assignw T716[0] T713
+assignw T718 T708[0]
+assignw T719 4
+mult T719 T719 T718
+add T719 T719 4
+malloc T717 T719
+memcpy T717 T708 T719
+param T720 12
+assignw T720[0] T717
+param T721 16
+assignw T721[0] 0
+param T722 20
+assignw T722[0] S0
+call T723 PRINT 6
+add T698 T698 1
+goto L51
+@label L51_end
+goto B1619
+@label B1605
+assignw S9[0] 43
+param T725 0
+assignw T725[0] S9
+param T726 4
+assignw T726[0] 0
+param T727 8
+assignw T727[0] 0
+param T728 12
+assignw T728[0] 0
+param T729 16
+assignw T729[0] 0
+param T730 20
+assignw T730[0] S0
+call T731 PRINT 6
+@label B1619
+assignw T733 T32[0]
+assignw T734 1
+mult T734 T734 T733
+add T734 T734 4
+malloc T732 T734
+memcpy T732 T32 T734
+param T735 0
+assignw T735[0] T732
+param T736 4
+assignw T736[0] 0
+param T737 8
+assignw T737[0] 0
+param T738 12
+assignw T738[0] 0
+param T739 16
+assignw T739[0] 0
+param T740 20
+assignw T740[0] S0
+call T741 PRINT 6
 goto L45
-@label B1937
-@function Function11 24
-assignw T894 0
-assignw T895 0
-assignw T896 1
-assignw T898 BASE[4]
-sub T897 T898 T896
-assignw BASE[8] T894
-assignw BASE[12] T895
-assignw BASE[16] T897
-assignw T899 BASE[20]
-malloc T899 8
-assignw T899[0] T899
-assignw T900 T899[4]
-malloc T900 4
-assignw T900[0] T900
-@label L61
-assignw T901 BASE[12]
-assignw T902 BASE[16]
-leq test T901 T902
-goif B1958 test
-goto B2043
-@label B1958
-assignw T903 BASE[0]
-assignw T904 BASE[12]
-mult T905 8 T904
-add T905 T905 4
-assignw T906 T903[T905]
-@label L62
-assignw T907 1
-assignw T908 T906[0]
-eq test T908 T907
-goif B1969 test
-goto B2000
-@label B1969
-assignw T909 BASE[0]
-assignw T910 BASE[12]
-mult T911 8 T910
-add T911 T911 4
-assignw T912 T909[T911]
-assignw BASE[20] T912
-assignw T913 BASE[0]
-assignw T914 BASE[12]
-mult T915 8 T914
-add T915 T915 4
-assignw T916 BASE[0]
-assignw T917 BASE[8]
-mult T918 8 T917
-add T918 T918 4
-assignw T919 T916[T918]
-assignw T913[T915] T919
-assignw T920 BASE[0]
-assignw T921 BASE[8]
-mult T922 8 T921
-add T922 T922 4
-assignw T923 BASE[20]
-assignw T920[T922] T923
-assignw T924 1
-assignw T926 BASE[8]
-add T925 T926 T924
-assignw BASE[8] T925
-assignw T927 1
-assignw T929 BASE[12]
-add T928 T929 T927
-assignw BASE[12] T928
-goto L61
-@label B2000
-assignw T930 BASE[0]
-assignw T931 BASE[12]
-mult T932 8 T931
-add T932 T932 4
-assignw T933 T930[T932]
-@label L63
-assignw T934 4
-assignw T935 T933[0]
-eq test T935 T934
-goif B2011 test
-goto B2038
-@label B2011
-assignw T936 BASE[0]
-assignw T937 BASE[12]
-mult T938 8 T937
-add T938 T938 4
-assignw T939 T936[T938]
-assignw BASE[20] T939
-assignw T940 BASE[0]
-assignw T941 BASE[12]
-mult T942 8 T941
-add T942 T942 4
-assignw T943 BASE[0]
-assignw T944 BASE[16]
-mult T945 8 T944
-add T945 T945 4
-assignw T946 T943[T945]
-assignw T940[T942] T946
-assignw T947 BASE[0]
-assignw T948 BASE[16]
-mult T949 8 T948
-add T949 T949 4
-assignw T950 BASE[20]
-assignw T947[T949] T950
-assignw T951 1
-assignw T953 BASE[16]
-sub T952 T953 T951
-assignw BASE[16] T952
-goto L61
-@label B2038
-assignw T954 1
-assignw T956 BASE[12]
-add T955 T956 T954
-assignw BASE[12] T955
-goto L61
-@label B2043
-@label L64
-assignw T957 BASE[8]
-assignw T958 BASE[16]
-leq test T957 T958
-goif B2049 test
+@label B1639
+@function Function11 4
+assignw T742 0
+assignw f19 BASE[0]
+lt test f19 T742
+goif B1645 test
+goto B1650
+@label B1645
+assignw f21 BASE[0]
+minus f20 f21
+assignw lastbase BASE
+return f20
 goto Function11_end
-@label B2049
-assignw T959 BASE[0]
-assignw T960 BASE[8]
-mult T961 8 T960
-add T961 T961 4
-assignw T962 T959[T961]
-@label L65
-assignw T963 2
-assignw T964 T962[0]
-eq test T964 T963
-goif B2060 test
-goto B2065
-@label B2060
-assignw T965 1
-assignw T967 BASE[8]
-add T966 T967 T965
-assignw BASE[8] T966
-goto L64
-@label B2065
-assignw T968 BASE[0]
-assignw T969 BASE[8]
-mult T970 8 T969
-add T970 T970 4
-assignw T971 T968[T970]
-assignw BASE[20] T971
-assignw T972 BASE[0]
-assignw T973 BASE[8]
-mult T974 8 T973
-add T974 T974 4
-assignw T975 BASE[0]
-assignw T976 BASE[16]
-mult T977 8 T976
-add T977 T977 4
-assignw T978 T975[T977]
-assignw T972[T974] T978
-assignw T979 BASE[0]
-assignw T980 BASE[16]
-mult T981 8 T980
-add T981 T981 4
-assignw T982 BASE[20]
-assignw T979[T981] T982
-assignw T983 1
-assignw T985 BASE[16]
-sub T984 T985 T983
-assignw BASE[16] T984
-goto L64
+@label B1650
+assignw f22 BASE[0]
+assignw lastbase BASE
+return f22
 @label Function11_end
 assignw lastbase BASE
 return 0
+@endfunction 4
+@function Function12 24
+assignw T745 0
+assignw T746 BASE[0]
+mult T747 4 T745
+add T747 T747 4
+assignw T748 T746[T747]
+assignw T749 BASE[8]
+mult T750 4 T749
+add T750 T750 4
+assignw f23 T748[T750]
+param T751 0
+assignw T751[0] f23
+call f24 Function11 1
+assignw BASE[12] f24
+assignw T752 0
+assignw BASE[16] T752
+assignw T753 1
+assignw T755 T753
+@label L52
+assignw T756 BASE[4]
+geq test T755 T756
+goif L52_end test
+assignw T754 T755
+assignw T757 BASE[0]
+assignw T758 BASE[20]
+mult T759 4 T758
+add T759 T759 4
+assignw T760 T757[T759]
+assignw T761 BASE[8]
+mult T762 4 T761
+add T762 T762 4
+assignw f25 T760[T762]
+param T763 0
+assignw T763[0] f25
+call f26 Function11 1
+assignw f27 BASE[12]
+gt test f26 f27
+goif B1696 test
+goto B1712
+@label B1696
+assignw T764 BASE[0]
+assignw T765 BASE[20]
+mult T766 4 T765
+add T766 T766 4
+assignw T767 T764[T766]
+assignw T768 BASE[8]
+mult T769 4 T768
+add T769 T769 4
+assignw f28 T767[T769]
+param T770 0
+assignw T770[0] f28
+call f29 Function11 1
+assignw BASE[12] f29
+assignw T771 BASE[20]
+assignw BASE[16] T771
+goto B1712
+@label B1712
+add T755 T755 1
+goto L52
+@label L52_end
+assignw T772 BASE[16]
+assignw lastbase BASE
+return T772
+@label Function12_end
+assignw lastbase BASE
+return 0
 @endfunction 24
+@function Function13 24
+assignw T775 0
+assignw T777 T775
+@label L53
+assignw T778 BASE[4]
+geq test T777 T778
+goif L53_end test
+assignw T776 T777
+assignw T779 BASE[0]
+assignw T780 BASE[8]
+mult T781 4 T780
+add T781 T781 4
+assignw T782 T779[T781]
+assignw T783 BASE[20]
+mult T784 4 T783
+add T784 T784 4
+assignw f30 T782[T784]
+assignw BASE[16] f30
+assignw T785 BASE[0]
+assignw T786 BASE[8]
+mult T787 4 T786
+add T787 T787 4
+assignw T788 T785[T787]
+assignw T789 BASE[20]
+mult T790 4 T789
+add T790 T790 4
+assignw T791 BASE[0]
+assignw T792 BASE[12]
+mult T793 4 T792
+add T793 T793 4
+assignw T794 T791[T793]
+assignw T795 BASE[20]
+mult T796 4 T795
+add T796 T796 4
+assignw f31 T794[T796]
+assignw T788[T790] f31
+assignw T797 BASE[0]
+assignw T798 BASE[12]
+mult T799 4 T798
+add T799 T799 4
+assignw T800 T797[T799]
+assignw T801 BASE[20]
+mult T802 4 T801
+add T802 T802 4
+assignw f32 BASE[16]
+assignw T800[T802] f32
+add T777 T777 1
+goto L53
+@label L53_end
+@label Function13_end
+assignw lastbase BASE
+return 0
+@endfunction 24
+@function Function14 36
+assignw T805 0
+assignw T807 T805
+@label L54
+assignw T808 BASE[4]
+geq test T807 T808
+goif L54_end test
+assignw T806 T807
+assignw T810 BASE[0]
+assignw T811 T810[0]
+assignw T812 4
+mult T812 T812 T811
+add T812 T812 4
+malloc T809 T812
+assignw T813 T812
+@label L55
+sub T813 T813 4
+lt test T813 0
+goif L55_end test
+assignw T814 T810[T813]
+assignw T815 T809[T813]
+assignw T816 T814[0]
+assignw T817 4
+mult T817 T817 T816
+add T817 T817 4
+malloc T815 T817
+assignw T815[0] T815
+memcpy T815 T814 T817
+goto L55
+@label L55_end
+param T818 0
+assignw T818[0] T809
+assignw T819 BASE[4]
+param T820 4
+assignw T820[0] T819
+assignw T821 BASE[16]
+param T822 8
+assignw T822[0] T821
+call T823 Function12 3
+assignw BASE[8] T823
+assignw T824 BASE[0]
+assignw T825 BASE[8]
+mult T826 4 T825
+add T826 T826 4
+assignw T827 T824[T826]
+assignw T828 BASE[16]
+mult T829 4 T828
+add T829 T829 4
+@label L56
+assignw T830 0
+assignw T831 T827[T829]
+eq test T831 T830
+goif B1829 test
+goto B1837
+@label B1829
+goto B1832
+assignb T832 True
+goto Bool1833
+@label B1832
+assignb T832 False
+@label Bool1833
+assignw lastbase BASE
+return T832
+goto B1837
+@label B1837
+assignw T833 1
+assignw T835 BASE[4]
+add T834 T835 T833
+assignw T837 BASE[0]
+assignw T838 T837[0]
+assignw T839 4
+mult T839 T839 T838
+add T839 T839 4
+malloc T836 T839
+assignw T840 T839
+@label L57
+sub T840 T840 4
+lt test T840 0
+goif L57_end test
+assignw T841 T837[T840]
+assignw T842 T836[T840]
+assignw T843 T841[0]
+assignw T844 4
+mult T844 T844 T843
+add T844 T844 4
+malloc T842 T844
+assignw T842[0] T842
+memcpy T842 T841 T844
+goto L57
+@label L57_end
+param T845 0
+assignw T845[0] T836
+param T846 4
+assignw T846[0] T834
+assignw T847 BASE[16]
+param T848 8
+assignw T848[0] T847
+assignw T849 BASE[8]
+param T850 12
+assignw T850[0] T849
+call T851 Function13 4
+assignw T852 1
+assignw T854 BASE[16]
+add T853 T854 T852
+assignw T856 T853
+@label L58
+assignw T857 BASE[4]
+geq test T856 T857
+goif L58_end test
+assignw T855 T856
+assignw T858 BASE[0]
+assignw T859 BASE[20]
+mult T860 4 T859
+add T860 T860 4
+assignw T861 T858[T860]
+assignw T862 BASE[16]
+mult T863 4 T862
+add T863 T863 4
+assignw T864 BASE[0]
+assignw T865 BASE[16]
+mult T866 4 T865
+add T866 T866 4
+assignw T867 T864[T866]
+assignw T868 BASE[16]
+mult T869 4 T868
+add T869 T869 4
+assignw f34 T861[T863]
+assignw f35 T867[T869]
+div f33 f34 f35
+assignw BASE[12] f33
+assignw T870 1
+assignw T872 BASE[16]
+add T871 T872 T870
+assignw T873 1
+assignw T875 BASE[4]
+add T874 T875 T873
+assignw T877 T871
+@label L59
+geq test T877 T874
+goif L59_end test
+assignw T876 T877
+assignw T878 BASE[0]
+assignw T879 BASE[20]
+mult T880 4 T879
+add T880 T880 4
+assignw T881 T878[T880]
+assignw T882 BASE[24]
+mult T883 4 T882
+add T883 T883 4
+assignw T884 BASE[0]
+assignw T885 BASE[20]
+mult T886 4 T885
+add T886 T886 4
+assignw T887 T884[T886]
+assignw T888 BASE[24]
+mult T889 4 T888
+add T889 T889 4
+assignw T890 BASE[0]
+assignw T891 BASE[16]
+mult T892 4 T891
+add T892 T892 4
+assignw T893 T890[T892]
+assignw T894 BASE[24]
+mult T895 4 T894
+add T895 T895 4
+assignw f37 T893[T895]
+assignw f38 BASE[12]
+mult f36 f37 f38
+assignw f40 T887[T889]
+sub f39 f40 f36
+assignw T881[T883] f39
+add T877 T877 1
+goto L59
+@label L59_end
+add T856 T856 1
+goto L58
+@label L58_end
+add T807 T807 1
+goto L54
+@label L54_end
+assignw T896 1
+assignw T898 BASE[4]
+sub T897 T898 T896
+assignw T899 1
+minus T900 T899
+assignw T901 1
+minus T902 T901
+assignw T904 T897
+@label L60
+lt test T902 0
+goif L60_neg test
+geq test T904 T900
+goif L60_end test
+goto L60_body
+@label L60_neg
+leq test T904 T900
+goif L60_end test
+@label L60_body
+assignw T903 T904
+assignw T905 0
+assignw T907 T905
+@label L61
+assignw T908 BASE[28]
+geq test T907 T908
+goif L61_end test
+assignw T906 T907
+assignw T909 BASE[0]
+assignw T910 BASE[32]
+mult T911 4 T910
+add T911 T911 4
+assignw T912 T909[T911]
+assignw T913 BASE[4]
+mult T914 4 T913
+add T914 T914 4
+assignw T915 BASE[0]
+assignw T916 BASE[32]
+mult T917 4 T916
+add T917 T917 4
+assignw T918 T915[T917]
+assignw T919 BASE[4]
+mult T920 4 T919
+add T920 T920 4
+assignw T921 BASE[0]
+assignw T922 BASE[28]
+mult T923 4 T922
+add T923 T923 4
+assignw T924 T921[T923]
+assignw T925 BASE[4]
+mult T926 4 T925
+add T926 T926 4
+assignw T927 BASE[0]
+assignw T928 BASE[32]
+mult T929 4 T928
+add T929 T929 4
+assignw T930 T927[T929]
+assignw T931 BASE[28]
+mult T932 4 T931
+add T932 T932 4
+assignw f42 T924[T926]
+assignw f43 T930[T932]
+mult f41 f42 f43
+assignw T933 BASE[0]
+assignw T934 BASE[28]
+mult T935 4 T934
+add T935 T935 4
+assignw T936 T933[T935]
+assignw T937 BASE[28]
+mult T938 4 T937
+add T938 T938 4
+assignw f45 T936[T938]
+div f44 f41 f45
+assignw f47 T918[T920]
+sub f46 f47 f44
+assignw T912[T914] f46
+add T907 T907 1
+goto L61
+@label L61_end
+assignw T939 BASE[0]
+assignw T940 BASE[28]
+mult T941 4 T940
+add T941 T941 4
+assignw T942 T939[T941]
+assignw T943 BASE[4]
+mult T944 4 T943
+add T944 T944 4
+assignw T945 BASE[0]
+assignw T946 BASE[28]
+mult T947 4 T946
+add T947 T947 4
+assignw T948 T945[T947]
+assignw T949 BASE[4]
+mult T950 4 T949
+add T950 T950 4
+assignw T951 BASE[0]
+assignw T952 BASE[28]
+mult T953 4 T952
+add T953 T953 4
+assignw T954 T951[T953]
+assignw T955 BASE[28]
+mult T956 4 T955
+add T956 T956 4
+assignw f49 T948[T950]
+assignw f50 T954[T956]
+div f48 f49 f50
+assignw T942[T944] f48
+add T904 T904 T902
+goto L60
+@label L60_end
+@label Function14_end
+assignw lastbase BASE
+return 0
+@endfunction 36
