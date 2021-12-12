@@ -58,7 +58,10 @@ const unordered_map<string, string> mips_instructions ({
     // .Data
     {"@string", ".asciiz"},
     {"word", ".word"},
-    {"byte", ".byte"}
+    {"byte", ".byte"},
+
+    // Syscalls
+    {"exit", "li  $v0, 10 \nsyscall"}
 });
 
 /*
@@ -81,14 +84,16 @@ la
 syscall
     */
 
-class T_Block
+class Translator
 {
 private:
-    vector<T_Instruction*> m_instructions;
+    vector<T_Instruction*> m_data_instructions;
+    FlowGraph* m_graph;
     unordered_map<string, vector<string>> m_registers;
     unordered_map<string, vector<string>> m_variables;
     vector<string> data;
     vector<string> text;
+    vector<string> functions;
     
     // Funciones para descriptores
     bool insertElementToDescriptor(unordered_map<string, vector<string>> &descriptors, string key, string element, bool replace = false);
@@ -97,28 +102,28 @@ private:
     string findOptimalLocation(string id);
     
     // Funciones para manejar registros
-    vector<string> getReg(T_Instruction instruction, bool is_copy = false);
+    vector<string> getReg(T_Instruction instruction, vector<string>& section, bool is_copy = false);
     vector<string> findFreeRegister();
-    string recycleRegister(T_Instruction instruction);
-    void selectRegister(string operand, T_Instruction instruction, vector<string> &regs, vector<string> &free_regs);
+    string recycleRegister(T_Instruction instruction, vector<string>& section);
+    void selectRegister(string operand, T_Instruction instruction, vector<string> &regs, vector<string> &free_regs, vector<string>& section);
+    void cleanRegistersDescriptor();
     
     // Funciones para actualizar descriptores
     bool assignment(string register_id, string variable_id, bool replace = false);
     bool availability(string variable_id, string location, bool replace = false);
 
     // Funciones para instrucciones
-    void translateInstruction(T_Instruction instruction);
+    void translateInstruction(T_Instruction instruction, vector<string>& section);
     void translateMetaIntruction(T_Instruction instruction);
-    void translateArithmeticOperation(T_Instruction instruction);
-    void translateLogicalOperation(T_Instruction instruction);
-    void translateOperationInstruction(T_Instruction instruction, bool is_copy = false);
+    void translateOperationInstruction(T_Instruction instruction, vector<string>& section, bool is_copy = false, int type = 0);
 
 public:
-    T_Block();
+    Translator();
     void translate();
     bool insertRegister(string id);
     bool insertVariable(string id);
     void insertInstruction(T_Instruction* instruction);
+    void insertFlowGraph(FlowGraph* graph);
     vector<string> getRegisterDescriptor(string id);
     vector<string> getVariableDescriptor(string id);
     void print();

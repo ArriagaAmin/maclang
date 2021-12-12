@@ -143,7 +143,7 @@ uint64_t FlowGraph::makeSubGraph(T_Function *function, uint64_t init_id) {
             // Agregamos el arco y su inverso hacia el bloque de salto.
             this->insertArc(u->id, other_id);
         }
-        else if (u->block.back().id == "goif") {
+        else if (u->block.back().id == "goif" || u->block.back().id == "goifnot") {
             // Obtenemos el ID del bloque al que se realiza el salto.
             instr_line = function->labels2instr[u->block.back().result];
             other_id = getIndexLeader(instr_line, function->vec_leaders) + init_id;
