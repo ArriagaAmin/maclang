@@ -21,7 +21,7 @@
   set<string> calls;
   bool err = false;
 
-  T_Block *CB;
+  Translator *CB;
 %}
 
 %define parse.lac full
@@ -91,6 +91,11 @@
                 FlowGraph *fg = new FlowGraph(filtered_functions);
                 map<uint64_t, vector<set<string>>> sets = fg->liveVariables();
                 fg->flowPrint<string>(sets);
+                cout << "Graph flow created" << endl;
+                CB->insertFlowGraph(fg);
+                //fg->prettyPrint();
+                CB->translate();
+                //CB->print();
               }
             }
           ;
@@ -128,7 +133,7 @@
 
           | MI_LABEL ID
             {
-              CB->insertInstruction(new T_Instruction{*$1, *$2, {}});
+              //CB->insertInstruction(new T_Instruction{*$1, *$2, {}});
               current_function->labels2instr[*$2] = current_function->instructions.size();
             }
           | I_ASSIGNW Acc Val
@@ -137,7 +142,7 @@
             }
           | I_ASSIGNW ID RVal
             { 
-              CB->insertInstruction(new T_Instruction{*$1, *$2, {*$3}});
+              //CB->insertInstruction(new T_Instruction{*$1, *$2, {*$3}});
               current_function->instructions.push_back({*$1, *$2, {*$3}});
             }
           | I_ASSIGNB Acc Val
@@ -150,7 +155,7 @@
             }
           | I_ADD     ID Val Val
             {
-              CB->insertInstruction(new T_Instruction{*$1, *$2, {*$3, *$4}});
+              //CB->insertInstruction(new T_Instruction{*$1, *$2, {*$3, *$4}});
               current_function->instructions.push_back({*$1, *$2, {*$3, *$4}});
             }
           | I_SUB     ID Val Val
@@ -406,7 +411,7 @@ int main(int argc, char **argv) {
   // reset lines and columns
   yylineno = 1; 
 
-  CB = new T_Block;
+  CB = new Translator;
 
   // start parsing
   global->id = 0;
