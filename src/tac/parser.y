@@ -4,9 +4,9 @@
   #include <cstring>
   #include <set>
 
+  #include "FlowGraph.hpp"
   #include "translate.hpp"
   #include "errors.hpp"
-  #include "FlowGraph.hpp"
 
   using namespace std;
 
@@ -88,8 +88,9 @@
               }
 
               if (! err) {
-                FlowGraph fg = FlowGraph(filtered_functions);
-                fg.prettyPrint();
+                FlowGraph *fg = new FlowGraph(filtered_functions);
+                map<uint64_t, vector<set<string>>> sets = fg->liveVariables();
+                fg->flowPrint<string>(sets);
               }
             }
           ;
@@ -245,6 +246,7 @@
           | I_EXIT    Val
             {
               current_function->instructions.push_back({*$1, *$2, {}});
+              current_function->leaders.insert(current_function->instructions.size());
             }
           | I_PARAM   ID Val
             {
@@ -258,6 +260,7 @@
           | I_CALL    ID ID INT
             {
               current_function->instructions.push_back({*$1, *$2, {*$3, to_string($4)}});
+              current_function->leaders.insert(current_function->instructions.size());
               calls.insert(*$3);
             }
           | I_PRINTC  Val
