@@ -63,9 +63,15 @@ void FlowNode::print(void) {
         cout << "@label " << name << "\n";
     }
     for (T_Instruction instr : this->block) {
-        cout << "    " << instr.id << " " << instr.result << " ";
-        for (string operand : instr.operands) {
-            cout << operand << " ";
+        cout << "    " << instr.id << " " << instr.result.name << " ";
+        if(instr.result.is_acc)
+            cout << "[" << instr.result.acc << "]";
+        cout << " ";
+        for (T_Variable operand : instr.operands) {
+            cout << operand.name;
+            if(operand.is_acc)
+                cout << "[" << operand.acc << "]";
+            cout << " ";
         }
         cout << "\n";
     }
@@ -85,10 +91,15 @@ void FlowNode::prettyPrint(void) {
         space = string(max_instr.size() - instr.id.size() + 1, ' ');
         
         cout << "    \033[3m" << instr.id << "\033[0m" 
-            << space << instr.result << " ";
-
-        for (string operand : instr.operands) {
-            cout << operand << " ";
+            << space << instr.result.name << " ";
+        if(instr.result.is_acc)
+            cout << "[" << instr.result.acc << "]";
+        cout << " ";
+        for (T_Variable operand : instr.operands) {
+            cout << operand.name << " ";
+            if(operand.is_acc)
+                cout << "[" << operand.acc << "]";
+            cout << " ";
         }
         cout << "\n";
     }
@@ -136,18 +147,18 @@ uint64_t FlowGraph::makeSubGraph(T_Function *function, uint64_t init_id) {
 
         if (u->block.back().id == "goto") {
             // Obtenemos el ID del bloque al que se realiza el salto.
-            instr_line = function->labels2instr[u->block.back().result];
+            instr_line = function->labels2instr[u->block.back().result.name];
             other_id = getIndexLeader(instr_line, function->vec_leaders) + init_id;
-            u->block.back().result = this->V[other_id]->getName();
+            u->block.back().result.name = this->V[other_id]->getName();
 
             // Agregamos el arco y su inverso hacia el bloque de salto.
             this->insertArc(u->id, other_id);
         }
         else if (u->block.back().id == "goif" || u->block.back().id == "goifnot") {
             // Obtenemos el ID del bloque al que se realiza el salto.
-            instr_line = function->labels2instr[u->block.back().result];
+            instr_line = function->labels2instr[u->block.back().result.name];
             other_id = getIndexLeader(instr_line, function->vec_leaders) + init_id;
-            u->block.back().result = this->V[other_id]->getName();
+            u->block.back().result.name = this->V[other_id]->getName();
 
             // Agregamos el arco y su inverso hacia el bloque de salto.
             this->insertArc(u->id, other_id);
@@ -195,7 +206,7 @@ FlowGraph::FlowGraph(vector<T_Function*> functions) {
     // Creamos el grafo global
     current_id = this->makeSubGraph(functions[0], 0);
     // Agregamos la instruccion para finalizar el programa al ultimo bloque.
-    this->V[current_id-1]->block.push_back({"exit", "0", {}});
+    this->V[current_id-1]->block.push_back({"exit", {"0", "", false}, {}});
 
     // Creamos el grafo de cada funcion
     map<string, uint64_t> function2block;
@@ -209,8 +220,8 @@ FlowGraph::FlowGraph(vector<T_Function*> functions) {
     for (pair<uint64_t, FlowNode*> n : this->V) {
         for (uint64_t i = 0; i < n.second->block.size(); i++) {
             if (n.second->block[i].id == "call") {
-                f = this->V[function2block[n.second->block[i].operands[0]]];
-                n.second->block[i].operands[0] = f->getName();
+                f = this->V[function2block[n.second->block[i].operands[0].name]];
+                n.second->block[i].operands[0].name = f->getName();
             }
         }
     }

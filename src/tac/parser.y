@@ -33,6 +33,7 @@
   bool         boolean;
   char         chr;
   std::string  *str;
+  T_Variable   *var;
 }
 
 %locations
@@ -53,7 +54,7 @@
 %token <boolean>  FALSE
 %token <str>      ID
 
-%type <str> T Val RVal Acc
+%type <var> Acc Val RVal
 
 %%
   S       : Data Text
@@ -105,11 +106,11 @@
   D       : 
             MI_STATICV ID INT NL 
             {
-              CB->insertInstruction(new T_Instruction{*$1, *$2, {to_string($3)}});
+              CB->insertInstruction(new T_Instruction{*$1, {*$2, "", false}, {{to_string($3), "", false}}});
             }
           | MI_STRING  ID STRING NL
             {
-              CB->insertInstruction(new T_Instruction{*$1, *$2, {*$3}});
+              CB->insertInstruction(new T_Instruction{*$1, {*$2, "", false}, {{*$3, "", false}}});
             }
           ;
 
@@ -141,7 +142,7 @@
           | I_ASSIGNW ID RVal
             { 
               //CB->insertInstruction(new T_Instruction{*$1, *$2, {*$3}});
-              current_function->instructions.push_back({*$1, *$2, {*$3}});
+              current_function->instructions.push_back({*$1, {*$2, "", false}, {*$3}});
             }
           | I_ASSIGNB Acc Val
             {
@@ -149,102 +150,102 @@
             }
           | I_ASSIGNB ID RVal
             {
-              current_function->instructions.push_back({*$1, *$2, {*$3}});
+              current_function->instructions.push_back({*$1, {*$2, "", false}, {*$3}});
             }
           | I_ADD     ID Val Val
             {
               //CB->insertInstruction(new T_Instruction{*$1, *$2, {*$3, *$4}});
-              current_function->instructions.push_back({*$1, *$2, {*$3, *$4}});
+              current_function->instructions.push_back({*$1, {*$2, "", false}, {*$3, *$4}});
             }
           | I_SUB     ID Val Val
             {
-              current_function->instructions.push_back({*$1, *$2, {*$3, *$4}});
+              current_function->instructions.push_back({*$1, {*$2, "", false}, {*$3, *$4}});
             }
           | I_MULT    ID Val Val
             {
-              current_function->instructions.push_back({*$1, *$2, {*$3, *$4}});
+              current_function->instructions.push_back({*$1, {*$2, "", false}, {*$3, *$4}});
             }
           | I_DIV     ID Val Val
             {
-              current_function->instructions.push_back({*$1, *$2, {*$3, *$4}});
+              current_function->instructions.push_back({*$1, {*$2, "", false}, {*$3, *$4}});
             }
           | I_MOD     ID Val Val
             {
-              current_function->instructions.push_back({*$1, *$2, {*$3, *$4}});
+              current_function->instructions.push_back({*$1, {*$2, "", false}, {*$3, *$4}});
             }
           | I_MINUS   ID Val
             {
-              current_function->instructions.push_back({*$1, *$2, {*$3}});
+              current_function->instructions.push_back({*$1, {*$2, "", false}, {*$3}});
             }
           | I_FTOI    ID Val
             {
-              current_function->instructions.push_back({*$1, *$2, {*$3}});
+              current_function->instructions.push_back({*$1, {*$2, "", false}, {*$3}});
             }
           | I_ITOF    ID Val
             {
-              current_function->instructions.push_back({*$1, *$2, {*$3}});
+              current_function->instructions.push_back({*$1, {*$2, "", false}, {*$3}});
             }
           | I_EQ      ID Val Val
             {
-              current_function->instructions.push_back({*$1, *$2, {*$3, *$4}});
+              current_function->instructions.push_back({*$1, {*$2, "", false}, {*$3, *$4}});
             }
           | I_NEQ     ID Val Val
             {
-              current_function->instructions.push_back({*$1, *$2, {*$3, *$4}});
+              current_function->instructions.push_back({*$1, {*$2, "", false}, {*$3, *$4}});
             }
           | I_LT      ID Val Val
             {
-              current_function->instructions.push_back({*$1, *$2, {*$3, *$4}});
+              current_function->instructions.push_back({*$1, {*$2, "", false}, {*$3, *$4}});
             }
           | I_LEQ     ID Val Val
             {
-              current_function->instructions.push_back({*$1, *$2, {*$3, *$4}});
+              current_function->instructions.push_back({*$1, {*$2, "", false}, {*$3, *$4}});
             }
           | I_GT      ID Val Val
             {
-              current_function->instructions.push_back({*$1, *$2, {*$3, *$4}});
+              current_function->instructions.push_back({*$1, {*$2, "", false}, {*$3, *$4}});
             }
           | I_GEQ     ID Val Val
             {
-              current_function->instructions.push_back({*$1, *$2, {*$3, *$4}});
+              current_function->instructions.push_back({*$1, {*$2, "", false}, {*$3, *$4}});
             }
           | I_OR      ID Val Val
             {
-              current_function->instructions.push_back({*$1, *$2, {*$3, *$4}});
+              current_function->instructions.push_back({*$1, {*$2, "", false}, {*$3, *$4}});
             }
           | I_AND     ID Val Val
             {
-              current_function->instructions.push_back({*$1, *$2, {*$3, *$4}});
+              current_function->instructions.push_back({*$1, {*$2, "", false}, {*$3, *$4}});
             }
           | I_GOTO    ID
             {
-              current_function->instructions.push_back({*$1, *$2, {}});
+              current_function->instructions.push_back({*$1, {*$2, "", false}, {}});
               current_function->leaders.insert(current_function->instructions.size());
               current_function->labels_leaders.insert(*$2);
             }
           | I_GOIF    ID Val
             {
-              current_function->instructions.push_back({*$1, *$2, {*$3}});
+              current_function->instructions.push_back({*$1, {*$2, "", false}, {*$3}});
               current_function->leaders.insert(current_function->instructions.size());
               current_function->labels_leaders.insert(*$2);
             }
           | I_GOIFNOT ID Val
             {
-              current_function->instructions.push_back({*$1, *$2, {*$3}});
+              current_function->instructions.push_back({*$1, {*$2, "", false}, {*$3}});
               current_function->leaders.insert(current_function->instructions.size());
               current_function->labels_leaders.insert(*$2);
             }
           | I_MALLOC  ID Val
             {
-              current_function->instructions.push_back({*$1, *$2, {*$3}});
+              current_function->instructions.push_back({*$1, {*$2, "", false}, {*$3}});
             }
           | I_MEMCPY  ID ID Val
             {
-              current_function->instructions.push_back({*$1, *$2, {*$3, *$4}});
+              current_function->instructions.push_back({*$1, {*$2, "", false}, {{*$3, "", false}, *$4}});
             }
           | I_FREE    ID
             {
-              current_function->instructions.push_back({*$1, *$2, {}});
+              current_function->instructions.push_back({*$1, {*$2, "", false}, {}});
             }
           | I_EXIT    Val
             {
@@ -252,7 +253,7 @@
             }
           | I_PARAM   ID Val
             {
-              current_function->instructions.push_back({*$1, *$2, {*$3}});
+              current_function->instructions.push_back({*$1, {*$2, "", false}, {*$3}});
             }
           | I_RETURN  Val
             {
@@ -261,7 +262,7 @@
             }
           | I_CALL    ID ID INT
             {
-              current_function->instructions.push_back({*$1, *$2, {*$3, to_string($4)}});
+              current_function->instructions.push_back({*$1, {*$2, "", false}, {{*$3, "", false}, {to_string($4), "", false}}});
               calls.insert(*$3);
             }
           | I_PRINTC  Val
@@ -278,23 +279,23 @@
             }
           | I_PRINT   ID
             {
-              current_function->instructions.push_back({*$1, *$2, {}});
+              current_function->instructions.push_back({*$1, {*$2, "", false}, {}});
             }
           | I_READC   ID
             {
-              current_function->instructions.push_back({*$1, *$2, {}});
+              current_function->instructions.push_back({*$1, {*$2, "", false}, {}});
             }
           | I_READI   ID
             {
-              current_function->instructions.push_back({*$1, *$2, {}});
+              current_function->instructions.push_back({*$1, {*$2, "", false}, {}});
             }
           | I_READF   ID
             {
-              current_function->instructions.push_back({*$1, *$2, {}});
+              current_function->instructions.push_back({*$1, {*$2, "", false}, {}});
             }
           | I_READ    ID
             {
-              current_function->instructions.push_back({*$1, *$2, {}});
+              current_function->instructions.push_back({*$1, {*$2, "", false}, {}});
             }
           ;
        
@@ -344,34 +345,41 @@
 
   Acc     : ID OPEN_BRACKET Val CLOSE_BRACKET
             {
-              $$ = new string(*$1 + "[" + *$3 + "]");
+              //$$ = new string(*$1 + "[" + *$3 + "]");
+              $$ = new T_Variable{*$1, (*$3).name, true};
             }
           ;
 
 
   Val     : TRUE
             {
-              $$ = new string(to_string($1));
+              //$$ = new string(to_string($1));
+              $$ = new T_Variable{"1", "",  false};
             }
           | FALSE 
             {
-              $$ = new string(to_string($1));
+              //$$ = new string(to_string($1));
+              $$ = new T_Variable{"0", "",  false};
             }
           | CHAR 
             {
-              $$ = new string(to_string($1));
+              //$$ = new string(to_string($1));
+              $$ = new T_Variable{to_string($1), "",  false};
             }
           | INT 
             {
-              $$ = new string(to_string($1));
+              //$$ = new string(to_string($1));
+              $$ = new T_Variable{to_string($1), "",  false};
             }
           | FLOAT 
             {
-              $$ = new string(to_string($1));
+              //$$ = new string(to_string($1));
+              $$ = new T_Variable{to_string($1), "",  false};
             }
           | ID 
             {
-              $$ = $1;
+              //$$ = $1;
+              $$ = new T_Variable{*$1, "",  false};
             }
           ;
 

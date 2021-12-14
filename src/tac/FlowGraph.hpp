@@ -8,11 +8,18 @@
 
 using namespace std;
 
+struct T_Variable
+{
+    string name;
+    string acc;
+    bool is_acc;
+};
+
 struct T_Instruction
 {
     string id;
-    string result;
-    vector<string> operands;
+    T_Variable result;
+    vector<T_Variable> operands;
 };
 
 struct T_Function

@@ -38,8 +38,7 @@ const unordered_map<string, string> mips_instructions ({
 
     // Saltos y accesos a memoria
     {"goto", "j"},
-    {"assignw", "move"},
-    {"assignb", "move"},
+    {"assign", "move"},
     {"goif", "bnez"},
     {"goifnot", "bez"},
     {"param", "sw"},
@@ -61,7 +60,16 @@ const unordered_map<string, string> mips_instructions ({
     {"byte", ".byte"},
 
     // Syscalls
-    {"exit", "li  $v0, 10 \nsyscall"}
+    {"exit", "li  $v0, 10 \nsyscall"},
+    {"printi", "li  $v0, 1 \nsyscall"},
+    {"printf", "li  $v0, 2 \nsyscall"},
+    {"printc", "li  $v0, 11 \nsyscall"},
+    {"print", "li  $v0, 4 \nsyscall"},
+    {"readi", "li  $v0, 5 \nsyscall"},
+    {"readf", "li  $v0, 6 \nsyscall"},
+    {"readc", "li  $v0, 12 \nsyscall"},
+    {"read", "li  $v0, 8 \nsyscall"}
+
 });
 
 /*
@@ -69,20 +77,9 @@ malloc ID Rval
 memcpy ID ID int
 free rval
 exit rval
-printi
-printf
-print
-printc
-read
-readi
-readf
-readc
 @fun_begin ID SIZE
 @fun_end SIZE
-li
-la
-syscall
-    */
+*/
 
 class Translator
 {
@@ -94,6 +91,9 @@ private:
     vector<string> data;
     vector<string> text;
     vector<string> functions;
+
+    // Helpers
+    bool is_number(const std::string &s); 
     
     // Funciones para descriptores
     bool insertElementToDescriptor(unordered_map<string, vector<string>> &descriptors, string key, string element, bool replace = false);
@@ -115,13 +115,13 @@ private:
     // Funciones para instrucciones
     void translateInstruction(T_Instruction instruction, vector<string>& section);
     void translateMetaIntruction(T_Instruction instruction);
-    void translateOperationInstruction(T_Instruction instruction, vector<string>& section, bool is_copy = false, int type = 0);
-
+    void translateOperationInstruction(T_Instruction instruction, vector<string>& section, bool is_copy = false, uint16_t type = 0);
+    void translateIOIntruction(T_Instruction instruction, vector<string>& section);
 public:
     Translator();
     void translate();
     bool insertRegister(string id);
-    bool insertVariable(string id);
+    bool insertVariable(string id, uint16_t type);
     void insertInstruction(T_Instruction* instruction);
     void insertFlowGraph(FlowGraph* graph);
     vector<string> getRegisterDescriptor(string id);

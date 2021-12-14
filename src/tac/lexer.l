@@ -7,6 +7,7 @@
   #include <queue>
   #include <iostream>
 
+  #include "FlowGraph.hpp"
   #include "parser.tab.h"
 
   using namespace std;

@@ -46,12 +46,16 @@ bool Translator::insertRegister(string id)
     return true;
 }
 
-bool Translator::insertVariable(string id)
+bool Translator::insertVariable(string id, uint16_t type)
 {
     auto found = m_variables.find(id);
 
     if(found != m_variables.end()) 
         return false;
+    
+    // Agregar al .data
+    string s_type = type == 0 ? "word" : "byte";
+    data.emplace_back(id + decl + mips_instructions.at(s_type) + space + "1");
     
     vector<string> locations { id };
     m_variables[id] = locations;
@@ -140,9 +144,9 @@ vector<string> Translator::getVariableDescriptor(string id)
 
 string Translator::findOptimalLocation(string id)
 {    
-    vector<string> descriptor = getVariableDescriptor(id);
-    // Por ahora solamente devolver el primero
-    return descriptor[0];
+    //vector<string> descriptor = getVariableDescriptor(id);
+    // Por ahora solamente devolver el mismo
+    return id;
 }
 
 string Translator::findElementInDescriptors(unordered_map<string, vector<string>> &descriptors, string element)
@@ -195,22 +199,22 @@ string Translator::recycleRegister(T_Instruction instruction, vector<string>& se
             
             // Verificar que el valor actual sea el resultado y si lo es que no sea operando
             bool found = false;
-            for(int i = 0; i < (int) instruction.operands.size(); i++)
+            for(size_t i = 0; i < instruction.operands.size(); i++)
             {
-                if(instruction.operands[i] == element)
+                if(instruction.operands[i].name == element)
                 {
                     found = true;
                     break;
                 }
             }
-            if(element == instruction.result && found)
+            if(element == instruction.result.name && found)
                 // Es seguro el registro
                 continue;
 
             // Verificar que el valor actual no tenga usos posteriores
 
             // Si aun este registro no es seguro
-            section.emplace_back(mips_instructions.at("store") + space + element + sep + current_register.first);
+            section.emplace_back(mips_instructions.at("store") + space + current_register.first + sep + element);
 
             // Mantener descriptores
             availability(element, element);
@@ -265,9 +269,9 @@ vector<string> Translator::getReg(T_Instruction instruction, vector<string>& sec
 
     vector<string> free_regs = findFreeRegister();
 
-    for (string current_operand : instruction.operands)
+    for (T_Variable current_operand : instruction.operands)
     {
-        selectRegister(current_operand, instruction, registers, free_regs, section);
+        selectRegister(current_operand.name, instruction, registers, free_regs, section);
     }
     
     // Si es una instruccion de salto solo es necesario el registro del operando
@@ -283,7 +287,7 @@ vector<string> Translator::getReg(T_Instruction instruction, vector<string>& sec
     else
     {
         // Buscar registro que SOLO contenga al resultado
-        string reg = findElementInDescriptors(m_registers, instruction.result);
+        string reg = findElementInDescriptors(m_registers, instruction.result.name);
         if(!reg.empty() && getRegisterDescriptor(reg).size() < 2)
         {
             registers.insert(registers.begin(), reg);
@@ -292,7 +296,7 @@ vector<string> Translator::getReg(T_Instruction instruction, vector<string>& sec
         else
         {
             // Sino igual que los operandos
-            selectRegister(instruction.result, instruction, registers, free_regs, section);
+            selectRegister(instruction.result.name, instruction, registers, free_regs, section);
             string reg = registers.back();
             registers.pop_back();
             registers.insert(registers.begin(), reg);
@@ -367,16 +371,17 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
             if(instruction.id.find("_out") != std::string::npos)
                 return;
             
-            section.emplace_back(mips_instructions.at(instruction.id) + space + instruction.result);
+            section.emplace_back(mips_instructions.at(instruction.id) + space + instruction.result.name);
         }
         else
         {
             vector<string> reg = getReg(instruction, section);
-            section.emplace_back(mips_instructions.at(instruction.id) + space + reg[0] + sep + instruction.result);
+            section.emplace_back(mips_instructions.at(instruction.id) + space + reg[0] + sep + instruction.result.name);
         }
         return;
     }
 
+    // TODO: REWORK TO PARAM Y CALL
     // Instrucciones para llamada de funciones
     if(instruction.id == "param")
     {
@@ -389,7 +394,7 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
     if(instruction.id == "call")
     {
         // Falta usar el numero de parametros
-        section.emplace_back(mips_instructions.at(instruction.id) + space + instruction.result);
+        section.emplace_back(mips_instructions.at(instruction.id) + space + instruction.result.name);
         return;
     }
 
@@ -422,52 +427,60 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
     translateOperationInstruction(instruction, section, is_copy, type);
 }
 
-void Translator::translateOperationInstruction(T_Instruction instruction, vector<string>& section, bool is_copy, int type)
+void Translator::translateOperationInstruction(T_Instruction instruction, vector<string>& section, bool is_copy, uint16_t type)
 {
-    // Intentar crear descriptores de variables
-    insertVariable(instruction.result);
+    // Procesar las indirecciones
 
-    // Agregar al .data
-    string s_type = type == 0 ? "word" : "byte";
-    data.emplace_back(instruction.result + decl + mips_instructions.at(s_type) + space + "1");
+    // Intentar crear descriptores de variables
+    insertVariable(instruction.result.name, type);
 
     // Buscar los registros
     vector<string> op_registers = getReg(instruction, section, is_copy);
     int op_index = 1;
 
-    for (string current_operand : instruction.operands)
+    for (T_Variable current_operand : instruction.operands)
     {
         // Verificamos el operando
         string current_reg = op_registers[op_index];
         vector<string> reg_descriptor = getRegisterDescriptor(current_reg);
-        if ( find(reg_descriptor.begin(), reg_descriptor.end(), current_operand) == reg_descriptor.end() )
+        if ( find(reg_descriptor.begin(), reg_descriptor.end(), current_operand.name) == reg_descriptor.end() )
         {
-            string best_location = current_operand;
-            // Si es un temporal se busca en su descriptor la mejor posicion
-            if(!isdigit(current_operand[0]))
-            {
-                // Buscar el y' mas economico
-                string best_location = findOptimalLocation(current_operand);
-            }
+            string best_location = findOptimalLocation(current_operand.name);
+
+            if(current_operand.is_acc)
+                best_location = current_operand.acc + "(" + best_location + ")";
 
             section.emplace_back(mips_instructions.at("load") + space + current_reg + sep + best_location);
         }
 
         // Mantener descriptores
-        assignment(current_reg, current_operand, true);
-        availability(current_operand, current_reg);
-        
+        assignment(current_reg, current_operand.name, true);
+        availability(current_operand.name, current_reg);
+
         if(is_copy)
         {
-            assignment(current_reg, instruction.result);
-            availability(instruction.result, current_reg, true);
+            assignment(current_reg, instruction.result.name);
+            availability(instruction.result.name, current_reg, true);
         }
 
         op_index++; 
     }
     
     if(is_copy)
+    {
+        // Tomar en cuentas las indirecciones
+        if(instruction.operands[0].is_acc)
+        {
+            string op = instruction.operands[0].acc + "(" + op_registers[1] + ")";
+            section.emplace_back(mips_instructions.at("load") + space + op_registers[0] + sep + op);
+        }
+        else if(instruction.result.is_acc)
+        {
+            string op = instruction.result.acc + "(" + op_registers[0] + ")";
+            section.emplace_back(mips_instructions.at("store") + space + op_registers[1] + sep + op);
+        }
         return;
+    }
 
     // Emitir codigo dependiendo del operador
     int i = 0;
@@ -494,23 +507,88 @@ void Translator::translateOperationInstruction(T_Instruction instruction, vector
         section.emplace_back(mips_instructions.at("high") + space + op_registers[0]);
 
     // Mantener descriptor
-    assignment(op_registers[0], instruction.result, true);
-    availability(instruction.result, op_registers[0], true);
-    removeElementFromDescriptors(m_variables, op_registers[0], instruction.result);
+    assignment(op_registers[0], instruction.result.name, true);
+    availability(instruction.result.name, op_registers[0], true);
+    removeElementFromDescriptors(m_variables, op_registers[0], instruction.result.name);
 }
 
 void Translator::translateMetaIntruction(T_Instruction instruction)
 {
     if(instruction.id == "@string")
     {
-        data.emplace_back(instruction.result + decl + mips_instructions.at(instruction.id) + space + instruction.operands[0]);
+        data.emplace_back(instruction.result.name + decl + mips_instructions.at(instruction.id) + space + instruction.operands[0].name);
         return;
     }
     
     if(instruction.id == "@staticv")
     {
-        data.emplace_back(instruction.result + decl + mips_instructions.at("word") + space + instruction.operands[0]);
+        data.emplace_back(instruction.result.name + decl + mips_instructions.at("word") + space + instruction.operands[0].name);
         return;
+    }
+}
+
+void Translator::translateIOIntruction(T_Instruction instruction, vector<string>& section)
+{
+    if(instruction.id.find("print") != string::npos)
+    {
+        const char* argRegister = "$a0";
+        if(instruction.id.back() != 'f')
+        {
+            // Se necesita el elemento a imprimir en $a0, se guardan los elementos de ser necesario
+            vector<string> regDescriptor = getRegisterDescriptor(argRegister);
+            for(string currentVar : regDescriptor)
+            {
+                section.emplace_back(mips_instructions.at("store") + space + argRegister + sep + currentVar);
+                availability(currentVar, currentVar);
+            }
+
+            // Se mueve el elemento a $a0
+            section.emplace_back(mips_instructions.at("assign") + space + argRegister + sep + instruction.result.name);
+            // Se carga el syscall correcto
+            section.emplace_back(mips_instructions.at(instruction.id));
+        }
+        else
+        {
+            // TODO: falta imprimir los floats
+        }
+    }
+    else    
+    {
+        if(instruction.id.back() == 'i' || instruction.id.back() == 'c')
+        {
+            // Se carga el syscall correcto
+            section.emplace_back(mips_instructions.at(instruction.id));
+        }
+        else if(instruction.id.back() == 'f')
+        {
+            // TODO: falta leer los floats
+        }
+        else
+        {
+            const char* addrRegister = "$a0";
+            const char* sizeRegister = "$a1";
+
+            // Se necesita el buffer donde guardar el string en $a0
+            vector<string> regDescriptor = getRegisterDescriptor(addrRegister);
+            for(string currentVar : regDescriptor)
+            {
+                section.emplace_back(mips_instructions.at("store") + space + addrRegister + sep + currentVar);
+                availability(currentVar, currentVar);
+            }
+            // Se necesita el tamano maximo en $a1
+            regDescriptor = getRegisterDescriptor(sizeRegister);
+            for(string currentVar : regDescriptor)
+            {
+                section.emplace_back(mips_instructions.at("store") + space + sizeRegister + sep + currentVar);
+                availability(currentVar, currentVar);
+            }
+
+            // Se mueve el buffer a $a0
+            section.emplace_back(mips_instructions.at("assign") + space + addrRegister + sep + instruction.result.name);
+            // TODO: Agregar el tamano de lo que se va a leer
+            // Se carga el syscall correcto
+            section.emplace_back(mips_instructions.at(instruction.id));
+        }
     }
 }
 
@@ -525,3 +603,20 @@ void Translator::printVariablesDescriptors()
         }
     }
 }
+
+// T_Operands processInstruction(T_Instruction instruction)
+// {
+//     string p_result = instruction.result;
+//     bool 
+//     if(p_result.back() == ']')
+//     {
+//         p_result = p_result.substr(0, p_result.find('['));
+//     }
+
+//     vector<string> p_operands;
+
+//     for(string operand : instruction.operands)
+//     {
+
+//     }
+// }
