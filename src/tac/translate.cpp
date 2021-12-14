@@ -279,7 +279,7 @@ vector<string> Translator::getReg(T_Instruction instruction, vector<string>& sec
         return registers;
 
     // Ahora se escoge el registro para el resultado
-    if(is_copy)
+    if(is_copy && !instruction.result.is_acc)
     {
         string result_reg = registers[0];
         registers.insert(registers.begin(), result_reg);
@@ -429,8 +429,6 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
 
 void Translator::translateOperationInstruction(T_Instruction instruction, vector<string>& section, bool is_copy, uint16_t type)
 {
-    // Procesar las indirecciones
-
     // Intentar crear descriptores de variables
     insertVariable(instruction.result.name, type);
 
@@ -446,9 +444,6 @@ void Translator::translateOperationInstruction(T_Instruction instruction, vector
         if ( find(reg_descriptor.begin(), reg_descriptor.end(), current_operand.name) == reg_descriptor.end() )
         {
             string best_location = findOptimalLocation(current_operand.name);
-
-            if(current_operand.is_acc)
-                best_location = current_operand.acc + "(" + best_location + ")";
 
             section.emplace_back(mips_instructions.at("load") + space + current_reg + sep + best_location);
         }
@@ -476,6 +471,14 @@ void Translator::translateOperationInstruction(T_Instruction instruction, vector
         }
         else if(instruction.result.is_acc)
         {
+            // Se carga el la direccion base de lo que se quiere indireccionar si no esta
+            vector<string> reg_descriptor = getRegisterDescriptor(op_registers[0]);
+            if ( find(reg_descriptor.begin(), reg_descriptor.end(), instruction.result.name) == reg_descriptor.end() )
+            {
+                string best_location = findOptimalLocation(instruction.result.name);
+                section.emplace_back(mips_instructions.at("load") + space + op_registers[0] + sep + best_location);
+            }
+            // Se almacena el nuevo valor en la direccion nueva
             string op = instruction.result.acc + "(" + op_registers[0] + ")";
             section.emplace_back(mips_instructions.at("store") + space + op_registers[1] + sep + op);
         }
@@ -603,20 +606,3 @@ void Translator::printVariablesDescriptors()
         }
     }
 }
-
-// T_Operands processInstruction(T_Instruction instruction)
-// {
-//     string p_result = instruction.result;
-//     bool 
-//     if(p_result.back() == ']')
-//     {
-//         p_result = p_result.substr(0, p_result.find('['));
-//     }
-
-//     vector<string> p_operands;
-
-//     for(string operand : instruction.operands)
-//     {
-
-//     }
-// }

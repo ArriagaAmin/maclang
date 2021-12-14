@@ -91,9 +91,6 @@ private:
     vector<string> data;
     vector<string> text;
     vector<string> functions;
-
-    // Helpers
-    bool is_number(const std::string &s); 
     
     // Funciones para descriptores
     bool insertElementToDescriptor(unordered_map<string, vector<string>> &descriptors, string key, string element, bool replace = false);
