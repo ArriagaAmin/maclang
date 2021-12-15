@@ -29,12 +29,12 @@ const unordered_map<string, string> mips_instructions ({
     {"not", "not"},
     {"and", "and"},
     {"or", "or"},
-    {"eq", "beq"},
-    {"neq", "bne"},
-    {"geq", "bge"},
-    {"gt", "bgt"},
-    {"leq", "ble"},
-    {"lt", "blt"},
+    {"eq", "seq"},
+    {"neq", "sne"},
+    {"geq", "sge"},
+    {"gt", "sgt"},
+    {"leq", "sle"},
+    {"lt", "slt"},
 
     // Saltos y accesos a memoria
     {"goto", "j"},
@@ -44,7 +44,7 @@ const unordered_map<string, string> mips_instructions ({
     {"param", "sw"},
     {"call", "jal"},
     {"return", "jr"},
-    {"low", "mflow"},
+    {"low", "mflo"},
     {"high", "mfhi"},
     {"load", "lw"},
     {"store", "sw"},
@@ -60,7 +60,7 @@ const unordered_map<string, string> mips_instructions ({
     {"byte", ".byte"},
 
     // Syscalls
-    {"exit", "li  $v0, 10 \nsyscall"},
+    {"exit", "li  $v0, 17 \nsyscall"},
     {"printi", "li  $v0, 1 \nsyscall"},
     {"printf", "li  $v0, 2 \nsyscall"},
     {"printc", "li  $v0, 11 \nsyscall"},

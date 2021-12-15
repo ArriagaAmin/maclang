@@ -372,6 +372,7 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
 
     if(instruction.id == "exit")
     {
+        section.emplace_back(mips_instructions.at("load") + space + "$a0" + sep + instruction.result.name);
         section.emplace_back(mips_instructions.at(instruction.id));
         return;
     }
