@@ -133,6 +133,7 @@ uint64_t FlowGraph::makeSubGraph(T_Function *function, uint64_t init_id) {
         });
         last_id++;
     }
+    this->V[init_id]->function_end = last_id;
 
     // Creamos los arcos
     FlowNode *u;
@@ -165,7 +166,9 @@ uint64_t FlowGraph::makeSubGraph(T_Function *function, uint64_t init_id) {
             // Agregamos el arco y su inverso al siguiente bloque.
             this->insertArc(u->id, u->id+1);
         }
-        else if (u->block.back().id != "return") {
+        else if (u->block.back().id != "return" && u->block.back().id != "exit") {
+            // Aunque no deberia agregarse un arco tampoco si la instruccion es "call",
+            // por ahora es necesario colocarlo.
             // Agregamos el arco y su inverso al siguiente bloque.
             this->insertArc(u->id, u->id+1);
         }
@@ -191,9 +194,16 @@ uint64_t FlowGraph::makeSubGraph(T_Function *function, uint64_t init_id) {
     // Eliminamos aquellos bloques inalcanzables.
     for (uint64_t id = init_id; id < last_id; id++) {
         if (visited.count(id) == 0) {
-            this->V.erase(id);
+            for (uint64_t p : this->E[id]) {
+                this->Einv[p].erase(id);
+            }
+            for (uint64_t p : this->Einv[id]) {
+                this->E[p].erase(id);
+            }
             this->E.erase(id);
             this->Einv.erase(id);
+            delete this->V[id];
+            this->V.erase(id);
         }
     }
 
@@ -209,23 +219,221 @@ FlowGraph::FlowGraph(vector<T_Function*> functions) {
     this->V[current_id-1]->block.push_back({"exit", {"0", "", false}, {}});
 
     // Creamos el grafo de cada funcion
-    map<string, uint64_t> function2block;
     for (uint64_t i = 1; i < functions.size(); i++) {
-        function2block[functions[i]->name] = current_id;
+        this->F[functions[i]->name] = current_id;
         current_id = this->makeSubGraph(functions[i], current_id);
     }
 
-    // Actualizamos las llamadas a las funciones
+    // Actualizamos las llamadas a las funciones y creamos los arcos correspondientes.
     FlowNode *f;
     for (pair<uint64_t, FlowNode*> n : this->V) {
         for (uint64_t i = 0; i < n.second->block.size(); i++) {
             if (n.second->block[i].id == "call") {
-                f = this->V[function2block[n.second->block[i].operands[0].name]];
+                f = this->V[this->F[n.second->block[i].operands[0].name]];
                 n.second->block[i].operands[0].name = f->getName();
+                
+                // Creamos la relacion de llamada
+                this->caller[n.first] = f->id;
+                if (this->called.count(f->id)) {
+                    this->called[f->id].insert(n.first);
+                }
+                else {
+                    this->called[f->id] = {n.first};
+                }
             }
         }
     }
+
 }
+
+
+/* ====================== VARIABLES VIVAS ====================== */
+/*
+ * Inicializa los conjuntos IN y OUT de cada bloque en vacio.
+ */
+map<uint64_t, vector<set<string>>> liveVariables_init(FlowGraph* fg) {
+    map<uint64_t, vector<set<string>>> sets;
+    for (pair<uint64_t, FlowNode*> n : fg->V) sets[n.first] = {{}, {}};
+    return sets;
+}
+
+/*
+ * Inicializa el OUT de ENTRY en vacio.
+ */
+set<string> liveVaraibles_initEntryOut(FlowGraph* fg) { return {}; }
+
+/*
+ * Inicializa el IN de EXIT en vacio.
+ */
+set<string> liveVariables_initExitIn(FlowGraph* fg) { return {}; }
+
+// Funciones de transicion de cada instruccion
+
+set<string> liveVariables_assign(set<string> in, T_Instruction instr) {
+    size_t index;
+    char c;
+    if (instr.result.name.back() == ']') {
+        index = instr.result.name.find('[');
+        in.insert(instr.result.name.substr(0, index));
+
+        c = instr.result.name[index+1];
+        if (('A' <= c && c <= 'z') || c == '_') {
+            in.insert(instr.result.name.substr(index + 1, instr.result.name.size() - index - 2));
+        }
+
+        c = instr.operands[0].name[0];
+        if (('A' <= c && c <= 'z') || c == '_') {
+            in.insert(instr.operands[0].name);
+        }
+    }
+    else if (instr.operands[0].name.back() == ']'){
+        index = instr.operands[0].name.find('[');
+        in.erase(instr.result.name);
+        in.insert(instr.operands[0].name.substr(0, index));
+
+        c = instr.operands[0].name[index+1];
+        if (('A' <= c && c <= 'z') || c == '_') {
+            
+            in.insert(instr.operands[0].name.substr(index + 1, instr.operands[0].name.size() - index - 2));
+        }
+    } 
+    else {
+        in.erase(instr.result.name);
+
+        c = instr.operands[0].name[0];
+        if (('A' <= c && c <= 'z') || c == '_') {
+            in.insert(instr.operands[0].name);
+        }
+    }
+
+    return in;
+}
+
+set<string> liveVariables_f3(set<string> in, T_Instruction instr) {
+    char c;
+    in.erase(instr.result.name);
+
+    c = instr.operands[0].name[0];
+    if (('A' <= c && c <= 'z') || c == '_') {
+        in.insert(instr.operands[0].name);
+    }
+
+    c = instr.operands[1].name[0];
+    if (('A' <= c && c <= 'z') || c == '_') {
+        in.insert(instr.operands[1].name);
+    }
+
+    return in;
+}
+
+set<string> liveVariables_f2(set<string> in, T_Instruction instr) {
+    char c;
+
+    in.erase(instr.result.name);
+
+    c = instr.operands[0].name[0];
+    if (('A' <= c && c <= 'z') || c == '_') {
+        in.insert(instr.operands[0].name);
+    }
+
+    return in;
+}
+
+set<string> liveVariables_f1(set<string> in, T_Instruction instr) {
+    char c;
+
+    c = instr.result.name[0];
+    if (('A' <= c && c <= 'z') || c == '_') {
+        in.insert(instr.result.name);
+    }
+
+    return in;
+}
+
+set<string> liveVariables_condGo(set<string> in, T_Instruction instr) {
+    char c = instr.operands[0].name[0];
+    if (('A' <= c && c <= 'z') || c == '_') {
+        in.insert(instr.operands[0].name);
+    }
+    
+    return in;
+}
+
+set<string> liveVariables_memcpy(set<string> in, T_Instruction instr) {
+    char c;
+    
+    in.insert(instr.result.name);
+    in.insert(instr.operands[0].name);
+
+    c = instr.operands[1].name[0];
+    if (('A' <= c && c <= 'z') || c == '_') {
+        in.insert(instr.operands[01].name);
+    }
+    
+    return in;
+}
+
+set<string> liveVariables_call(set<string> in, T_Instruction instr) {
+    in.erase(instr.result.name);
+    return in;
+}
+
+set<string> liveVariables_f(set<string> in, T_Instruction instr) {
+    return in;
+}
+
+/*
+ * Analisis de flujo para variables vivas.
+ */
+map<uint64_t, vector<set<string>>> FlowGraph::liveVariables(void) {
+    return this->flowAnalysis<string>(
+        &liveVariables_init,
+        &liveVaraibles_initEntryOut,
+        &liveVariables_initExitIn,
+        {
+            {"assignw", &liveVariables_assign},
+            {"assignb", &liveVariables_assign},
+            {"add"    , &liveVariables_f3},
+            {"sub"    , &liveVariables_f3},
+            {"mult"   , &liveVariables_f3},
+            {"div"    , &liveVariables_f3},
+            {"mod"    , &liveVariables_f3},
+            {"minus"  , &liveVariables_f2},
+            {"ftoi"   , &liveVariables_f2},
+            {"itof"   , &liveVariables_f2},
+            {"eq"     , &liveVariables_f3},
+            {"neq"    , &liveVariables_f3},
+            {"lt"     , &liveVariables_f3},
+            {"leq"    , &liveVariables_f3},
+            {"gt"     , &liveVariables_f3},
+            {"geq"    , &liveVariables_f3},
+            {"or"     , &liveVariables_f3},
+            {"and"    , &liveVariables_f3},
+            {"goto"   , &liveVariables_f},
+            {"goif"   , &liveVariables_condGo},
+            {"goifnot", &liveVariables_condGo},
+            {"malloc" , &liveVariables_f2},
+            {"memcpy" , &liveVariables_f3},
+            {"free"   , &liveVariables_f1},
+            {"exit"   , &liveVariables_f1},
+            {"param"  , &liveVariables_f2},
+            {"return" , &liveVariables_f1},
+            {"call"   , &liveVariables_call},
+            {"printc" , &liveVariables_f1},
+            {"printi" , &liveVariables_f1},
+            {"printf" , &liveVariables_f1},
+            {"print"  , &liveVariables_f1},
+            {"readc"  , &liveVariables_f1},
+            {"readi"  , &liveVariables_f1},
+            {"readf"  , &liveVariables_f1},
+            {"read"   , &liveVariables_f1}
+        },
+        false,
+        false
+    );
+}
+
+
 
 void FlowGraph::print(void) {
     for (pair<uint64_t, FlowNode*> n : this->V) {
