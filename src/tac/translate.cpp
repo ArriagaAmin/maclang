@@ -94,10 +94,13 @@ void Translator::print()
         cout << inst << endl;
     }
 
-    cout << endl;
-    for(string inst : functions)
+    if(functions.size() > 0)
     {
-        cout << inst << endl;
+        cout << "\n# ===== Functions Section ====="<< endl;
+        for(string inst : functions)
+        {
+            cout << inst << endl;
+        }
     }
 }
 
@@ -342,8 +345,9 @@ void Translator::translate()
             translateInstruction(current_inst, *section);
         }
 
+        vector<string> aliveVars;
+
         // Al terminar el bloque basico se actualizan los temporales
-        //text.push_back("# Updating the temporals");
         for(auto current_variable : m_variables)
         {
             string var_id = current_variable.first;
@@ -351,8 +355,35 @@ void Translator::translate()
 
             if ( find(var_descriptor.begin(), var_descriptor.end(), var_id) == var_descriptor.end() )
             {
-                (*section).emplace_back(mips_instructions.at("store") + space + var_descriptor[0] + sep + var_id);
+                aliveVars.emplace_back(mips_instructions.at("store") + space + var_descriptor[0] + sep + var_id);
                 availability(var_id, var_id, true);
+            }
+        }
+
+        if(aliveVars.size() > 0)
+        {
+            string lastInstr = "";
+            
+            // Si la ultima instruccion de un bloque es un salto, se actualizan antes de saltar
+            string lastInstrId = currentNodeData->block.back().id;
+            if(lastInstrId == "goto" || lastInstrId== "goif" ||
+                lastInstrId == "goifnot" || lastInstrId == "call" ||
+                lastInstrId== "return")
+            {
+                lastInstr = section->back();
+                section->pop_back();
+            }
+
+            (*section).emplace_back("# Updating the temporals");
+
+            for(string line : aliveVars)
+            {
+                (*section).push_back(line);
+            }
+
+            if(!lastInstr.empty())
+            {
+                (*section).push_back(lastInstr);
             }
         }
 
