@@ -76,9 +76,6 @@ const unordered_map<string, string> mips_instructions ({
 malloc ID Rval
 memcpy ID ID int
 free rval
-exit rval
-@fun_begin ID SIZE
-@fun_end SIZE
 */
 
 class Translator

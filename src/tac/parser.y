@@ -435,7 +435,7 @@ int main(int argc, char **argv) {
   }
 
   //CB->translate();
-  //CB->print();
+  CB->print();
   //CB->printVariablesDescriptors();
 
   return 0;

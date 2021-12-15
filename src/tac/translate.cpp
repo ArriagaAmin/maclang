@@ -413,16 +413,27 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
 
     if(instruction.id == "call")
     {
-        // TODO: usar etiqueta de retorno
-        // Se hace back up al $sp, $fp y al $ra
+        // TODO: Se hace back up al $sp, $fp y al $ra
         int length = stoi(instruction.operands[1].name);
         length *= 4;
         section.emplace_back("addi $sp, $sp, -" + to_string(length));
+
+        // Crear en donde se guardara el valor de retorno
+        insertVariable(instruction.result.name, 0);
+
+        // Se salta hacia la funcion
         section.emplace_back(mips_instructions.at(instruction.id) + space + instruction.operands[0].name);
         return;
     }
 
-    // TODO: Falta el return
+    if(instruction.id == "return")
+    {
+        // TODO: guardar el valor de retorno
+
+        // Se salta de vuelta hacia donde se llamo
+        section.emplace_back(mips_instructions.at(instruction.id) + space + "$ra");
+        return;
+    }
 
     // Instrucciones para funciones TODO: usar el tamano de la funcion
 

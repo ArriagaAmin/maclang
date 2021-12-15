@@ -325,10 +325,10 @@ void FlowGraph::flowPrint(map<uint64_t, vector<set<T>>> sets) {
             space = string(max_instr.size() - instr.id.size() + 1, ' ');
             
             cout << "        | \033[3m" << instr.id << "\033[0m" 
-                << space << instr.result << " ";
+                << space << instr.result.name << " ";
 
-            for (string operand : instr.operands) {
-                cout << operand << " ";
+            for (T_Variable operand : instr.operands) {
+                cout << operand.name << " ";
             }
             cout << "\n";
         }
