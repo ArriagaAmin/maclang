@@ -48,6 +48,7 @@ const unordered_map<string, string> mips_instructions ({
     {"high", "mfhi"},
     {"load", "lw"},
     {"store", "sw"},
+    {"loadi", "li"},
 
     // Registros especiales
     {"ra", "$ra"},
@@ -68,15 +69,13 @@ const unordered_map<string, string> mips_instructions ({
     {"readi", "li  $v0, 5 \nsyscall"},
     {"readf", "li  $v0, 6 \nsyscall"},
     {"readc", "li  $v0, 12 \nsyscall"},
-    {"read", "li  $v0, 8 \nsyscall"}
+    {"read", "li  $v0, 8 \nsyscall"},
 
+    // Manejo de memoria
+    {"malloc", ""}, // malloc ID Rval
+    {"memcpy", ""}, // memcpy ID ID int
+    {"free", ""}, // free rval
 });
-
-/*
-malloc ID Rval
-memcpy ID ID int
-free rval
-*/
 
 class Translator
 {

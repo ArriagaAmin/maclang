@@ -37,20 +37,20 @@ void Translator::insertInstruction(T_Instruction* instruction)
 
 bool Translator::insertRegister(string id)
 {
-    auto found = m_registers.find(id);
+    auto found = this->m_registers.find(id);
 
-    if(found != m_registers.end()) 
+    if(found != this->m_registers.end()) 
         return false;
     
-    m_registers[id] = vector<string>();
+    this->m_registers[id] = vector<string>();
     return true;
 }
 
 bool Translator::insertVariable(string id, uint16_t type, string value)
 {
-    auto found = m_variables.find(id);
+    auto found = this->m_variables.find(id);
 
-    if(found != m_variables.end()) 
+    if(found != this->m_variables.end()) 
         return false;
     
     // Agregar al .data
@@ -71,7 +71,7 @@ bool Translator::insertVariable(string id, uint16_t type, string value)
     data.emplace_back(id + decl + mips_instructions.at(s_type) + space + value);
     
     vector<string> locations { id };
-    m_variables[id] = locations;
+    this->m_variables[id] = locations;
     return true;
 }
 
@@ -82,13 +82,7 @@ void Translator::insertFlowGraph(FlowGraph* graph)
 
 void Translator::print()
 {
-    cout << ".data" << endl;
-    for(string inst : data)
-    {
-        cout << inst << endl;
-    }
-
-    cout << "\n.text" << endl;
+    cout << ".text" << endl;
     for(string inst : text)
     {
         cout << inst << endl;
@@ -101,6 +95,12 @@ void Translator::print()
         {
             cout << inst << endl;
         }
+    }
+
+    cout << "\n.data" << endl;
+    for(string inst : data)
+    {
+        cout << inst << endl;
     }
 }
 
@@ -124,38 +124,37 @@ void Translator::removeElementFromDescriptors(unordered_map<string, vector<strin
     {
         if(current_descriptor.first == current_container)
             continue;
-        
-        vector<string> current_elements = current_descriptor.second;
-        remove(current_elements.begin(), current_elements.end(), element);
+
+        remove(descriptors[current_descriptor.first].begin(), descriptors[current_descriptor.first].end(), element);
     }
 }
 
 void Translator::cleanRegistersDescriptor()
 {
-    for(auto currentRegister : m_registers)
+    for(auto current_register : this->m_registers)
     {
-        currentRegister.second.clear();
+        this->m_registers[current_register.first].clear();
     }
 }
 
 bool Translator::assignment(string register_id, string variable_id, bool replace)
 {
-    return insertElementToDescriptor(m_registers, register_id, variable_id, replace);
+    return insertElementToDescriptor(this->m_registers, register_id, variable_id, replace);
 }
 
 bool Translator::availability(string variable_id, string location, bool replace)
 {
-    return insertElementToDescriptor(m_variables, variable_id, location, replace);
+    return insertElementToDescriptor(this->m_variables, variable_id, location, replace);
 }
 
 vector<string> Translator::getRegisterDescriptor(string id)
 {
-    return m_registers[id];
+    return this->m_registers[id];
 }
 
 vector<string> Translator::getVariableDescriptor(string id)
 {
-    return m_variables[id];
+    return this->m_variables[id];
 }
 
 string Translator::findOptimalLocation(string id)
@@ -180,7 +179,7 @@ string Translator::findElementInDescriptors(unordered_map<string, vector<string>
 vector<string> Translator::findFreeRegister()
 {
     vector<string> regs;
-    for (pair<string, vector<string>> current_register : m_registers) 
+    for (pair<string, vector<string>> current_register : this->m_registers) 
     {
         if(current_register.second.empty())
             regs.push_back(current_register.first);
@@ -199,7 +198,7 @@ string Translator::recycleRegister(T_Instruction instruction, vector<string>& se
     // Contadores de spills
     map<string, int> spills;
     
-    for (pair<string, vector<string>> current_register : m_registers) 
+    for (pair<string, vector<string>> current_register : this->m_registers) 
     {
         //bool isSafe = false;
         int current_spills = 0;
@@ -209,7 +208,7 @@ string Translator::recycleRegister(T_Instruction instruction, vector<string>& se
         for(string element : descriptor)
         {
             // Primero se verifica que el valor actual este en algun otro lado
-            if(m_variables[element].size() > 1)
+            if(this->m_variables[element].size() > 1)
                 // Es seguro el registro
                 continue;
             
@@ -256,7 +255,7 @@ string Translator::recycleRegister(T_Instruction instruction, vector<string>& se
 void Translator::selectRegister(string operand, T_Instruction instruction, vector<string> &regs, vector<string> &free_regs, vector<string>& section)
 {
     // Primero se verifica que el operando este guardada en algun registro
-    string reg = findElementInDescriptors(m_registers, operand);
+    string reg = findElementInDescriptors(this->m_registers, operand);
     if(!reg.empty())
     {
         regs.push_back(reg);
@@ -303,7 +302,7 @@ vector<string> Translator::getReg(T_Instruction instruction, vector<string>& sec
     else
     {
         // Buscar registro que SOLO contenga al resultado
-        string reg = findElementInDescriptors(m_registers, instruction.result.name);
+        string reg = findElementInDescriptors(this->m_registers, instruction.result.name);
         if(!reg.empty() && getRegisterDescriptor(reg).size() < 2)
         {
             registers.insert(registers.begin(), reg);
@@ -348,7 +347,7 @@ void Translator::translate()
         vector<string> aliveVars;
 
         // Al terminar el bloque basico se actualizan los temporales
-        for(auto current_variable : m_variables)
+        for(auto current_variable : this->m_variables)
         {
             string var_id = current_variable.first;
             vector<string> var_descriptor = current_variable.second;
@@ -582,7 +581,7 @@ void Translator::translateOperationInstruction(T_Instruction instruction, vector
     // Mantener descriptor
     assignment(op_registers[0], instruction.result.name, true);
     availability(instruction.result.name, op_registers[0], true);
-    removeElementFromDescriptors(m_variables, op_registers[0], instruction.result.name);
+    removeElementFromDescriptors(this->m_variables, op_registers[0], instruction.result.name);
 }
 
 void Translator::translateMetaIntruction(T_Instruction instruction)
@@ -669,7 +668,7 @@ void Translator::translateIOIntruction(T_Instruction instruction, vector<string>
 
 void Translator::printVariablesDescriptors()
 {
-    for(auto vari : m_variables)
+    for(auto vari : this->m_variables)
     {
         cout << vari.first << endl;
         for(auto element : vari.second)
