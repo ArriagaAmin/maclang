@@ -118,7 +118,7 @@ public:
     Translator();
     void translate();
     bool insertRegister(string id);
-    bool insertVariable(string id, uint16_t type);
+    bool insertVariable(string id, uint16_t type, string value = "1");
     void insertInstruction(T_Instruction* instruction);
     void insertFlowGraph(FlowGraph* graph);
     vector<string> getRegisterDescriptor(string id);

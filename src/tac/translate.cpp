@@ -46,7 +46,7 @@ bool Translator::insertRegister(string id)
     return true;
 }
 
-bool Translator::insertVariable(string id, uint16_t type)
+bool Translator::insertVariable(string id, uint16_t type, string value)
 {
     auto found = m_variables.find(id);
 
@@ -54,8 +54,21 @@ bool Translator::insertVariable(string id, uint16_t type)
         return false;
     
     // Agregar al .data
-    string s_type = type == 0 ? "word" : "byte";
-    data.emplace_back(id + decl + mips_instructions.at(s_type) + space + "1");
+    string s_type = "word";
+
+    switch (type)
+    {
+    case 1:
+        s_type = "byte";
+        break;
+    case 2:
+        s_type = "@string";
+        break;
+    default:
+        break;
+    }
+
+    data.emplace_back(id + decl + mips_instructions.at(s_type) + space + value);
     
     vector<string> locations { id };
     m_variables[id] = locations;
@@ -385,20 +398,33 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
     // Instrucciones para llamada de funciones
     if(instruction.id == "param")
     {
+        insertVariable(instruction.result.name, 0);
         vector<string> reg = getReg(instruction, section);
-        section.emplace_back(mips_instructions.at(instruction.id) + space + reg[0] + sep + "0($sp)");
-        section.emplace_back("addi $sp, $sp, -4"); // El tamano depende de lo que se le este pasando
+        vector<string> reg_descriptor = getRegisterDescriptor(reg[0]);
+        if ( find(reg_descriptor.begin(), reg_descriptor.end(), instruction.result.name) == reg_descriptor.end() )
+        {
+            string best_location = findOptimalLocation(instruction.result.name);
+
+            section.emplace_back(mips_instructions.at("load") + space + reg[0] + sep + best_location);
+        }
+        section.emplace_back(mips_instructions.at(instruction.id) + space + reg[0] + sep + instruction.operands[0].name + "($sp)");
         return;
     }
 
     if(instruction.id == "call")
     {
-        // Falta usar el numero de parametros
-        section.emplace_back(mips_instructions.at(instruction.id) + space + instruction.result.name);
+        // TODO: usar etiqueta de retorno
+        // Se hace back up al $sp, $fp y al $ra
+        int length = stoi(instruction.operands[1].name);
+        length *= 4;
+        section.emplace_back("addi $sp, $sp, -" + to_string(length));
+        section.emplace_back(mips_instructions.at(instruction.id) + space + instruction.operands[0].name);
         return;
     }
 
-    // Instrucciones para funciones
+    // TODO: Falta el return
+
+    // Instrucciones para funciones TODO: usar el tamano de la funcion
 
     // Instrucciones de operaciones
     bool is_copy = false;
@@ -461,6 +487,7 @@ void Translator::translateOperationInstruction(T_Instruction instruction, vector
         op_index++; 
     }
     
+    // TODO: Falta manejar BASE, STACK, lastbase
     if(is_copy)
     {
         // Tomar en cuentas las indirecciones
@@ -519,13 +546,15 @@ void Translator::translateMetaIntruction(T_Instruction instruction)
 {
     if(instruction.id == "@string")
     {
-        data.emplace_back(instruction.result.name + decl + mips_instructions.at(instruction.id) + space + instruction.operands[0].name);
+        insertVariable(instruction.result.name, 2, instruction.operands[0].name);
+        //data.emplace_back(instruction.result.name + decl + mips_instructions.at(instruction.id) + space + instruction.operands[0].name);
         return;
     }
     
     if(instruction.id == "@staticv")
     {
-        data.emplace_back(instruction.result.name + decl + mips_instructions.at("word") + space + instruction.operands[0].name);
+        insertVariable(instruction.result.name, 0, instruction.operands[0].name);
+        //data.emplace_back(instruction.result.name + decl + mips_instructions.at("word") + space + instruction.operands[0].name);
         return;
     }
 }
