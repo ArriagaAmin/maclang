@@ -1,14 +1,14 @@
 
-let Int i = 0, n = 0;
-def F(Int a=0) => Int {
+dec F(opt Bool x, opt Int a, opt Float f) => Int;
+
+F(a=-20);
+
+def F(Bool x=True, Int a=1, Float f=69.0) => Int {
 	if a > 0 then return a;
 	else return -a;
 	done
 }
-i + i + i;
 
-while i < 10 do
-	if i % 2 == 0 then n = n + i + F(); done 
-done
-let Int f = F(i);
-f + 1;
+F(f=-10.0);
+
+def G() {}

@@ -56,6 +56,7 @@
   int                                   integer;
   float                                 flot;
   bool                                  boolean;
+  uint64_t                              uint64;
   string                                *str;
   Node                                  *ast;
   NodeS                                 *nS;
@@ -63,6 +64,8 @@
   ExpressionNode                        *expr;
   NodeRoutArgDef                        *routArgsDef;
   NodeRoutArgs                          *routArgs;
+  NodeRoutDecArgDef                     *routDecArgsDef;
+  NodeRoutDecArgs                       *routDecArgs;
   NodeArrayElems                        *arrayElems;
   NodeForSign                           *forSign;
   NodeFunctionCallArgs                  *fcArgs;
@@ -113,6 +116,7 @@
 %token LET
 %token DEF
 %token DEC
+%token OPT
 %token AT 
 %token RIGHT_ARROW
 %token RETURN
@@ -132,25 +136,27 @@
 %token <str>      T_FLOAT
 %token <str>      T_STRING 
 
-%type <ast>           I Inst Action VarInst VarDef UnionDef UnionBody StructDec
-%type <ast>           RegBody Conditional OptElsif Elsifs OptElse Def RegDef
-%type <ast>           LoopWhile LoopFor RoutDef Actions RoutSign RoutDec N 
-%type <expr>          Exp FuncCall Array
-%type <expr>          OptAssign Cond OptStep
-%type <arrayElems>    ArrExp ArrElems
-%type <forSign>       ForSign
-%type <routArgs>      RoutArgs
-%type <routArgsDef>   OptArgs MandArgs
-%type <fcArgs>        ArgsExp
-%type <fcpArgs>       PositionalArgs
-%type <fcnArgs>       NamedArgs
-%type <t>             Type OptReturn
-%type <boolean>       OptRef Exec
-%type <str>           IdDef UnionId RegId DecId W
-%type <nS>            S
-%type <varList>       VarDefList
-%type <funcEntry>     RoutId
-%type <integer>       M
+%type <ast>            I Inst Action VarInst VarDef UnionDef UnionBody StructDec
+%type <ast>            RegBody Conditional OptElsif Elsifs OptElse Def RegDef
+%type <ast>            LoopWhile LoopFor RoutDef Actions RoutSign RoutDec N 
+%type <expr>           Exp FuncCall Array
+%type <expr>           OptAssign Cond OptStep
+%type <arrayElems>     ArrExp ArrElems
+%type <forSign>        ForSign
+%type <routArgs>       RoutArgs
+%type <routArgsDef>    OptArgs MandArgs
+%type <routDecArgs>    DecArgs
+%type <routDecArgsDef> OptDecArgs MandDecArgs
+%type <fcArgs>         ArgsExp
+%type <fcpArgs>        PositionalArgs
+%type <fcnArgs>        NamedArgs
+%type <t>              Type OptReturn
+%type <boolean>        OptRef Exec
+%type <str>            IdDef UnionId RegId DecId W CondAssign
+%type <nS>             S
+%type <varList>        VarDefList
+%type <funcEntry>      RoutId
+%type <uint64>         M
 
 %%
 /* ======================= GLOBAL RULES ============================== */
@@ -1722,18 +1728,30 @@
                           addError("'\033[1;3m" + *$1 + "\033[0m' isn't a function.");
                           type = predefinedTypes["$Error"];
                         } 
+
+                        else if (
+                          e->category == "Function" && 
+                          ((FunctionEntry*) e)->optargs_addr == ""
+                        ) {
+                          addError(
+                            "An optional parameter cannot have a default value "
+                            "that depends on the function being defined."
+                          );
+                          type = predefinedTypes["$Error"];
+                        }
                         
                         else {
                           FunctionEntry *fe = (FunctionEntry*) e;
-                          bool correctTypes = true;
+                          bool correctTypes = true, assigned;
                           string type_str, addr, paddr, raddr;
 
                           int numPositional = $3->positionalArgs.size(), i = 0;
-                          int c_offset = 0;
+                          int c_offset = 0, opts = 0;
 
-                          for (tuple<string, string, bool, ExpressionNode*> arg : fe->args) {
+                          for (tuple<string, string, bool, bool> arg : fe->args) {
                             string assign_type = get<1>(arg) == "Bool" || get<1>(arg) == "Char" ? 
                               "assignb" : "assignw";
+                            assigned = false;
                             
                             if (assign_type.back() == 'w' && c_offset % 4 != 0) {
                               int diff = 4 - c_offset % 4;
@@ -1822,6 +1840,7 @@
                               paddr = tac->newTemp();
                               tac->gen("param " + paddr + " " + to_string(c_offset));
                               tac->gen(assign_type + " " + paddr + "[0] " + addr);
+                              assigned = true;
                             } 
                             
                             else if ($3->keywords.count(get<0>(arg))) {
@@ -1900,28 +1919,45 @@
                               paddr = tac->newTemp();
                               tac->gen("param " + paddr + " " + to_string(c_offset));
                               tac->gen(assign_type + " " + paddr + "[0] " + addr);
+                              assigned = true;
                             } 
                             
-                            else if (get<3>(arg) == NULL) {
+                            else if (! get<3>(arg)) {
                               addError(
                                 "Missing required positional arguments."
                               );
                               correctTypes = false;
                             }
 
-                            else {
-                              if (get<3>(arg)->addr.back() == ']') {
-                                bool f = get<3>(arg)->type->toString() == "Float";
-                                addr = f ? tac->newFloat() : tac->newTemp();
-                                tac->gen(assign_type + " " + addr + " " + get<3>(arg)->addr);
+                            if (get<3>(arg)) {
+                              if (e->category == "Declaration") {
+                                // Almacenamos el scope y el numero de la instruccion donde
+                                // se usa el arreglo de variables
+                                if (tac->calllist.count(fe->id)) {
+                                  tac->calllist[fe->id].push_back({
+                                    tac->instructions.size(),
+                                    table->scopeStack
+                                  });
+                                }
+                                else {
+                                  tac->calllist[fe->id] = {{
+                                    tac->instructions.size(),
+                                    table->scopeStack
+                                  }};
+                                }
+                                tac->gen(
+                                  "assignb _[" + to_string(opts) + "] " 
+                                  + (assigned ? "1" : "0")
+                                );
                               }
                               else {
-                                addr = get<3>(arg)->addr;
+                                tac->gen(
+                                  "assignb " + fe->optargs_addr + 
+                                  "[" + to_string(opts) + "] " + (assigned ? "1" : "0")
+                                );
                               }
 
-                              paddr = tac->newTemp();
-                              tac->gen("param " + paddr + " " + to_string(c_offset));
-                              tac->gen(assign_type + " " + paddr + "[0] " + addr);
+                              opts++;
                             }
 
                             c_offset += assign_type.back() == 'w' ? 4 : 1;
@@ -2840,12 +2876,12 @@
 
 
 /* ======================= SUBROUTINES DEFINITION ==================== */
-  RoutDef   : RoutSign M OPEN_C_BRACE Actions CLOSE_C_BRACE   
+  RoutDef   : M RoutSign OPEN_C_BRACE Actions CLOSE_C_BRACE   
               { 
                 string func_size = to_string(table->offsets.back());
 
-                if ($1->is_error) {
-                  NodeError *err = (NodeError*) $1;
+                if ($2->is_error) {
+                  NodeError *err = (NodeError*) $2;
                   table->exitScope();
                   table->exitScope();
                   if (err->errInfo != "") {
@@ -2856,21 +2892,21 @@
                 } 
 
                 else {
-                  $$ = new NodeRoutineDef($1, $4); 
+                  $$ = new NodeRoutineDef($2, $4); 
                   
                   table->exitScope();
                   table->exitScope();
-                  tac->backpatch({(unsigned long long) $2 - 1}, func_size);
+                  tac->backpatch({(unsigned long long) $1}, func_size);
                 }
 
                 table->ret_type = "";
                 table->offsets.pop_back();
 
                 if ($4 != NULL) {
-                  tac->backpatch($4->nextlist, $1->addr + "_end");
+                  tac->backpatch($4->nextlist, $2->addr + "_end");
                 }
 
-                tac->gen("@label " + $1->addr + "_end");
+                tac->gen("@label " + $2->addr + "_end");
                 tac->gen("assignw lastbase BASE");
                 tac->gen("return 0");
                 tac->gen("@endfunction " + func_size);
@@ -2883,10 +2919,16 @@
 
                 if ($3 == NULL || $1->first == "" || $5->toString() == "$Error") {
                   NodeError *err = new NodeError();
-                  if ($1->second == NULL)
+                  if ($1->second == NULL) {
                     err->errInfo = $1->first;
-                  else 
+                  }
+                  else if ($1->first != "") {
                     err->errInfo = "";
+                    $1->second->category = "Declaration";
+                  }
+                  else{
+                    err->errInfo = "";
+                  }
                   $$ = err;
                 } 
                 
@@ -2899,15 +2941,10 @@
                       (size_t) i == fe_dec->args.size() ||
                       get<0>($3->params[i]) != get<0>(fe_dec->args[i]) ||
                       get<1>($3->params[i]) != get<1>(fe_dec->args[i]) ||
-                      get<2>($3->params[i]) != get<2>(fe_dec->args[i])
+                      get<2>($3->params[i]) != get<2>(fe_dec->args[i]) || 
+                      get<3>($3->params[i]) != get<3>(fe_dec->args[i])
                     ) {
                       addError("Sign of function dont match with the declaration.");
-                      error = true;
-                      break;
-                    }
-
-                    if (get<3>($3->params[i]) != NULL) {
-                      addError("Default values must be in declaration.");
                       error = true;
                       break;
                     }
@@ -2926,8 +2963,7 @@
 
                   else {
                     fe = (FunctionEntry*) table->lookup($1->first);
-                    fe->args = fe_dec->args;
-                    fe->addr = tac->newFunc();
+                    fe->args = $3->params;
                     $3->params.clear();
                     
                     $$ = new NodeRoutineSign($1->first, $3, $5);
@@ -2959,6 +2995,33 @@
                         tac->functionlist.erase(fe->id);
                       }
                     }
+
+                    // Repetimos el proceso anterior pero con los parametros opcionales
+                    if (tac->calllist.count(fe->id)) {
+                      vector<unsigned long long> instructions = {};
+                      int n = tac->calllist[fe->id].size();
+
+                      for (int j = 0; j < n; j++) {
+                        // Verificamos si el scope de definicion esta en la pila de scopes 
+                        // de la llamada.
+                        for (int s : tac->calllist[fe->id][j].second) {
+                          if (s == fe->scope) {
+                            instructions.push_back(tac->calllist[fe->id][j].first);
+                            tac->calllist[fe->id].erase(
+                              tac->calllist[fe->id].begin() + (j--)
+                            );
+                            break;
+                          }
+                        }
+                      }
+
+                      tac->backpatch(instructions, "A" + to_string(tac->arrayCount - 1));
+
+                      // Verificamos si la lista de esta funcion esta vacia
+                      if (tac->calllist[fe->id].size() == 0) {
+                        tac->calllist.erase(fe->id);
+                      }
+                    }
                   }
                 }
                 
@@ -2967,7 +3030,6 @@
                   fe->return_type = $5;
                   fe->def_scope = table->currentScope();  
                   fe->args = $3->params;
-                  fe->addr = tac->newFunc();
                   $3->params.clear();
                   
                   $$ = new NodeRoutineSign($1->first, $3, $5);
@@ -2981,7 +3043,7 @@
                 if (fe != NULL) {
                   $$->nextlist = {tac->instructions.size()};
                   $$->addr = fe->addr;
-                  tac->gen("@function " + $$->addr + " _");
+                  fe->optargs_addr = "A" + to_string(tac->arrayCount - 1);
                 }
               }
             ;
@@ -3000,6 +3062,8 @@
                   FunctionEntry *fe = (FunctionEntry*) e;
                   $$ = new pair<string, FunctionEntry*>(*$2, fe);
                   fe->category = "Function";
+                  fe->addr = tac->newFunc();
+                  tac->gen("@function " + fe->addr + " _");
                 }
                 
                 else if (e != NULL && e->category == "Declaration") {
@@ -3009,13 +3073,17 @@
                   FunctionEntry *fe = new FunctionEntry(*$2, s, "Function");
                   fe->args = fe_dec->args;
                   fe->return_type = fe_dec->return_type; 
+                  fe->addr = tac->newFunc();
                   table->insert(fe);
+                  tac->gen("@function " + fe->addr + " _");
                 }
 
                 else {
                   $$ = new pair<string, FunctionEntry*>(*$2, NULL);
-                  Entry *e = new FunctionEntry(*$2, s, "Function");
-                  table->insert(e);
+                  FunctionEntry *fe = new FunctionEntry(*$2, s, "Function");
+                  fe->addr = tac->newFunc();
+                  table->insert(fe);
+                  tac->gen("@function " + fe->addr + " _");
                 }
                 
                 table->newScope();
@@ -3038,6 +3106,7 @@
                   $$ = new NodeRoutArgs($1, NULL); 
                   $$->params = $1->currentParams;
                   $1->currentParams.clear();
+                  tac->newArray(0);
                 }
               }
 
@@ -3051,6 +3120,7 @@
                   $$ = new NodeRoutArgs(NULL, $1); 
                   $$->params = $1->currentParams;
                   $1->currentParams.clear();
+                  tac->newArray($$->params.size());
                 }
               }
 
@@ -3061,6 +3131,7 @@
                 } 
 
                 else {
+                  tac->newArray($3->currentParams.size());
                   for(auto & elem : $3->currentParams) {
                     $1->currentParams.push_back(elem);
                   }
@@ -3086,7 +3157,7 @@
 
                 else {
                   $$ = new NodeRoutArgDef(NULL, $1, $2, *$3, NULL);
-                  $$->currentParams.push_back({*$3, $1->toString(), $2, NULL});
+                  $$->currentParams.push_back({*$3, $1->toString(), $2, false});
 
                   int s = table->currentScope(), offset = table->newOffset($1);
 
@@ -3106,12 +3177,10 @@
                 }
 
                 else {
-                  $$ = new NodeRoutArgDef(
-                    $1, $3, $4, *$5, NULL
-                  );
+                  $$ = new NodeRoutArgDef($1, $3, $4, *$5, NULL);
                   $$->currentParams = $1->currentParams;
                   $1->currentParams.clear();
-                  $$->currentParams.push_back({*$5, $3->toString(), $4, NULL});
+                  $$->currentParams.push_back({*$5, $3->toString(), $4, false});
 
                   int s = table->currentScope(), offset = table->newOffset($3);
 
@@ -3121,10 +3190,10 @@
               }
             ;   
 
-  OptArgs   : Type OptRef IdDef ASSIGNMENT Exp 
+  OptArgs   : Type OptRef IdDef ASSIGNMENT M CondAssign Exp 
               { 
                 string type = $1->toString();
-                string rtype = $5->type->toString();
+                string rtype = $7->type->toString();
 
                 if (type == "$Error" || rtype == "$Error") {
                   $$ = NULL;
@@ -3148,68 +3217,8 @@
                 }
                 
                 else {
-                  $$ = new NodeRoutArgDef(NULL, $1, $2, *$3, $5);
-                  $$->currentParams.push_back({*$3, type, $2, (ExpressionNode*) $5});
-
-                  if (rtype == "Bool") {
-                    $5->addr = tac->newTemp();
-
-                    // Aplicamos backpatching sobre la truelist para realizar la 
-                    // asignacion de True, y luego saltamos la asignaicon de False.
-                    tac->backpatch($5->truelist, tac->instructions.size());
-                    tac->gen("assignb " + $5->addr + " True");
-                    string label = "Bool" + to_string(tac->instructions.size() + 2);
-                    tac->gen("goto " + label);
-
-                    // Aplicamos backpatching sobre la falselist para realizar la 
-                    // asignacion de False, y luego creamos la etiqueta de salto de la
-                    // asignacion a True.
-                    tac->backpatch($5->falselist, tac->instructions.size());
-                    tac->gen("assignb " + $5->addr + " False");
-                    tac->gen("@label " + label);
-                  }
-                  else if (rtype.back() == ']') {
-                    $$->type = $5->type;
-                  }
-
-                  int s = table->currentScope(), offset = table->newOffset($1);
-
-                  Entry *e = new VarEntry(*$3, s, "Var",$1, offset);
-                  table->insert(e);
-                }
-              }
-
-            | OptArgs COMMA Type OptRef IdDef ASSIGNMENT Exp   
-              { 
-                string type = $3->toString();
-                string rtype = $7->type->toString();
-                if (type == "$Error" || rtype == "$Error") {
-                  $$ = NULL;
-                } 
-
-                else if ($3->incomplete != "") {
-                  addError("Can't define arguments with incomplete types.");
-                  $$ = NULL;
-                }
-                
-                else if (type != rtype) {
-                  addError(
-                    "Can't assign a '\033[1;3m" + rtype +
-                    "\033[0m' to a '\033[1;3m" + type + "\033[0m'."
-                  );
-                  $$ = NULL;
-                } 
-                
-                else if ($1 == NULL || *$5 == "") {
-                  $$ = NULL;
-                } 
-                
-                else {
-                  $$ = new NodeRoutArgDef($1, $3, $4, *$5, $7);
-
-                  $$->currentParams = $1->currentParams;
-                  $1->currentParams.clear();
-                  $$->currentParams.push_back({*$5, type, $4, (ExpressionNode*) $7});
+                  $$ = new NodeRoutArgDef(NULL, $1, $2, *$3, $7);
+                  $$->currentParams.push_back({*$3, type, $2, true});
 
                   if (rtype == "Bool") {
                     $7->addr = tac->newTemp();
@@ -3232,14 +3241,108 @@
                     $$->type = $7->type;
                   }
 
-                  int s = table->currentScope(), offset = table->newOffset($3);
+                  int s = table->currentScope(), offset = table->newOffset($1);
+                  Entry *e = new VarEntry(*$3, s, "Var",$1, offset);
+                  table->insert(e);
 
+                  string raddr, assign_type = $1->width == 1 ? "assignb" : "assignw";
+                  if ($7->addr.back() == ']') {
+                    raddr = rtype == "Float" ? tac->newFloat() : tac->newTemp();
+                    tac->gen(assign_type + " " + raddr + " " + $7->addr);
+                  } 
+                  else {
+                    raddr = $7->addr;
+                  }
+
+                  tac->gen(assign_type + " BASE[" + to_string(offset) + "] " + raddr);
+                  tac->backpatch({$5}, string("0"));
+                  tac->gen("@label " + *$6);
+                }
+              }
+
+            | OptArgs COMMA Type OptRef IdDef ASSIGNMENT M CondAssign Exp   
+              { 
+                string type = $3->toString();
+                string rtype = $9->type->toString();
+                
+                if (type == "$Error" || rtype == "$Error") {
+                  $$ = NULL;
+                } 
+
+                else if ($3->incomplete != "") {
+                  addError("Can't define arguments with incomplete types.");
+                  $$ = NULL;
+                }
+                
+                else if (type != rtype) {
+                  addError(
+                    "Can't assign a '\033[1;3m" + rtype +
+                    "\033[0m' to a '\033[1;3m" + type + "\033[0m'."
+                  );
+                  $$ = NULL;
+                } 
+                
+                else if ($1 == NULL || *$5 == "") {
+                  $$ = NULL;
+                } 
+                
+                else {
+                  $$ = new NodeRoutArgDef($1, $3, $4, *$5, $9);
+
+                  $$->currentParams = $1->currentParams;
+                  $1->currentParams.clear();
+                  $$->currentParams.push_back({*$5, type, $4, true});
+
+                  if (rtype == "Bool") {
+                    $9->addr = tac->newTemp();
+
+                    // Aplicamos backpatching sobre la truelist para realizar la 
+                    // asignacion de True, y luego saltamos la asignaicon de False.
+                    tac->backpatch($9->truelist, tac->instructions.size());
+                    tac->gen("assignb " + $9->addr + " True");
+                    string label = "Bool" + to_string(tac->instructions.size() + 2);
+                    tac->gen("goto " + label);
+
+                    // Aplicamos backpatching sobre la falselist para realizar la 
+                    // asignacion de False, y luego creamos la etiqueta de salto de la
+                    // asignacion a True.
+                    tac->backpatch($9->falselist, tac->instructions.size());
+                    tac->gen("assignb " + $9->addr + " False");
+                    tac->gen("@label " + label);
+                  }
+                  else if (rtype.back() == ']') {
+                    $$->type = $9->type;
+                  }
+
+                  int s = table->currentScope(), offset = table->newOffset($3);
                   Entry *e = new VarEntry(*$5, s, "Var", $3, offset);
                   table->insert(e);
+
+                  string raddr, assign_type = $3->width == 1 ? "assignb" : "assignw";
+                  if ($9->addr.back() == ']') {
+                    raddr = rtype == "Float" ? tac->newFloat() : tac->newTemp();
+                    tac->gen(assign_type + " " + raddr + " " + $9->addr);
+                  } 
+                  else {
+                    raddr = $9->addr;
+                  }
+
+                  tac->gen(assign_type + " BASE[" + to_string(offset) + "] " + raddr);
+                  tac->backpatch({$7}, to_string($$->currentParams.size()-1));
+                  tac->gen("@label " + *$8);
                 }
               }
 
             ;
+
+  CondAssign: /* lambda */
+              {
+                string temp = tac->newTemp();
+                string array = "A" + to_string(tac->arrayCount);
+                $$ = new string(tac->newLabel());
+                tac->gen("assignb " + temp + " " + array + "[_]");
+                tac->gen("goif " + *$$ + " " + temp);
+              }
   
   OptRef    : /* lambda */                { $$ = false; }
             | AT                          { $$ = true; }
@@ -3290,7 +3393,7 @@
 
 
 /* ======================= SUBROUTINES DECLARATION =================== */
-  RoutDec   : DecId OPEN_PAR RoutArgs CLOSE_PAR OptReturn 
+  RoutDec   : DecId OPEN_PAR DecArgs CLOSE_PAR OptReturn 
               {
                 int s1 = table->currentScope();
                 table->exitScope();
@@ -3318,6 +3421,160 @@
                 table->newScope();
                 $$ = $2;
               }
+            ;   
+
+  DecArgs   : /* lambda */ 
+              { 
+                $$ = new NodeRoutDecArgs(NULL, NULL); 
+              }
+
+            | MandDecArgs  
+              { 
+                if ($1 == NULL) {
+                  $$ = NULL;
+                } 
+
+                else {
+                  $$ = new NodeRoutDecArgs($1, NULL); 
+                  $$->params = $1->currentParams;
+                  $1->currentParams.clear();
+                }
+              }
+
+            | OptDecArgs                                       
+              {
+                if ($1 == NULL) {
+                  $$ = NULL;
+                } 
+
+                else {
+                  $$ = new NodeRoutDecArgs(NULL, $1); 
+                  $$->params = $1->currentParams;
+                  $1->currentParams.clear();
+                }
+              }
+
+            | MandDecArgs COMMA OptDecArgs   
+              { 
+                if (($1 == NULL) || ($3 == NULL)) {
+                  $$ = NULL;
+                } 
+
+                else {
+                  for(auto & elem : $3->currentParams) {
+                    $1->currentParams.push_back(elem);
+                  }
+
+                  $$ = new NodeRoutDecArgs($1, $3);
+                  $$->params = $1->currentParams;
+                  $1->currentParams.clear();
+                  $3->currentParams.clear();
+                }
+              }
+            ;  
+
+  MandDecArgs : Type OptRef IdDef                             
+              { 
+                if (*$3 == "" || $1->toString() == "$Error") {
+                  $$ = NULL;
+                } 
+
+                else if ($1->incomplete != "") {
+                  addError("Can't define arguments with incomplete types.");
+                  $$ = NULL;
+                }
+
+                else {
+                  $$ = new NodeRoutDecArgDef(NULL, $1, $2, *$3, true);
+                  $$->currentParams.push_back({*$3, $1->toString(), $2, false});
+
+                  int s = table->currentScope(), offset = table->newOffset($1);
+
+                  Entry *e = new VarEntry(*$3, s, "Var", $1, offset);
+                  table->insert(e);
+                }
+              }
+            | MandDecArgs COMMA Type OptRef IdDef  
+              { 
+                if ($1 == NULL || *$5 == "" || $3->toString() == "$Error") {
+                  $$ = NULL;
+                } 
+
+                else if ($3->incomplete != "") {
+                  addError("Can't define arguments with incomplete types.");
+                  $$ = NULL;
+                }
+
+                else {
+                  $$ = new NodeRoutDecArgDef($1, $3, $4, *$5, false);
+                  $$->currentParams = $1->currentParams;
+                  $1->currentParams.clear();
+                  $$->currentParams.push_back({*$5, $3->toString(), $4, false});
+
+                  int s = table->currentScope(), offset = table->newOffset($3);
+
+                  Entry *e = new VarEntry(*$5, s, "Var", $3, offset);
+                  table->insert(e);
+                }
+              }
+            ;   
+
+  OptDecArgs : OPT Type OptRef IdDef
+              { 
+                string type = $2->toString();
+
+                if (type == "$Error") {
+                  $$ = NULL;
+                } 
+
+                else if ($2->incomplete != "") {
+                  addError("Can't define arguments with incomplete types.");
+                  $$ = NULL;
+                }
+
+                else if (*$4 == "") {
+                  $$ = NULL;
+                }
+                
+                else {
+                  $$ = new NodeRoutDecArgDef(NULL, $2, $3, *$4, true);
+                  $$->currentParams.push_back({*$4, type, $3, true});
+
+                  int s = table->currentScope(), offset = table->newOffset($2);
+                  Entry *e = new VarEntry(*$4, s, "Var",$2, offset);
+                  table->insert(e);
+                }
+              }
+
+            | OptDecArgs COMMA OPT Type OptRef IdDef 
+              { 
+                string type = $4->toString();
+                if (type == "$Error") {
+                  $$ = NULL;
+                } 
+
+                else if ($4->incomplete != "") {
+                  addError("Can't define arguments with incomplete types.");
+                  $$ = NULL;
+                }
+                
+                else if ($1 == NULL || *$6 == "") {
+                  $$ = NULL;
+                } 
+                
+                else {
+                  $$ = new NodeRoutDecArgDef($1, $4, $5, *$6, true);
+
+                  $$->currentParams = $1->currentParams;
+                  $1->currentParams.clear();
+                  $$->currentParams.push_back({*$6, type, $5, true});
+
+                  int s = table->currentScope(), offset = table->newOffset($4);
+                  Entry *e = new VarEntry(*$6, s, "Var", $4, offset);
+                  table->insert(e);
+                }
+              }
+
             ;
 
 

@@ -134,7 +134,7 @@ void Translator::cleanRegistersDescriptor()
 {
     for(auto currentRegister : m_registers)
     {
-        currentRegister.second.clear();
+        m_registers[currentRegister.first].clear();
     }
 }
 

@@ -535,7 +535,7 @@ class Node {
       Node *optArgs;
 
     public:
-      vector<tuple<string, string, bool, ExpressionNode*>> params;
+      vector<tuple<string, string, bool, bool>> params;
 
       NodeRoutArgs(Node *oblArgs, Node *optArgs);
 
@@ -551,7 +551,7 @@ class Node {
 
     public:
       Type *type; 
-      vector<tuple<string, string, bool, ExpressionNode*>> currentParams;
+      vector<tuple<string, string, bool, bool>> currentParams;
       
       NodeRoutArgDef(Node *head, Type *type, bool ref, string id, Node *rvalue);
 
@@ -579,4 +579,35 @@ class Node {
 
       void printTree(vector<bool> *identation);
   };
+
+/* ======================= SUBROUTINE DEC NODES ====================== */
+  class NodeRoutDecArgs : public Node {
+    protected:
+      Node *oblArgs;
+      Node *optArgs;
+
+    public:
+      vector<tuple<string, string, bool, bool>> params;
+
+      NodeRoutDecArgs(Node *oblArgs, Node *optArgs);
+
+      void printTree(vector<bool> *identation);
+  };
+
+  class NodeRoutDecArgDef : public Node {
+    protected:
+      Node *head; 
+      bool ref; 
+      string id; 
+      bool opt;
+
+    public:
+      Type *type; 
+      vector<tuple<string, string, bool, bool>> currentParams;
+      
+      NodeRoutDecArgDef(Node *head, Type *type, bool ref, string id, bool opt);
+
+      void printTree(vector<bool> *identation);
+  };
+
 

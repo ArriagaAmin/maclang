@@ -91,6 +91,7 @@
 "let"                         { return LET; }
 "def"                         { return DEF; }
 "dec"                         { return DEC; }
+"opt"                         { return OPT; }
 "@"                           { return AT; }
 "=>"                          { return RIGHT_ARROW; }
 "return"                      { return RETURN; }

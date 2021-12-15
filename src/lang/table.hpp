@@ -162,9 +162,10 @@ class FunctionEntry : public Entry {
     Type *return_type;
     // scope for all inner definitions
     int def_scope;
-    // every arg is a tuple (name, type, isReference, Expression)
-    vector<tuple<string, string, bool, ExpressionNode*>> args;
+    // every arg is a tuple (name, type, isReference, isOptional)
+    vector<tuple<string, string, bool, bool>> args;
     string addr;
+    string optargs_addr;
 
     FunctionEntry(string id, int scope, string category);
     FunctionEntry(void) {};
@@ -180,7 +181,7 @@ class FunctionDeclarationEntry : public FunctionEntry {
       string id, 
       int scope,
       string category, 
-      vector<tuple<string, string, bool, ExpressionNode*>> args, 
+      vector<tuple<string, string, bool, bool>> args, 
       Type *return_type
     );
 
