@@ -75,8 +75,10 @@ class FlowGraph {
         map<string, uint64_t> F;
         // Relaciones llamador/llamado
         map<uint64_t, uint64_t> caller;
+        // Direcciones de memoria (variables) definidas estaticamente
+        set<string> staticVars;
 
-        FlowGraph(vector<T_Function*> functions);
+        FlowGraph(vector<T_Function*> functions, set<string> staticVars);
 
         void insertArc(uint64_t u, uint64_t v);
         void deleteBlock(uint64_t id);
@@ -271,13 +273,26 @@ map<uint64_t, vector<set<T>>> FlowGraph::flowAnalysis(
             }
             // Ignoramos la variable BASE
             sets[id][!forward].erase("BASE");
+
+            // Eliminamos las variables estaticas
+            for (string staticVar : this->staticVars) {
+                sets[id][!forward].erase(staticVar);
+            }
+
             change = change || sets[id][!forward] != aux;
 
             // Calculamos el out del bloque
             aux = sets[id][forward];
             sets[id][forward] = this->V[i]->F<T>(functions, sets[id][!forward], forward);
+
             // Ignoramos la variable BASE
             sets[id][forward].erase("BASE");
+
+            // Eliminamos las variables estaticas
+            for (string staticVar : this->staticVars) {
+                sets[id][forward].erase(staticVar);
+            }
+
             // Verificamos si hubo un cambio
             change = change || sets[id][forward] != aux;
         }

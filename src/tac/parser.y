@@ -17,6 +17,7 @@
 
   T_Function *global = new T_Function, *current_function;
   vector<T_Function*> functions = {global};
+  set<string> staticVars;
   bool err = false;
 
   Translator *CB;
@@ -80,11 +81,15 @@
 
 
               if (! err) {
-                FlowGraph *fg = new FlowGraph(functions);
-                cout << "Graph flow created" << "\n\n";
-                map<uint64_t, vector<set<string>>> sets = fg->liveVariables();
-                cout << "Live variables calculated" << "\n\n";
-                fg->flowPrint<string>(sets);
+                // Calculamos el grafo de flujo.
+                FlowGraph *fg = new FlowGraph(functions, staticVars);
+                cout << "\033[1m[\033[36m*\033[0;1m]\033[0m Graph flow created" << "\n";
+
+                // Calculamos las variables vivas.
+                map<uint64_t, vector<set<string>>> liveVariables = fg->liveVariables();
+                cout << "\033[1m[\033[36m*\033[0;1m]\033[0m Live variables calculated" << "\n";
+                fg->flowPrint<string>(liveVariables);
+
                 //CB->insertFlowGraph(fg);
                 //fg->prettyPrint();
                 //CB->translate();
@@ -101,10 +106,12 @@
             MI_STATICV ID INT NL 
             {
               CB->insertInstruction(new T_Instruction{*$1, {*$2, "", false}, {{to_string($3), "", false}}});
+              staticVars.insert(*$2);
             }
           | MI_STRING  ID STRING NL
             {
               CB->insertInstruction(new T_Instruction{*$1, {*$2, "", false}, {{*$3, "", false}}});
+              staticVars.insert(*$2);
             }
           ;
 
@@ -301,7 +308,7 @@
   F       : Function NL Inst MI_ENDFUNCTION INT
             {
               // Agregamos una instruccion return por si acaso
-              current_function->instructions.push_back({"return", "0", {}});
+              current_function->instructions.push_back({"return", {"0", "", false}, {}});
               current_function->leaders.insert(current_function->instructions.size());
 
               // Agregamos los lideres generados debido a gotos

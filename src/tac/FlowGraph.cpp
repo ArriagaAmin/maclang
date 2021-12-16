@@ -227,7 +227,9 @@ uint64_t FlowGraph::makeSubGraph(T_Function *function, uint64_t init_id) {
     return last_id;
 }
 
-FlowGraph::FlowGraph(vector<T_Function*> functions) {
+FlowGraph::FlowGraph(vector<T_Function*> functions, set<string> staticVars) {
+    this->staticVars = staticVars;
+    
     uint64_t current_id;
 
     // Creamos el grafo global

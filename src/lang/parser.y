@@ -3690,6 +3690,9 @@ void scope0(void) {
   table->insert(ve);
   tac->gen("assignw " + ve->addr + " 0");
 
+  // Inicializando la variable lastbase
+  tac->gen("assignw lastbase 0");
+
   // New line
   ExpressionNode *nl = new NodeSTRING("\n");
   ArrayType *t = new ArrayType(predefinedTypes["Char"], new NodeINT(1), true);
