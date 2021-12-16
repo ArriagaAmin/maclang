@@ -42,7 +42,7 @@ public:
     string newFloat();
     string newLabel();
     string newFunc();
-    void newArray(unsigned long long bytes);
+    string newArray(unsigned long long bytes);
     string newStr(string str);
     string replaceAll(string text, string to_find, string to_replace);
     void gen(string instr);

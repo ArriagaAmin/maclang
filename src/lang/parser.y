@@ -432,6 +432,7 @@
 
                     if ($2->addr.back() == ']') {
                       raddr = type == "Float" ? tac->newFloat(): tac->newTemp();
+                      tac->gen("assignw " + raddr + " " + $2->addr);
                     }
                     else {
                       raddr = $2->addr;
@@ -3709,6 +3710,7 @@ void scope0(void) {
   fe->args.push_back({"text", "(Char)[]", true, NULL});
   fe->return_type = predefinedTypes["Unit"];
   fe->addr = "READ";
+  fe->optargs_addr = "!";
   fe->def_scope = 0;
   table->insert(fe);
   // Generamos el tac;
@@ -3724,6 +3726,7 @@ void scope0(void) {
   fe->addr = "READC";
   fe->def_scope = 0;
   table->insert(fe);
+  fe->optargs_addr = "!";
   // Generamos el tac;
   tac->gen("@function " + fe->addr + " 0");
   temps[0] = tac->newTemp();
@@ -3736,6 +3739,7 @@ void scope0(void) {
   fe->addr = "READI";
   fe->def_scope = 0;
   table->insert(fe);
+  fe->optargs_addr = "!";
   // Generamos el tac
   tac->gen("@function " + fe->addr + " 0");
   temps[0] = tac->newTemp();
@@ -3748,6 +3752,7 @@ void scope0(void) {
   fe->addr = "READF";
   fe->def_scope = 0;
   table->insert(fe);
+  fe->optargs_addr = "!";
   // Generamos el tac
   tac->gen("@function " + fe->addr + " 0");
   temps[0] = tac->newFloat();
@@ -3762,6 +3767,7 @@ void scope0(void) {
   fe->addr = "CTOI";
   fe->def_scope = 0;
   table->insert(fe);
+  fe->optargs_addr = "!";
   // Generamos el tac
   tac->gen("@function " + fe->addr + " 1");
   temps[0] = tac->newTemp();
@@ -3776,6 +3782,7 @@ void scope0(void) {
   fe->addr = "ITOC";
   fe->def_scope = 0;
   table->insert(fe);
+  fe->optargs_addr = "!";
   // Generamos el tac
   tac->gen("@function " + fe->addr + " 4");
   temps[0] = tac->newTemp();
@@ -3790,6 +3797,7 @@ void scope0(void) {
   fe->addr = "FTOI";
   fe->def_scope = 0;
   table->insert(fe);
+  fe->optargs_addr = "!";
   // Generamos el tac
   temps[0] = tac->newFloat();
   temps[1] = tac->newTemp();
@@ -3806,6 +3814,7 @@ void scope0(void) {
   fe->addr = "ITOF";
   fe->def_scope = 0;
   table->insert(fe);
+  fe->optargs_addr = "!";
   temps[0] = tac->newTemp();
   temps[1] = tac->newFloat();
   tac->gen("@function " + fe->addr + " 4");
@@ -3834,12 +3843,14 @@ void scope0(void) {
   fe->addr = "PRINT";
   fe->def_scope = 0;
   table->insert(fe);
+  fe->optargs_addr = tac->newArray(5);
 
   // Generamos el tac
   for (int i = 0; i < 11; i++) temps[i] = tac->newTemp();
   temps[11] = tac->newFloat();
   for (int i = 0; i < 6; i++) labels[i] = tac->newLabel();
   tac->gen("@function " + fe->addr + " 24");
+  tac->gen("assignb test " + fe->optargs_addr);
   tac->gen("assignw " + temps[0] + " 4");
   tac->gen("assignw " + temps[1] + " 4");
   tac->gen("assignw " + temps[2] + " 4");
@@ -3848,12 +3859,12 @@ void scope0(void) {
   tac->gen("assignw " + temps[5] + " BASE[0]");
   tac->gen("@label " + labels[0]);
   tac->gen("assignb " + temps[6] + " " + temps[5] + "[" + temps[0] + "]");
+  tac->gen("add " + temps[0] + " " + temps[0] + " 1");
   tac->gen("eq test " + temps[6] + " 0");
   tac->gen("goif " + labels[0] + "_end test");
   tac->gen("eq test " + temps[6] + " 37");
   tac->gen("goif " + labels[1] + " test");
   tac->gen("printc " + temps[6]);
-  tac->gen("add " + temps[0] + " " + temps[0] + " 1");
   tac->gen("goto " + labels[0]);
   tac->gen("@label " + labels[1]);
   tac->gen("assignb " + temps[6] + " " + temps[5] + "[" + temps[0] + "]");

@@ -115,6 +115,32 @@ void FlowGraph::insertArc(uint64_t u, uint64_t v) {
     else this->Einv.insert({v, {u}});
 }
 
+void FlowGraph::deleteBlock(uint64_t id) {
+    // Eliminamos todos los arcos que apuntan hacia el bloque.
+    for (uint64_t p : this->Einv[id]) {
+        this->E[p].erase(id);
+    }
+    // Eliminamos todos los arcos inversos que apuntan hacia el bloque.
+    for (uint64_t p : this->E[id]) {
+        this->Einv[p].erase(id);
+    }
+    // Eliminamos los arcos desde el bloque.
+    this->E.erase(id);
+    this->Einv.erase(id);
+
+    // Si el nodo es una funcion, eliminamos su referencia en el grafo
+    if (this->V[id]->is_function) {
+        this->F.erase(this->V[id]->getName());
+    }
+
+    // Eliminamos su posible llamada.
+    this->caller.erase(id);
+
+    // Borramos el nodo.
+    delete this->V[id];
+    this->V.erase(id);
+}
+
 uint64_t FlowGraph::makeSubGraph(T_Function *function, uint64_t init_id) {
     // Creamos los nodos
     uint64_t last_id = init_id;
@@ -194,16 +220,7 @@ uint64_t FlowGraph::makeSubGraph(T_Function *function, uint64_t init_id) {
     // Eliminamos aquellos bloques inalcanzables.
     for (uint64_t id = init_id; id < last_id; id++) {
         if (visited.count(id) == 0) {
-            for (uint64_t p : this->E[id]) {
-                this->Einv[p].erase(id);
-            }
-            for (uint64_t p : this->Einv[id]) {
-                this->E[p].erase(id);
-            }
-            this->E.erase(id);
-            this->Einv.erase(id);
-            delete this->V[id];
-            this->V.erase(id);
+            this->deleteBlock(id);
         }
     }
 
@@ -234,13 +251,58 @@ FlowGraph::FlowGraph(vector<T_Function*> functions) {
                 
                 // Creamos la relacion de llamada
                 this->caller[n.first] = f->id;
-                if (this->called.count(f->id)) {
-                    this->called[f->id].insert(n.first);
-                }
-                else {
-                    this->called[f->id] = {n.first};
-                }
             }
+        }
+    }
+
+    // Eliminamos las funciones que no son llamadas
+    // Para ello usamos DFS para obtener todas las posibles llamadas en los bloques.
+    set<uint64_t> visited;
+    stack<uint64_t> toVisit;
+    uint64_t current_b;
+
+    toVisit.push(0);
+    visited.insert(0);
+
+    while (toVisit.size() > 0) {
+        current_b = toVisit.top();
+        toVisit.pop();
+        do {
+            if (current_b >= current_id) break;
+
+            if (
+                this->V.count(current_b) > 0 && 
+                this->caller.count(current_b) > 0 &&
+                visited.count(this->caller[current_b]) == 0 
+            ) {
+                visited.insert(this->caller[current_b]);
+                toVisit.push(this->caller[current_b]);
+            }
+            current_b++;
+
+        } while (this->V.count(current_b) == 0 || ! this->V[current_b]->is_function);
+    }
+
+    // Eliminamos las funciones que no fueron llamadas.
+    current_b = 0;
+    while (current_b < current_id) {
+        // Si la funcion fue visitada, solo tenemos que pasar a la siguiente funcion.
+        if (visited.count(current_b) > 0) {
+            do {
+                if (current_b >= current_id) break;
+                current_b++;
+            }
+            while (this->V.count(current_b) == 0 || ! this->V[current_b]->is_function);
+        }
+        // En caso contrario eliminamos todos los bloques de la funcion.
+        else {
+            do {
+                if (current_b >= current_id) break;
+                if (this->V.count(current_b) > 0) {
+                    this->deleteBlock(current_b);
+                }
+                current_b++;
+            } while (this->V.count(current_b) == 0 || ! this->V[current_b]->is_function);
         }
     }
 
@@ -270,15 +332,13 @@ set<string> liveVariables_initExitIn(FlowGraph* fg) { return {}; }
 // Funciones de transicion de cada instruccion
 
 set<string> liveVariables_assign(set<string> in, T_Instruction instr) {
-    size_t index;
     char c;
-    if (instr.result.name.back() == ']') {
-        index = instr.result.name.find('[');
-        in.insert(instr.result.name.substr(0, index));
+    if (instr.result.is_acc) {
+        in.insert(instr.result.name);
 
-        c = instr.result.name[index+1];
+        c = instr.result.acc[0];
         if (('A' <= c && c <= 'z') || c == '_') {
-            in.insert(instr.result.name.substr(index + 1, instr.result.name.size() - index - 2));
+            in.insert(instr.result.acc);
         }
 
         c = instr.operands[0].name[0];
@@ -286,15 +346,13 @@ set<string> liveVariables_assign(set<string> in, T_Instruction instr) {
             in.insert(instr.operands[0].name);
         }
     }
-    else if (instr.operands[0].name.back() == ']'){
-        index = instr.operands[0].name.find('[');
+    else if (instr.operands[0].is_acc){
         in.erase(instr.result.name);
-        in.insert(instr.operands[0].name.substr(0, index));
+        in.insert(instr.operands[0].name);
 
-        c = instr.operands[0].name[index+1];
+        c = instr.operands[0].acc[0];
         if (('A' <= c && c <= 'z') || c == '_') {
-            
-            in.insert(instr.operands[0].name.substr(index + 1, instr.operands[0].name.size() - index - 2));
+            in.insert(instr.operands[0].acc);
         }
     } 
     else {
@@ -373,7 +431,7 @@ set<string> liveVariables_memcpy(set<string> in, T_Instruction instr) {
     return in;
 }
 
-set<string> liveVariables_call(set<string> in, T_Instruction instr) {
+set<string> liveVariables_assignf1(set<string> in, T_Instruction instr) {
     in.erase(instr.result.name);
     return in;
 }
@@ -418,14 +476,14 @@ map<uint64_t, vector<set<string>>> FlowGraph::liveVariables(void) {
             {"exit"   , &liveVariables_f1},
             {"param"  , &liveVariables_f2},
             {"return" , &liveVariables_f1},
-            {"call"   , &liveVariables_call},
+            {"call"   , &liveVariables_assignf1},
             {"printc" , &liveVariables_f1},
             {"printi" , &liveVariables_f1},
             {"printf" , &liveVariables_f1},
             {"print"  , &liveVariables_f1},
-            {"readc"  , &liveVariables_f1},
-            {"readi"  , &liveVariables_f1},
-            {"readf"  , &liveVariables_f1},
+            {"readc"  , &liveVariables_assignf1},
+            {"readi"  , &liveVariables_assignf1},
+            {"readf"  , &liveVariables_assignf1},
             {"read"   , &liveVariables_f1}
         },
         false,

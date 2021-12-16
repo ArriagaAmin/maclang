@@ -1,7 +1,7 @@
 %{  
   #include <iostream>
-  #include <string>
   #include <cstring>
+  #include <string>
   #include <set>
 
   #include "FlowGraph.hpp"
@@ -17,8 +17,6 @@
 
   T_Function *global = new T_Function, *current_function;
   vector<T_Function*> functions = {global};
-  // Indica que funciones han sido llamadas.
-  set<string> calls;
   bool err = false;
 
   Translator *CB;
@@ -80,22 +78,16 @@
               }
               global->leaders.clear();
 
-              // Filtramos aquellas funciones que nunca fueron llamadas.
-              vector<T_Function*> filtered_functions = {global};
-              for (T_Function *f : functions) {
-                if (calls.count(f->name)) {
-                  filtered_functions.push_back(f);
-                }
-              }
 
               if (! err) {
-                FlowGraph *fg = new FlowGraph(filtered_functions);
+                FlowGraph *fg = new FlowGraph(functions);
+                cout << "Graph flow created" << "\n\n";
                 map<uint64_t, vector<set<string>>> sets = fg->liveVariables();
+                cout << "Live variables calculated" << "\n\n";
                 fg->flowPrint<string>(sets);
-                cout << "Graph flow created" << endl;
-                CB->insertFlowGraph(fg);
+                //CB->insertFlowGraph(fg);
                 //fg->prettyPrint();
-                CB->translate();
+                //CB->translate();
                 //CB->print();
               }
             }
@@ -265,9 +257,12 @@
             }
           | I_CALL    ID ID INT
             {
-              current_function->instructions.push_back({*$1, {*$2, "", false}, {{*$3, "", false}, {to_string($4), "", false}}});
+              current_function->instructions.push_back({
+                *$1, 
+                {*$2, "", false}, 
+                {{*$3, "", false}, {to_string($4), "", false}}
+              });
               current_function->leaders.insert(current_function->instructions.size());
-              calls.insert(*$3);
             }
           | I_PRINTC  Val
             {
@@ -305,6 +300,10 @@
        
   F       : Function NL Inst MI_ENDFUNCTION INT
             {
+              // Agregamos una instruccion return por si acaso
+              current_function->instructions.push_back({"return", "0", {}});
+              current_function->leaders.insert(current_function->instructions.size());
+
               // Agregamos los lideres generados debido a gotos
               for (string label : current_function->labels_leaders) {
                 if (current_function->labels2instr.count(label) == 0) {
@@ -423,6 +422,7 @@ int main(int argc, char **argv) {
 
   // start parsing
   global->id = 0;
+  global->name = "@GLOBAL";
   current_function = global;
   yyparse();
 

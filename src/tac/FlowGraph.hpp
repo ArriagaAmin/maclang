@@ -2,6 +2,7 @@
 
 #include <map>
 #include <set>
+#include <stack>
 #include <vector>
 #include <string>
 #include <iostream>
@@ -74,11 +75,11 @@ class FlowGraph {
         map<string, uint64_t> F;
         // Relaciones llamador/llamado
         map<uint64_t, uint64_t> caller;
-        map<uint64_t, set<uint64_t>> called;
 
         FlowGraph(vector<T_Function*> functions);
 
         void insertArc(uint64_t u, uint64_t v);
+        void deleteBlock(uint64_t id);
         uint64_t makeSubGraph(T_Function *function, uint64_t init_id);
 
         // ==================== ANALISIS DE FLUJO ==================== //
