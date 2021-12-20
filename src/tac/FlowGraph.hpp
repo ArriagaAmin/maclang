@@ -10,11 +10,41 @@
 
 using namespace std;
 
+/*
+ * Representacion de op A B
+ */
+struct Expression {
+    string op;
+    string A;
+    string B;
+
+    bool operator==(const Expression& e) const {
+        return op == e.op && A == e.A && B == e.B; 
+    }
+    bool operator<(const Expression& e) const {
+        return (op + A + B) < (e.op + e.A + e.B);
+    }
+    std::ostream& operator<<(std::ostream& o) const {
+        o << op << " " << A << " " << B;
+        return o;
+    }
+};
+
 struct T_Variable
 {
     string name;
     string acc;
     bool is_acc;
+
+    bool operator==(const T_Variable& v) const {
+        return name == v.name && acc == v.acc && is_acc == v.is_acc; 
+    }
+    bool operator!=(const T_Variable& v) const {
+        return ! (*this == v) ; 
+    }
+    bool operator<(const T_Variable& v) const {
+        return (name + (is_acc ? acc : "")) < (v.name + (v.is_acc ? v.acc : ""));
+    }
 };
 
 struct T_Instruction
@@ -22,6 +52,14 @@ struct T_Instruction
     string id;
     T_Variable result;
     vector<T_Variable> operands;
+    bool operator==(const T_Instruction& instr) const {
+        return id == instr.id && result == instr.result && operands == instr.operands; 
+    }
+    bool operator<(const T_Instruction& instr) const {
+        if (id != instr.id) return id < instr.id;
+        if (result != instr.result) return result < instr.result;
+        return operands < instr.operands;
+    }
 };
 
 struct T_Function
@@ -83,6 +121,8 @@ class FlowGraph {
         void insertArc(uint64_t u, uint64_t v);
         void deleteBlock(uint64_t id);
         uint64_t makeSubGraph(T_Function *function, uint64_t init_id);
+        void print(void);
+        void prettyPrint(void);
 
         // ==================== ANALISIS DE FLUJO ==================== //
         // Algoritmo de analisis de flujo generico.
@@ -98,12 +138,17 @@ class FlowGraph {
         template <typename T>
         void flowPrint(map<uint64_t, vector<set<T>>> sets);
 
+        // Analisis de flujo para definiciones vigentes.
+        map<uint64_t, vector<map<string, set<pair<uint64_t, uint64_t>>>>> reachingDefinitions(void);
+        void replaceDefinitions(map<uint64_t, vector<map<string, set<pair<uint64_t, uint64_t>>>>> sets);
+        bool computeConstOperations(void);
+
         // Analisis de flujo para variables vivas.
         map<uint64_t, vector<set<string>>> liveVariables(void);
+        void deleteDeadVariables(map<uint64_t, vector<set<string>>> sets);
 
-
-        void print(void);
-        void prettyPrint(void);
+        // Analisis de flujo para expresiones anticipadas.
+        map<uint64_t, vector<set<Expression>>> anticiped(void);
 };
 
 
@@ -145,10 +190,14 @@ set<T> setUnion(set<T> U, set<T> V) {
 
 template <typename T>
 set<T> setIntersec(set<T> U, set<T> V) {
-    for (T e : U) 
-        if (V.count(e) == 0)
-            U.erase(e);
-    return U;
+    set<T> W;
+    for (T e : U)  {
+        if (V.count(e) > 0) {
+            W.insert(e);
+        }
+    }
+    
+    return W;
 }
 
 
@@ -271,27 +320,11 @@ map<uint64_t, vector<set<T>>> FlowGraph::flowAnalysis(
                     sets[id][1] = setUnion<T>(sets[id][1], exit_in);
                 }
             }
-            // Ignoramos la variable BASE
-            sets[id][!forward].erase("BASE");
-
-            // Eliminamos las variables estaticas
-            for (string staticVar : this->staticVars) {
-                sets[id][!forward].erase(staticVar);
-            }
-
             change = change || sets[id][!forward] != aux;
 
             // Calculamos el out del bloque
             aux = sets[id][forward];
             sets[id][forward] = this->V[i]->F<T>(functions, sets[id][!forward], forward);
-
-            // Ignoramos la variable BASE
-            sets[id][forward].erase("BASE");
-
-            // Eliminamos las variables estaticas
-            for (string staticVar : this->staticVars) {
-                sets[id][forward].erase(staticVar);
-            }
 
             // Verificamos si hubo un cambio
             change = change || sets[id][forward] != aux;

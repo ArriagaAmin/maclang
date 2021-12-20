@@ -1,14 +1,26 @@
+let Int a = 42, k, m, n;
+let Bool b = True;
 
-dec F(opt Bool x, opt Int a, opt Float f) => Int;
+if b then 
+	k = a + 1;
+done 
+m = a + 1;
 
-F(a=-20);
+if ! b then 
+	n = a + 1;
+else 
+	n = a + 2;
+done 
+a = a + 1;
+let Int dsfa = -1;
+m = n + 10;
 
-def F(Bool x=True, Int a=1, Float f=69.0) => Int {
-	if a > 0 then return a;
-	else return -a;
-	done
-}
+let Int q, w, e, r, t, y;
+q = 0;
+w = q;
+e = w + q;
+r = e + w;
+t =  0 / 0;
+y = q + n;
 
-F(f=-10.0);
-
-def G() {}
+exit(y);

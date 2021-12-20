@@ -81,17 +81,43 @@
 
 
               if (! err) {
-                // Calculamos el grafo de flujo.
-                FlowGraph *fg = new FlowGraph(functions, staticVars);
-                cout << "\033[1m[\033[36m*\033[0;1m]\033[0m Graph flow created" << "\n";
+                string check = "\033[1m[\033[36m*\033[0;1m]\033[0m";
 
-                // Calculamos las variables vivas.
+                FlowGraph *fg = new FlowGraph(functions, staticVars);
+                cout << check << " Graph flow created" << "\n";
+
+                map<uint64_t, vector<map<string, set<pair<uint64_t, uint64_t>>>>> reaching;
+                reaching = fg->reachingDefinitions();
+                cout << check << " Reching definitions calculated" << "\n";
+
+                bool change = true;
+                while (change) {
+                  fg->replaceDefinitions(reaching);
+                  change = fg->computeConstOperations();
+                }
+
                 map<uint64_t, vector<set<string>>> liveVariables = fg->liveVariables();
-                cout << "\033[1m[\033[36m*\033[0;1m]\033[0m Live variables calculated" << "\n";
-                fg->flowPrint<string>(liveVariables);
+                for (pair<uint64_t, vector<set<string>>> sets : liveVariables) {
+                  // Ignoramos la variable BASE
+                  liveVariables[sets.first][0].erase("BASE");
+                  liveVariables[sets.first][1].erase("BASE");
+
+                  // Eliminamos las variables estaticas
+                  for (string staticVar : staticVars) {
+                      liveVariables[sets.first][0].erase(staticVar);
+                      liveVariables[sets.first][1].erase(staticVar);
+                  }
+                }
+                cout << check << " Live variables calculated" << "\n";
+                fg->deleteDeadVariables(liveVariables);
+                //fg->flowPrint<string>(liveVariables);
+
+                //map<uint64_t, vector<set<Expression>>> anticiped = fg->anticiped();
+                //cout << check << " Anticiped expressions calculated" << "\n";
+                //fg->flowPrint<Expression>(anticiped);
 
                 //CB->insertFlowGraph(fg);
-                //fg->prettyPrint();
+                fg->prettyPrint();
                 //CB->translate();
                 //CB->print();
               }
