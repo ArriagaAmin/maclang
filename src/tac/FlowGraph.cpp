@@ -316,7 +316,6 @@ FlowGraph::FlowGraph(vector<T_Function*> functions, set<string> staticVars) {
             } while (this->V.count(current_b) == 0 || ! this->V[current_b]->is_function);
         }
     }
-
 }
 
 void FlowGraph::print(void) {

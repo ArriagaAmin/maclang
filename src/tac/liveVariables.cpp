@@ -172,15 +172,29 @@ map<string, set<string> (*) (set<string>, T_Instruction)> functions = {
 /*
  * Analisis de flujo para variables vivas.
  */
-map<uint64_t, vector<set<string>>> FlowGraph::liveVariables(void) {
-    return this->flowAnalysis<string>(
+void FlowGraph::liveVariables(void) {
+    this->live = this->flowAnalysis<string>(
         &liveVariables_init,
         &liveVariables_initEntryOut,
         &liveVariables_initExitIn,
+        [] (FlowGraph* fg, uint64_t id, set<string> S) { return S; },
+        [] (FlowGraph* fg, uint64_t id, set<string> S) { return S; },
         functions,
         false,
         false
     );
+
+    for (pair<uint64_t, vector<set<string>>> sets : this->live) {
+        // Ignoramos la variable BASE
+        this->live[sets.first][0].erase("BASE");
+        this->live[sets.first][1].erase("BASE");
+
+        // Eliminamos las variables estaticas
+        for (string staticVar : this->staticVars) {
+            this->live[sets.first][0].erase(staticVar);
+            this->live[sets.first][1].erase(staticVar);
+        }
+    }
 }
 
 set<string> instrToValidate = {
@@ -191,13 +205,15 @@ set<string> instrToValidate = {
 /*
  * Elimina las asignaciones de variables muertas.
  */
-void FlowGraph::deleteDeadVariables(map<uint64_t, vector<set<string>>> sets) {
+void FlowGraph::deleteDeadVariables(void) {
+    this->liveVariables();
+
     set<string> out;
     T_Instruction instr;
     for (pair<uint64_t, FlowNode*> n : this->V) {
         // Creamos un nuevo bloque y obtenemos el OUT del bloque actual.
         vector<T_Instruction> newBlock;
-        out = sets[n.first][1];
+        out = this->live[n.first][1];
 
         for (int i = n.second->block.size()-1; i >= 0; i--) {
             instr = n.second->block[i];

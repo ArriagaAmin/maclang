@@ -1,26 +1,28 @@
-let Int a = 42, k, m, n;
-let Bool b = True;
+let Int a = 69, b, c, d;
+let Int option = readi();
 
-if b then 
-	k = a + 1;
-done 
-m = a + 1;
-
-if ! b then 
-	n = a + 1;
+if option == 1 then 
+	b = a + 10;
 else 
-	n = a + 2;
+	b = a + 20;
 done 
-a = a + 1;
-let Int dsfa = -1;
-m = n + 10;
 
-let Int q, w, e, r, t, y;
-q = 0;
-w = q;
-e = w + q;
-r = e + w;
-t =  0 / 0;
-y = q + n;
+d = b * 42;
 
-exit(y);
+if option < 10 then 
+	c = b * 42;
+else
+	c = b * 42;
+done 
+
+b = b * b + c + d;
+
+d = b * 42;
+
+if option < 10 then 
+	c = b * 42;
+else
+	c = b * 42;
+done 
+
+exit c + d;

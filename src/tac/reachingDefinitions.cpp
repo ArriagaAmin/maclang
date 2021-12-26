@@ -64,23 +64,16 @@ map<string, set<pair<uint64_t, uint64_t>>> mapUnion(
 
 /*
  * Algoritmo de analisis de flujo para el calculo de definiciones vigentes.
- *
- * Returns:
- * --------
- *      * map<uint64_t, vector<map<string, set<T_Instruction>>>>
- *          Diccionario desde los ID de los bloques a sus correspondientes diccionarios
- *          de definiciones vigentes
  */
-map<uint64_t, vector<map<string, set<pair<uint64_t, uint64_t>>>>> FlowGraph::reachingDefinitions(void) {
+void FlowGraph::reachingDefinitions(void) {
     // IN y OUT de cada bloque.
-    map<uint64_t, vector<map<string, set<pair<uint64_t, uint64_t>>>>> sets;
     map<string, set<pair<uint64_t, uint64_t>>> aux, base;
     bool change = true;
     uint64_t id;
 
     // Inicializamos cada IN y OUT como vacios
     for (pair<uint64_t, FlowNode*> n : this->V) {
-        sets[n.first] = {{}, {}};
+        this->reaching[n.first] = {{}, {}};
     }
 
     // Ejecutamos hasta alcanzar un punto fijo
@@ -88,32 +81,36 @@ map<uint64_t, vector<map<string, set<pair<uint64_t, uint64_t>>>>> FlowGraph::rea
         change = false;
         for (pair<uint64_t, FlowNode*> n : this->V) {
             id = n.first;
-            aux = sets[id][0];
+            aux = this->reaching[id][0];
 
             // Obtenemos la entrada del bloque.
-            sets[id][0] = {};
+            this->reaching[id][0] = {};
 
             // Calculamos la union de los predecesores.
             for (uint64_t u_id : this->Einv[id]) {
-                sets[id][0] = mapUnion(sets[id][0], sets[u_id][1]);
+                this->reaching[id][0] = mapUnion(
+                    this->reaching[id][0], 
+                    this->reaching[u_id][1]
+                );
             }
             // Agregamos los llamadores en caso de ser necesario
             if (this->caller.count(id-1) > 0) {
-                sets[id][0] = mapUnion(sets[id][0], sets[this->caller[id-1]][1]);
+                this->reaching[id][0] = mapUnion(
+                    this->reaching[id][0], 
+                    this->reaching[this->caller[id-1]][1]
+                );
             }
 
-            change = change || sets[id][0] != aux;
+            change = change || this->reaching[id][0] != aux;
 
             // Calculamos el out del bloque
-            aux = sets[id][1];
-            sets[id][1] = F_B(this->V[id], sets[id][0]);
+            aux = this->reaching[id][1];
+            this->reaching[id][1] = F_B(this->V[id], this->reaching[id][0]);
 
             // Verificamos si hubo un cambio
-            change = change || sets[id][1] != aux;
+            change = change || this->reaching[id][1] != aux;
         }
     }
-
-    return sets;
 }
 
 /*
@@ -168,12 +165,12 @@ T_Instruction replaceOperands(
  * Reemplaza las definiciones por las mas antiguas disponibles y realiza calculos
  * constantes en caso de ser necesario.
  */
-void FlowGraph::replaceDefinitions(map<uint64_t, vector<map<string, set<pair<uint64_t, uint64_t>>>>> sets) {
+void FlowGraph::replaceDefinitions(void) {
     map<string, set<pair<uint64_t, uint64_t>>> in;
     T_Instruction instr;
 
     for (pair<uint64_t, FlowNode*> n : this->V) {
-        in = sets[n.first][0];
+        in = this->reaching[n.first][0];
 
         for (uint64_t i = 0; i < n.second->block.size(); i++) {
             instr = n.second->block[i];
@@ -219,6 +216,20 @@ T_Instruction boolean(T_Instruction instr, bool (*boolOp) (bool, bool)) {
     bool right = (instr.operands[1].name == "1") || (instr.operands[1].name == "True");
     string op  = (*boolOp) (left, right) ? "True" : "False";
     return {"assignb", instr.result, {{op, "", false}}};
+}
+
+T_Instruction minusInstr(T_Instruction instr) {
+    string op;
+
+    // Verificamos si uno de los operadores es flotante
+    if (instr.operands[0].name[0] == 'f') {
+        op = to_string(-(stof(instr.operands[0].name)));
+    }
+    else {
+        op = to_string(-(stoi(instr.operands[0].name)));
+    }
+
+    return {"assignw", instr.result, {{op, "", false}}};
 }
 
 T_Instruction eq(T_Instruction instr) {
@@ -303,7 +314,7 @@ bool isID(string var) {
 }
 
 set<string> valids = {
-    "add", "sub", "mult", "div", "mod", 
+    "add", "sub", "mult", "div", "mod", "minus",
     "eq", "neq", "lt", "leq", "gt", "geq", "or", "and"
 };
 
@@ -311,50 +322,58 @@ set<string> valids = {
  * Realiza las operaciones que son constantes, convirtiendola en asignaciones. Retorna
  * si se realizo algun cambio.
  */
-bool FlowGraph::computeConstOperations(void) {
+void FlowGraph::constantPropagation(void) {
+    this->reachingDefinitions();
+
     T_Instruction instr;
-    bool change = false;
+    bool change = true;
 
-    for (pair<uint64_t, FlowNode*> n : this->V) {
-        for (uint64_t i = 0; i < n.second->block.size(); i++) {
-            instr = n.second->block[i];
+    while (change) {
+        this->replaceDefinitions();
 
-            // Verificamos que la instruccion es una operacion valida con operadores
-            // constantes
-            if (
-                valids.count(instr.id) > 0 && 
-                ! isID(instr.operands[0].name) && 
-                ! isID(instr.operands[1].name)
-            ) {
-                // Verificamos que no sea una division entre 0
-                if (instr.id == "div" && instr.operands[1].name == "0") {
-                    continue;
-                }
-                
-                change = true;
+        change = false;
+        for (pair<uint64_t, FlowNode*> n : this->V) {
+            for (uint64_t i = 0; i < n.second->block.size(); i++) {
+                instr = n.second->block[i];
 
-                if (aritInstr.count(instr.id) > 0) {
-                    n.second->block[i] = arit(
-                        instr, 
-                        aritInstr[instr.id].first, 
-                        aritInstr[instr.id].second
-                    );
-                }
-                else if (numberCompInstr.count(instr.id) > 0) {
-                    n.second->block[i] = numberComp(instr, numberCompInstr[instr.id]);
-                }
-                else if (boolInstr.count(instr.id) > 0) {
-                    n.second->block[i] = boolean(instr, boolInstr[instr.id]);
-                }
-                else if (instr.id == "eq") {
-                    n.second->block[i] = eq(instr);
-                }
-                else if (instr.id == "neq") {
-                    n.second->block[i] = neq(instr);
+                // Verificamos que la instruccion es una operacion valida con operadores
+                // constantes
+                if (
+                    valids.count(instr.id) > 0 && 
+                    ! isID(instr.operands[0].name) && 
+                    (instr.operands.size() < 2 || ! isID(instr.operands[1].name))
+                ) {
+                    // Verificamos que no sea una division entre 0
+                    if (instr.id == "div" && instr.operands[1].name == "0") {
+                        continue;
+                    }
+                    
+                    change = true;
+
+                    if (aritInstr.count(instr.id) > 0) {
+                        n.second->block[i] = arit(
+                            instr, 
+                            aritInstr[instr.id].first, 
+                            aritInstr[instr.id].second
+                        );
+                    }
+                    else if (numberCompInstr.count(instr.id) > 0) {
+                        n.second->block[i] = numberComp(instr, numberCompInstr[instr.id]);
+                    }
+                    else if (boolInstr.count(instr.id) > 0) {
+                        n.second->block[i] = boolean(instr, boolInstr[instr.id]);
+                    }
+                    else if (instr.id == "minus") {
+                        n.second->block[i] = minusInstr(instr);
+                    }
+                    else if (instr.id == "eq") {
+                        n.second->block[i] = eq(instr);
+                    }
+                    else if (instr.id == "neq") {
+                        n.second->block[i] = neq(instr);
+                    }
                 }
             }
         }
     }
-
-    return change;
 }

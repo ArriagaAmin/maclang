@@ -266,7 +266,7 @@
 
                 tac->gen("exit " + $2->addr);
               }
-              $$ = NULL;
+              $$ = $2;
             }
           | RETURN Exp SEMICOLON 
             {
