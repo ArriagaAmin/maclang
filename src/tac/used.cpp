@@ -196,7 +196,7 @@ void FlowGraph::lazyCodeMotion(void) {
             
             e = {
                 instr.id, 
-                instr.operands[0].name, 
+                (instr.operands.size() > 0 ? instr.operands[0].name : ""), 
                 (instr.operands.size() > 1 ? instr.operands[1].name : "")
             };
 

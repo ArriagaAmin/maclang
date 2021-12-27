@@ -2,6 +2,7 @@
 
 #include <map>
 #include <set>
+#include <queue>
 #include <stack>
 #include <vector>
 #include <string>
@@ -74,6 +75,15 @@ struct T_Function
     vector<uint64_t> vec_leaders;
 };
 
+struct T_Loop
+{
+    uint64_t header;
+    set<uint64_t> blocks;
+    set<uint64_t> exits;
+    bool hasPreHeader = false;
+    uint64_t preHeader;
+};
+
 class FlowNode {
     public:
         // Identificador del bloque.
@@ -88,6 +98,7 @@ class FlowNode {
         vector<T_Instruction> block = {};
 
         FlowNode(uint64_t id, uint64_t leader, T_Function *function, bool is_function);
+        FlowNode(uint64_t id, bool is_function);
 
         // Funcion del analisis de flujo aplicada sobre el bloque entero.
         template <typename T>
@@ -113,8 +124,11 @@ class FlowGraph {
         map<string, uint64_t> F;
         // Relaciones llamador/llamado
         map<uint64_t, uint64_t> caller;
+        map<uint64_t, set<uint64_t>> called;
         // Direcciones de memoria (variables) definidas estaticamente
         set<string> staticVars;
+        // Cota superior de los ID de los bloques.
+        uint64_t lastID;
 
         // Conjuntos del analisis de flujo.
         map<uint64_t, vector<map<string, set<pair<uint64_t, uint64_t>>>>> reaching;
@@ -127,7 +141,8 @@ class FlowGraph {
         map<uint64_t, vector<set<Expression>>> postponable;
         map<uint64_t, vector<set<Expression>>> latest;
         map<uint64_t, vector<set<Expression>>> used;
-
+        map<uint64_t, vector<set<uint64_t>>> dominators;
+        map<uint64_t, T_Loop> naturalLoops;
 
         FlowGraph(vector<T_Function*> functions, set<string> staticVars);
 
@@ -172,6 +187,10 @@ class FlowGraph {
         void usedDefinitions(void);
         void lazyCodeMotion(void);
 
+        // Analisis de flujo para ciclos.
+        void computeDominators(void);
+        void computNaturalLoops(void);
+        void invariantDetection(void);
 };
 
 

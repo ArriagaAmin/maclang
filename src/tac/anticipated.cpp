@@ -1,18 +1,18 @@
 #include "FlowGraph.hpp"
 
-set<string> validOperations = {
+set<string> anticiped_validOperations = {
     "add", "sub", "mult", "div", "mod", "minus", "ftoi", "itof", 
     "eq", "neq", "lt", "leq", "gt", "geq", "or", "and"
 };
 
 /*
- * Inicializa los conjuntos IN y OUT de cada bloque en vacio.
+ * Inicializa los conjuntos IN y OUT de cada bloque.
  */
 map<uint64_t, vector<set<Expression>>> anticipated_init(FlowGraph* fg) {
     // Obtenemos todas las expresiones del grafo
     for (pair<uint64_t, FlowNode*> n : fg->V) {
         for (T_Instruction instr : n.second->block) {
-            if (validOperations.count(instr.id)) {
+            if (anticiped_validOperations.count(instr.id)) {
                 fg->expressions.insert({
                     instr.id, 
                     instr.operands[0].name, 
@@ -62,7 +62,7 @@ set<Expression> anticipated_f(set<Expression> out, T_Instruction instr) {
     return out;
 }
 
-set<Expression> anticiped_postprocess(FlowGraph *fg, uint64_t id, set<Expression> in) {
+set<Expression> anticipated_postprocess(FlowGraph *fg, uint64_t id, set<Expression> in) {
     return setUnion<Expression>(in, fg->use_B[id]);
 }
 
@@ -74,7 +74,7 @@ void FlowGraph::computeUseB(void) {
         set<Expression> use;
 
         for (T_Instruction instr : n.second->block) {
-            if (validOperations.count(instr.id)) {
+            if (anticiped_validOperations.count(instr.id)) {
                 use.insert({
                     instr.id, 
                     instr.operands[0].name, 
@@ -99,7 +99,7 @@ void FlowGraph::anticipatedDefinitions(void) {
         &anticipated_initEntryOut,
         &anticipated_initExitIn,
         [] (FlowGraph* fg, uint64_t id, set<Expression> S) { return S; },
-        &anticiped_postprocess,
+        &anticipated_postprocess,
         {
             {"assignw", &anticipated_assign},
             {"assignb", &anticipated_assign},

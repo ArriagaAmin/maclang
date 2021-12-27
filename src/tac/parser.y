@@ -88,8 +88,11 @@
                 fg->deleteDeadVariables();
                 fg->lazyCodeMotion();
 
+                fg->invariantDetection();
+
                 // Mostramos el grafo resultante
                 fg->prettyPrint();
+                //fg->flowPrint<uint64_t>(fg->dominators);
 
                 //CB->insertFlowGraph(fg);
                 //CB->translate();

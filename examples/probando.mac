@@ -1,28 +1,12 @@
-let Int a = 69, b, c, d;
-let Int option = readi();
+let Int a = readi(), b = readi(), c;
+let Bool B = readi() != 0;
 
-if option == 1 then 
-	b = a + 10;
-else 
-	b = a + 20;
-done 
+while True do
+    while True do 
+        c = a + b;
+        if B then break; done
+    done 
+    if B then break; done 
+done
 
-d = b * 42;
-
-if option < 10 then 
-	c = b * 42;
-else
-	c = b * 42;
-done 
-
-b = b * b + c + d;
-
-d = b * 42;
-
-if option < 10 then 
-	c = b * 42;
-else
-	c = b * 42;
-done 
-
-exit c + d;
+exit c;

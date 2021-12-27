@@ -34,8 +34,6 @@ uint64_t getIndexLeader(uint64_t leader, vector<uint64_t> leaders) {
     return index; 
 }
 
-
-
 FlowNode::FlowNode(uint64_t id, uint64_t leader, T_Function *function, bool is_function) {
     this->id = id;
     this->is_function = is_function;
@@ -49,6 +47,11 @@ FlowNode::FlowNode(uint64_t id, uint64_t leader, T_Function *function, bool is_f
             this->block.push_back(function->instructions[i]);
         }
     }
+}
+
+FlowNode::FlowNode(uint64_t id, bool is_function) {
+    this->id = id;
+    this->is_function = is_function;
 }
 
 string FlowNode::getName(void) {
@@ -111,12 +114,8 @@ void FlowNode::prettyPrint(void) {
 
 void FlowGraph::insertArc(uint64_t u, uint64_t v) {
     // Agregamos el arco normal
-    if (this->E.count(u)) this->E[u].insert(v);
-    else this->E.insert({u, {v}});
-
-    // Agregamos el arco inverso
-    if (this->Einv.count(v)) this->Einv[v].insert(u);
-    else this->Einv.insert({v, {u}});
+    this->E[u].insert(v);
+    this->Einv[v].insert(u);
 }
 
 void FlowGraph::deleteBlock(uint64_t id) {
@@ -132,9 +131,10 @@ void FlowGraph::deleteBlock(uint64_t id) {
     this->E.erase(id);
     this->Einv.erase(id);
 
-    // Si el nodo es una funcion, eliminamos su referencia en el grafo
+    // Si el nodo es una funcion, eliminamos su referencia en el grafo y sus llamados
     if (this->V[id]->is_function) {
         this->F.erase(this->V[id]->getName());
+        this->called.erase(id);
     }
 
     // Eliminamos su posible llamada.
@@ -157,6 +157,8 @@ uint64_t FlowGraph::makeSubGraph(T_Function *function, uint64_t init_id) {
     last_id++;
 
     for (uint64_t i = 1; i < function->vec_leaders.size(); i++) {
+        this->E[last_id] = {};
+        this->Einv[last_id] = {};
         this->V.insert({
             last_id, 
             new FlowNode(last_id, function->vec_leaders[i], function, false)
@@ -251,6 +253,7 @@ FlowGraph::FlowGraph(vector<T_Function*> functions, set<string> staticVars) {
         this->F[functions[i]->name] = current_id;
         current_id = this->makeSubGraph(functions[i], current_id);
     }
+    this->lastID = current_id;
 
     // Actualizamos las llamadas a las funciones y creamos los arcos correspondientes.
     FlowNode *f;
@@ -262,6 +265,8 @@ FlowGraph::FlowGraph(vector<T_Function*> functions, set<string> staticVars) {
                 
                 // Creamos la relacion de llamada
                 this->caller[n.first] = f->id;
+                if (this->called.count(f->id) == 0) this->called[f->id] = {n.first};
+                else this->called[f->id].insert(n.first);
             }
         }
     }
@@ -326,8 +331,76 @@ void FlowGraph::print(void) {
 }
 
 void FlowGraph::prettyPrint(void) {
+    // Cola de nodos a imprimir
+    queue<uint64_t> toPrint;
+    // Nodos que ya se visitaron
+    set<uint64_t> visited;
+    // Indica si un nodo de ser impreso urgentemente
+    FlowNode *v, *v_aux;
+    bool urgent;
+    string instr;
+
+    urgent = false;
+
     for (pair<uint64_t, FlowNode*> n : this->V) {
-        if (n.second->is_function) cout << "\n\n";
-        n.second->prettyPrint();
+        if (visited.count(n.first) == 0) {
+            toPrint.push(n.first);
+            visited.insert(n.first);
+
+            while (toPrint.size() > 0 || urgent) {
+                // Si no hay ningun nodo urgente por imprimir, obtenemos el siguiente nodo
+                // de la cola.
+                if (! urgent) {
+                    v = this->V[toPrint.front()];
+                    toPrint.pop();
+                }
+
+                if (v->is_function) cout << "\n\n";
+                v->prettyPrint();
+
+                // Si el nodo no termina en "goto", "return" o "exit" significa que no
+                // tiene un sucesor directo, asi que simplemente agregamos sus sucesores
+                instr = v->block.back().id;
+                if (instr == "goto" || instr == "return" || instr == "exit") {
+                    urgent = false;
+                    for (uint64_t succ : this->E[v->id]) {
+                        if (visited.count(succ) == 0) {
+                            visited.insert(succ);
+                            toPrint.push(succ);
+                        }
+                    }
+                }
+                // En caso contrario, si tiene un solo sucesor, este se debe imprimir
+                // urgentemente.
+                else if (this->E[v->id].size() == 1) {
+                    v = this->V[*this->E[v->id].begin()];
+                    if (visited.count(v->id) == 0) {
+                        urgent = true;
+                        visited.insert(v->id);
+                    }
+                }
+                // En caso contrario, si tiene dos sucesores, significa que hay un goif
+                // o un goifnot. Agregamos a la cola el destino del salto y colocamos
+                // urgente al otro sucesor.
+                else if (this->E[v->id].size() == 2) {
+                    urgent = false;
+                    v_aux = v;
+                    for (uint64_t succ : this->E[v->id]) {
+                        if (visited.count(succ) == 0) {
+                            visited.insert(succ);
+                            if (v->block.back().result.name == this->V[succ]->getName()) {
+                                toPrint.push(succ);
+                            }
+                            else {
+                                v_aux = this->V[succ];
+                                urgent = true;
+                            }
+                        }
+                    }
+                    v = v_aux;
+                } 
+            }
+        }
+
     }
 }
