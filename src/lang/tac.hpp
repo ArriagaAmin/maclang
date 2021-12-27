@@ -20,9 +20,11 @@ private:
     unsigned long long labelCount = 0;
     unsigned long long funcCount = 0;
     vector<pair<string, string>> strings;
+    vector<pair<string, unsigned long long>> arrays;
     set<unsigned long long> numberLabels;
 
 public:
+    unsigned long long arrayCount = 0;
     vector<string> instructions;
     // Mapeo de nombre de funciones a una lista de pares 
     // <
@@ -30,6 +32,7 @@ public:
     //      copia del scope stack en el momento en que se realizo la llamada
     // >
     map< string, vector<pair<unsigned long long, vector<int>>> > functionlist;
+    map< string, vector<pair<unsigned long long, vector<int>>> > calllist;
     // Pila de listas de instrucciones que necesitan ser parcheadas
     stack<vector<unsigned long long>> breaklist;
     stack<vector<unsigned long long>> continuelist;
@@ -39,6 +42,7 @@ public:
     string newFloat();
     string newLabel();
     string newFunc();
+    string newArray(unsigned long long bytes);
     string newStr(string str);
     string replaceAll(string text, string to_find, string to_replace);
     void gen(string instr);

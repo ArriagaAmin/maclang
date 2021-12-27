@@ -38,6 +38,14 @@ string TAC::newStr(string str)
     return temp;
 }
 
+string TAC::newArray(unsigned long long bytes)
+{
+    string temp = "A" + to_string(arrayCount);
+    arrayCount++;
+    this->arrays.push_back({temp, bytes});
+    return temp;
+}
+
 string TAC::replaceAll(string text, string to_find, string to_replace) 
 {
     std::string::size_type n = 0;
@@ -73,6 +81,12 @@ void TAC::backpatch(vector<unsigned long long> ps, string l) {
 
 void TAC::print(void) {
     unsigned long long index = 0;
+
+    for (pair<string, unsigned long long> array : this->arrays) {
+        if (array.second > 0) {
+            cout << "@staticv " << array.first << " " << array.second << "\n";
+        }
+    }
 
     for (pair<string, string> str : this->strings) {
         cout << "@string " << str.first << " \"" << str.second << "\"\n";

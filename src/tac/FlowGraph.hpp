@@ -2,6 +2,8 @@
 
 #include <map>
 #include <set>
+#include <queue>
+#include <stack>
 #include <vector>
 #include <string>
 #include <iostream>
@@ -9,11 +11,41 @@
 
 using namespace std;
 
+/*
+ * Representacion de op A B
+ */
+struct Expression {
+    string op;
+    string A;
+    string B;
+
+    bool operator==(const Expression& e) const {
+        return op == e.op && A == e.A && B == e.B; 
+    }
+    bool operator<(const Expression& e) const {
+        return (op + A + B) < (e.op + e.A + e.B);
+    }
+    friend std::ostream& operator<<(std::ostream& o, Expression e) {
+        o << e.op << " " << e.A << " " << e.B;
+        return o;
+    }
+};
+
 struct T_Variable
 {
     string name;
     string acc;
     bool is_acc;
+
+    bool operator==(const T_Variable& v) const {
+        return name == v.name && acc == v.acc && is_acc == v.is_acc; 
+    }
+    bool operator!=(const T_Variable& v) const {
+        return ! (*this == v) ; 
+    }
+    bool operator<(const T_Variable& v) const {
+        return (name + (is_acc ? acc : "")) < (v.name + (v.is_acc ? v.acc : ""));
+    }
 };
 
 struct T_Instruction
@@ -21,6 +53,14 @@ struct T_Instruction
     string id;
     T_Variable result;
     vector<T_Variable> operands;
+    bool operator==(const T_Instruction& instr) const {
+        return id == instr.id && result == instr.result && operands == instr.operands; 
+    }
+    bool operator<(const T_Instruction& instr) const {
+        if (id != instr.id) return id < instr.id;
+        if (result != instr.result) return result < instr.result;
+        return operands < instr.operands;
+    }
 };
 
 struct T_Function
@@ -33,6 +73,15 @@ struct T_Function
     set<string> labels_leaders;
     set<uint64_t> leaders = {0};
     vector<uint64_t> vec_leaders;
+};
+
+struct T_Loop
+{
+    uint64_t header;
+    set<uint64_t> blocks;
+    set<uint64_t> exits;
+    bool hasPreHeader = false;
+    uint64_t preHeader;
 };
 
 class FlowNode {
@@ -49,6 +98,7 @@ class FlowNode {
         vector<T_Instruction> block = {};
 
         FlowNode(uint64_t id, uint64_t leader, T_Function *function, bool is_function);
+        FlowNode(uint64_t id, bool is_function);
 
         // Funcion del analisis de flujo aplicada sobre el bloque entero.
         template <typename T>
@@ -75,11 +125,32 @@ class FlowGraph {
         // Relaciones llamador/llamado
         map<uint64_t, uint64_t> caller;
         map<uint64_t, set<uint64_t>> called;
+        // Direcciones de memoria (variables) definidas estaticamente
+        set<string> staticVars;
+        // Cota superior de los ID de los bloques.
+        uint64_t lastID;
 
-        FlowGraph(vector<T_Function*> functions);
+        // Conjuntos del analisis de flujo.
+        map<uint64_t, vector<map<string, set<pair<uint64_t, uint64_t>>>>> reaching;
+        map<uint64_t, vector<set<string>>> live;
+        set<Expression> expressions;
+        map<uint64_t, set<Expression>> use_B;
+        map<uint64_t, vector<set<Expression>>> anticipated;
+        map<uint64_t, vector<set<Expression>>> available;
+        map<uint64_t, vector<set<Expression>>> earliest;
+        map<uint64_t, vector<set<Expression>>> postponable;
+        map<uint64_t, vector<set<Expression>>> latest;
+        map<uint64_t, vector<set<Expression>>> used;
+        map<uint64_t, vector<set<uint64_t>>> dominators;
+        map<uint64_t, T_Loop> naturalLoops;
+
+        FlowGraph(vector<T_Function*> functions, set<string> staticVars);
 
         void insertArc(uint64_t u, uint64_t v);
+        void deleteBlock(uint64_t id);
         uint64_t makeSubGraph(T_Function *function, uint64_t init_id);
+        void print(void);
+        void prettyPrint(void);
 
         // ==================== ANALISIS DE FLUJO ==================== //
         // Algoritmo de analisis de flujo generico.
@@ -88,6 +159,8 @@ class FlowGraph {
             map<uint64_t, vector<set<T>>> (*init) (FlowGraph*),
             set<T> (*initEntryOut) (FlowGraph*),
             set<T> (*initExitIn) (FlowGraph*),
+            set<T> (*preprocessing) (FlowGraph*, uint64_t, set<T>),
+            set<T> (*postprocessing) (FlowGraph*, uint64_t, set<T>),
             map<string, set<T> (*) (set<T>, T_Instruction)> functions,
             bool intersection,
             bool forward
@@ -95,12 +168,29 @@ class FlowGraph {
         template <typename T>
         void flowPrint(map<uint64_t, vector<set<T>>> sets);
 
+        // Analisis de flujo para definiciones vigentes.
+        void reachingDefinitions(void);
+        void replaceDefinitions(void);
+        void constantPropagation(void);
+
         // Analisis de flujo para variables vivas.
-        map<uint64_t, vector<set<string>>> liveVariables(void);
+        void liveVariables(void);
+        void deleteDeadVariables(void);
 
+        // Analisis de flujo para lazy code motion.
+        void computeUseB(void);
+        void anticipatedDefinitions(void);
+        void availableDefinitions(void);
+        void earliestDefinitions(void);
+        void postponableDefinitions(void);
+        void latestDefinitions(void);
+        void usedDefinitions(void);
+        void lazyCodeMotion(void);
 
-        void print(void);
-        void prettyPrint(void);
+        // Analisis de flujo para ciclos.
+        void computeDominators(void);
+        void computNaturalLoops(void);
+        void invariantDetection(void);
 };
 
 
@@ -136,16 +226,57 @@ set<T> FlowNode::F(
 
 template <typename T>
 set<T> setUnion(set<T> U, set<T> V) {
-    for (T e : V) U.insert(e);
-    return U;
+    if (U.size() > V.size()) {
+        for (T e : V) U.insert(e);
+        return U;
+    }
+    else {
+        for (T e : U) V.insert(e);
+        return V;
+    }
 }
 
 template <typename T>
 set<T> setIntersec(set<T> U, set<T> V) {
-    for (T e : U) 
-        if (V.count(e) == 0)
+    set<T> W;
+
+    if (U.size() > V.size()) {
+        for (T e : V)  {
+            if (U.count(e) > 0) {
+                W.insert(e);
+            }
+        }
+    }
+    else {
+        for (T e : U)  {
+            if (V.count(e) > 0) {
+                W.insert(e);
+            }
+        }
+    }
+    
+    return W;
+}
+
+template <typename T>
+set<T> setSub(set<T> U, set<T> V) {
+    if (U.size() > V.size()) {
+        for (T e : V) {
             U.erase(e);
-    return U;
+        }
+        return U;
+    } 
+    else {
+        set<T> W;
+
+        for (T e : U) {
+            if (V.count(e) == 0) {
+                W.insert(e);
+            }
+        }
+
+        return W;
+    }
 }
 
 
@@ -162,6 +293,9 @@ set<T> setIntersec(set<T> U, set<T> V) {
  * 
  *      * set<T> (*initExitIn) (FlowGraph*)
  *          Funcion que inicializa el conjunto IN del nodo EXIT.
+ * 
+ *      * set<T> (*preprocessing) (FlowGraph*, uint64_t, set<T>)
+ *          Funcion que realiza un preprocesamiento al conjunto antes de pasarlo por F_B.
  * 
  *      * map<string, flowFunction> functions
  *          Mapea los ID de las instrucciones del TAC a la funcion transformadora 
@@ -185,6 +319,8 @@ map<uint64_t, vector<set<T>>> FlowGraph::flowAnalysis(
     map<uint64_t, vector<set<T>>> (*init) (FlowGraph*),
     set<T> (*initEntryOut) (FlowGraph*),
     set<T> (*initExitIn) (FlowGraph*),
+    set<T> (*preprocessing) (FlowGraph*, uint64_t, set<T>),
+    set<T> (*postprocessing) (FlowGraph*, uint64_t, set<T>),
     map<string, set<T> (*) (set<T>, T_Instruction)> functions,
     bool intersection,
     bool forward
@@ -194,11 +330,10 @@ map<uint64_t, vector<set<T>>> FlowGraph::flowAnalysis(
     // Inicializamos el OUT e IN de ENTRY y EXIT respectivamente.
     set<T> entry_out = (*initEntryOut)(this);
     set<T> exit_in = (*initExitIn)(this);
-    set<T> aux, base;
+    set<T> aux;
     set<uint64_t> R;
 
     bool change = true, first;
-    uint64_t id;
 
     vector<uint64_t> ids;
     for (pair<uint64_t, FlowNode*> n : this->V) {
@@ -211,8 +346,7 @@ map<uint64_t, vector<set<T>>> FlowGraph::flowAnalysis(
     // Ejecutamos hasta alcanzar un punto fijo
     while (change) {
         change = false;
-        for (uint64_t i : ids) {
-            id = this->V[i]->id;
+        for (uint64_t id : ids) {
             aux = sets[id][!forward];
 
             // Obtenemos la entrada del bloque.
@@ -268,15 +402,14 @@ map<uint64_t, vector<set<T>>> FlowGraph::flowAnalysis(
                     sets[id][1] = setUnion<T>(sets[id][1], exit_in);
                 }
             }
-            // Ignoramos la variable BASE
-            sets[id][!forward].erase("BASE");
             change = change || sets[id][!forward] != aux;
 
             // Calculamos el out del bloque
             aux = sets[id][forward];
-            sets[id][forward] = this->V[i]->F<T>(functions, sets[id][!forward], forward);
-            // Ignoramos la variable BASE
-            sets[id][forward].erase("BASE");
+            sets[id][forward] = preprocessing(this, id, sets[id][!forward]);
+            sets[id][forward] = this->V[id]->F<T>(functions, sets[id][forward], forward);
+            sets[id][forward] = postprocessing(this, id, sets[id][forward]);
+
             // Verificamos si hubo un cambio
             change = change || sets[id][forward] != aux;
         }
@@ -325,10 +458,17 @@ void FlowGraph::flowPrint(map<uint64_t, vector<set<T>>> sets) {
             space = string(max_instr.size() - instr.id.size() + 1, ' ');
             
             cout << "        | \033[3m" << instr.id << "\033[0m" 
-                << space << instr.result.name << " ";
+                << space << instr.result.name;
+
+            if (instr.result.is_acc)
+                cout << "[" << instr.result.acc << "]";
+            cout << " ";
 
             for (T_Variable operand : instr.operands) {
-                cout << operand.name << " ";
+                cout << operand.name;
+                if (operand.is_acc)
+                    cout << "[" << operand.acc << "]";
+                cout << " ";
             }
             cout << "\n";
         }

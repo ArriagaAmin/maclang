@@ -338,7 +338,7 @@ FunctionDeclarationEntry::FunctionDeclarationEntry(
   string id, 
   int scope,
   string category, 
-  vector<tuple<string, string, bool, ExpressionNode*>> args, 
+  vector<tuple<string, string, bool, bool>> args, 
   Type *return_type
 ) {
   this->id = id;

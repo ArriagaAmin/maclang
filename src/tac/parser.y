@@ -1,7 +1,7 @@
 %{  
   #include <iostream>
-  #include <string>
   #include <cstring>
+  #include <string>
   #include <set>
 
   #include "FlowGraph.hpp"
@@ -17,8 +17,7 @@
 
   T_Function *global = new T_Function, *current_function;
   vector<T_Function*> functions = {global};
-  // Indica que funciones han sido llamadas.
-  set<string> calls;
+  set<string> staticVars;
   bool err = false;
 
   Translator *CB;
@@ -80,22 +79,23 @@
               }
               global->leaders.clear();
 
-              // Filtramos aquellas funciones que nunca fueron llamadas.
-              vector<T_Function*> filtered_functions = {global};
-              for (T_Function *f : functions) {
-                if (calls.count(f->name)) {
-                  filtered_functions.push_back(f);
-                }
-              }
 
               if (! err) {
-                FlowGraph *fg = new FlowGraph(filtered_functions);
-                map<uint64_t, vector<set<string>>> sets = fg->liveVariables();
-                fg->flowPrint<string>(sets);
-                cout << "Graph flow created" << endl;
-                CB->insertFlowGraph(fg);
-                //fg->prettyPrint();
-                CB->translate();
+                FlowGraph *fg = new FlowGraph(functions, staticVars);
+
+                // Mejoramientos de codigo
+                fg->constantPropagation();
+                fg->deleteDeadVariables();
+                fg->lazyCodeMotion();
+
+                fg->invariantDetection();
+
+                // Mostramos el grafo resultante
+                fg->prettyPrint();
+                //fg->flowPrint<uint64_t>(fg->dominators);
+
+                //CB->insertFlowGraph(fg);
+                //CB->translate();
                 //CB->print();
               }
             }
@@ -109,10 +109,12 @@
             MI_STATICV ID INT NL 
             {
               CB->insertInstruction(new T_Instruction{*$1, {*$2, "", false}, {{to_string($3), "", false}}});
+              staticVars.insert(*$2);
             }
           | MI_STRING  ID STRING NL
             {
               CB->insertInstruction(new T_Instruction{*$1, {*$2, "", false}, {{*$3, "", false}}});
+              staticVars.insert(*$2);
             }
           ;
 
@@ -265,9 +267,12 @@
             }
           | I_CALL    ID ID INT
             {
-              current_function->instructions.push_back({*$1, {*$2, "", false}, {{*$3, "", false}, {to_string($4), "", false}}});
+              current_function->instructions.push_back({
+                *$1, 
+                {*$2, "", false}, 
+                {{*$3, "", false}, {to_string($4), "", false}}
+              });
               current_function->leaders.insert(current_function->instructions.size());
-              calls.insert(*$3);
             }
           | I_PRINTC  Val
             {
@@ -305,6 +310,10 @@
        
   F       : Function NL Inst MI_ENDFUNCTION INT
             {
+              // Agregamos una instruccion return por si acaso
+              current_function->instructions.push_back({"return", {"0", "", false}, {}});
+              current_function->leaders.insert(current_function->instructions.size());
+
               // Agregamos los lideres generados debido a gotos
               for (string label : current_function->labels_leaders) {
                 if (current_function->labels2instr.count(label) == 0) {
@@ -423,6 +432,7 @@ int main(int argc, char **argv) {
 
   // start parsing
   global->id = 0;
+  global->name = "@GLOBAL";
   current_function = global;
   yyparse();
 

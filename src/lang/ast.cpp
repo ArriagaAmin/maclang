@@ -932,14 +932,9 @@
     this->type->printTree(identation);
     identation->pop_back();
 
-    if (this->ref) {
-      printIdentation(identation);
-      cout << "├── @\n";
-    }
-
     if (this->rvalue != NULL) {
       printIdentation(identation);
-      cout << "├── ID: \033[1;3m" << this->id << "\033[0m\n";
+      cout << "├── " << (this->ref ? "@" : "") << "ID: \033[1;3m" << this->id << "\033[0m\n";
 
       printIdentation(identation);
       cout << "├── =\n";
@@ -952,7 +947,7 @@
 
     } else {
       printIdentation(identation);
-      cout << "└── ID: \033[1;3m" << this->id << "\033[0m\n"; 
+      cout << "└── " << (this->ref ? "@" : "") << "ID: \033[1;3m" << this->id << "\033[0m\n"; 
     }
   }
 
@@ -996,4 +991,72 @@
       printIdentation(identation);
       cout << "└── Unit\n";
     }
+  }
+
+
+/* ======================= SUBROUTINE DEC NODES ====================== */
+  NodeRoutDecArgs::NodeRoutDecArgs(Node *oblArgs, Node *optArgs) {
+    this->oblArgs = oblArgs;
+    this->optArgs = optArgs;
+  }
+  void NodeRoutDecArgs::printTree(vector<bool> *identation) {
+    cout << "\033[1;34mRoutine Declaration Parameters\033[0m\n";
+
+    if ((this->oblArgs != NULL) && (this->optArgs != NULL)) {
+      printIdentation(identation);
+      identation->push_back(true);
+      cout << "├── \033[1;34mMandatory Parameters: \033[0m";
+      this->oblArgs->printTree(identation);
+      identation->pop_back();
+
+      printIdentation(identation);
+      identation->push_back(false);
+      cout << "└── \033[1;34mOptional Parameters: \033[0m";
+      this->optArgs->printTree(identation);
+      identation->pop_back();
+
+    } else if (this->oblArgs != NULL){
+      printIdentation(identation);
+      identation->push_back(false);
+      cout << "└── \033[1;34mMandatory Parameters: \033[0m";
+      this->oblArgs->printTree(identation);
+      identation->pop_back(); 
+
+    } else if (this->optArgs != NULL){
+      printIdentation(identation);
+      identation->push_back(false);
+      cout << "└── \033[1;34mOptional Parameters: \033[0m";
+      this->optArgs->printTree(identation);
+      identation->pop_back(); 
+    }
+  }
+
+
+  NodeRoutDecArgDef::NodeRoutDecArgDef(Node *head, Type *type, bool ref, string id, bool opt) {
+    this->head = head;
+    this->type = type;
+    this->ref = ref;
+    this->id = id;
+    this->opt = opt;
+  }
+  void NodeRoutDecArgDef::printTree(vector<bool> *identation) {
+    cout << "\033[1;34mParameter Definition\033[0m\n";
+
+    if (this->head != NULL) {
+      printIdentation(identation);
+      identation->push_back(true);
+      cout << "├── ";
+      this->head->printTree(identation);
+      identation->pop_back();
+    } 
+
+    printIdentation(identation);
+    identation->push_back(true);
+    cout << "├── ";
+    this->type->printTree(identation);
+    identation->pop_back();
+
+    printIdentation(identation);
+    cout << "└── " << (this->opt ? "optional " : "") << (this->ref ? "@" : "") 
+      << "ID: \033[1;3m" << this->id << "\033[0m\n"; 
   }

@@ -49,6 +49,11 @@ FlowNode::FlowNode(uint64_t id, uint64_t leader, T_Function *function, bool is_f
     }
 }
 
+FlowNode::FlowNode(uint64_t id, bool is_function) {
+    this->id = id;
+    this->is_function = is_function;
+}
+
 string FlowNode::getName(void) {
     string prefix = this->is_function ? "F" + to_string(this->function_id) + "_" : "";
     return prefix + "B" + to_string(this->id);
@@ -91,13 +96,13 @@ void FlowNode::prettyPrint(void) {
         space = string(max_instr.size() - instr.id.size() + 1, ' ');
         
         cout << "    \033[3m" << instr.id << "\033[0m" 
-            << space << instr.result.name << " ";
-        if(instr.result.is_acc)
+            << space << instr.result.name;
+        if (instr.result.is_acc)
             cout << "[" << instr.result.acc << "]";
         cout << " ";
         for (T_Variable operand : instr.operands) {
-            cout << operand.name << " ";
-            if(operand.is_acc)
+            cout << operand.name;
+            if (operand.is_acc)
                 cout << "[" << operand.acc << "]";
             cout << " ";
         }
@@ -105,14 +110,39 @@ void FlowNode::prettyPrint(void) {
     }
 }
 
+
+
 void FlowGraph::insertArc(uint64_t u, uint64_t v) {
     // Agregamos el arco normal
-    if (this->E.count(u)) this->E[u].insert(v);
-    else this->E.insert({u, {v}});
+    this->E[u].insert(v);
+    this->Einv[v].insert(u);
+}
 
-    // Agregamos el arco inverso
-    if (this->Einv.count(v)) this->Einv[v].insert(u);
-    else this->Einv.insert({v, {u}});
+void FlowGraph::deleteBlock(uint64_t id) {
+    // Eliminamos todos los arcos que apuntan hacia el bloque.
+    for (uint64_t p : this->Einv[id]) {
+        this->E[p].erase(id);
+    }
+    // Eliminamos todos los arcos inversos que apuntan hacia el bloque.
+    for (uint64_t p : this->E[id]) {
+        this->Einv[p].erase(id);
+    }
+    // Eliminamos los arcos desde el bloque.
+    this->E.erase(id);
+    this->Einv.erase(id);
+
+    // Si el nodo es una funcion, eliminamos su referencia en el grafo y sus llamados
+    if (this->V[id]->is_function) {
+        this->F.erase(this->V[id]->getName());
+        this->called.erase(id);
+    }
+
+    // Eliminamos su posible llamada.
+    this->caller.erase(id);
+
+    // Borramos el nodo.
+    delete this->V[id];
+    this->V.erase(id);
 }
 
 uint64_t FlowGraph::makeSubGraph(T_Function *function, uint64_t init_id) {
@@ -127,6 +157,8 @@ uint64_t FlowGraph::makeSubGraph(T_Function *function, uint64_t init_id) {
     last_id++;
 
     for (uint64_t i = 1; i < function->vec_leaders.size(); i++) {
+        this->E[last_id] = {};
+        this->Einv[last_id] = {};
         this->V.insert({
             last_id, 
             new FlowNode(last_id, function->vec_leaders[i], function, false)
@@ -194,23 +226,21 @@ uint64_t FlowGraph::makeSubGraph(T_Function *function, uint64_t init_id) {
     // Eliminamos aquellos bloques inalcanzables.
     for (uint64_t id = init_id; id < last_id; id++) {
         if (visited.count(id) == 0) {
-            for (uint64_t p : this->E[id]) {
-                this->Einv[p].erase(id);
-            }
-            for (uint64_t p : this->Einv[id]) {
-                this->E[p].erase(id);
-            }
-            this->E.erase(id);
-            this->Einv.erase(id);
-            delete this->V[id];
-            this->V.erase(id);
+            this->deleteBlock(id);
         }
+    }
+
+    // Como el ultimo id pudo haber sido eliminado, obtenemos el ultimo id visitado
+    while (visited.count(last_id-1) == 0) {
+        last_id--;
     }
 
     return last_id;
 }
 
-FlowGraph::FlowGraph(vector<T_Function*> functions) {
+FlowGraph::FlowGraph(vector<T_Function*> functions, set<string> staticVars) {
+    this->staticVars = staticVars;
+
     uint64_t current_id;
 
     // Creamos el grafo global
@@ -223,6 +253,7 @@ FlowGraph::FlowGraph(vector<T_Function*> functions) {
         this->F[functions[i]->name] = current_id;
         current_id = this->makeSubGraph(functions[i], current_id);
     }
+    this->lastID = current_id;
 
     // Actualizamos las llamadas a las funciones y creamos los arcos correspondientes.
     FlowNode *f;
@@ -234,206 +265,63 @@ FlowGraph::FlowGraph(vector<T_Function*> functions) {
                 
                 // Creamos la relacion de llamada
                 this->caller[n.first] = f->id;
-                if (this->called.count(f->id)) {
-                    this->called[f->id].insert(n.first);
-                }
-                else {
-                    this->called[f->id] = {n.first};
-                }
+                if (this->called.count(f->id) == 0) this->called[f->id] = {n.first};
+                else this->called[f->id].insert(n.first);
             }
         }
     }
 
-}
+    // Eliminamos las funciones que no son llamadas
+    // Para ello usamos DFS para obtener todas las posibles llamadas en los bloques.
+    set<uint64_t> visited;
+    stack<uint64_t> toVisit;
+    uint64_t current_b;
 
+    toVisit.push(0);
+    visited.insert(0);
 
-/* ====================== VARIABLES VIVAS ====================== */
-/*
- * Inicializa los conjuntos IN y OUT de cada bloque en vacio.
- */
-map<uint64_t, vector<set<string>>> liveVariables_init(FlowGraph* fg) {
-    map<uint64_t, vector<set<string>>> sets;
-    for (pair<uint64_t, FlowNode*> n : fg->V) sets[n.first] = {{}, {}};
-    return sets;
-}
+    while (toVisit.size() > 0) {
+        current_b = toVisit.top();
+        toVisit.pop();
+        do {
+            if (current_b >= current_id) break;
 
-/*
- * Inicializa el OUT de ENTRY en vacio.
- */
-set<string> liveVaraibles_initEntryOut(FlowGraph* fg) { return {}; }
+            if (
+                this->V.count(current_b) > 0 && 
+                this->caller.count(current_b) > 0 &&
+                visited.count(this->caller[current_b]) == 0 
+            ) {
+                visited.insert(this->caller[current_b]);
+                toVisit.push(this->caller[current_b]);
+            }
+            current_b++;
 
-/*
- * Inicializa el IN de EXIT en vacio.
- */
-set<string> liveVariables_initExitIn(FlowGraph* fg) { return {}; }
-
-// Funciones de transicion de cada instruccion
-
-set<string> liveVariables_assign(set<string> in, T_Instruction instr) {
-    size_t index;
-    char c;
-    if (instr.result.name.back() == ']') {
-        index = instr.result.name.find('[');
-        in.insert(instr.result.name.substr(0, index));
-
-        c = instr.result.name[index+1];
-        if (('A' <= c && c <= 'z') || c == '_') {
-            in.insert(instr.result.name.substr(index + 1, instr.result.name.size() - index - 2));
-        }
-
-        c = instr.operands[0].name[0];
-        if (('A' <= c && c <= 'z') || c == '_') {
-            in.insert(instr.operands[0].name);
-        }
+        } while (this->V.count(current_b) == 0 || ! this->V[current_b]->is_function);
     }
-    else if (instr.operands[0].name.back() == ']'){
-        index = instr.operands[0].name.find('[');
-        in.erase(instr.result.name);
-        in.insert(instr.operands[0].name.substr(0, index));
 
-        c = instr.operands[0].name[index+1];
-        if (('A' <= c && c <= 'z') || c == '_') {
-            
-            in.insert(instr.operands[0].name.substr(index + 1, instr.operands[0].name.size() - index - 2));
+    // Eliminamos las funciones que no fueron llamadas.
+    current_b = 0;
+    while (current_b < current_id) {
+        // Si la funcion fue visitada, solo tenemos que pasar a la siguiente funcion.
+        if (visited.count(current_b) > 0) {
+            do {
+                if (current_b >= current_id) break;
+                current_b++;
+            }
+            while (this->V.count(current_b) == 0 || ! this->V[current_b]->is_function);
         }
-    } 
-    else {
-        in.erase(instr.result.name);
-
-        c = instr.operands[0].name[0];
-        if (('A' <= c && c <= 'z') || c == '_') {
-            in.insert(instr.operands[0].name);
+        // En caso contrario eliminamos todos los bloques de la funcion.
+        else {
+            do {
+                if (current_b >= current_id) break;
+                if (this->V.count(current_b) > 0) {
+                    this->deleteBlock(current_b);
+                }
+                current_b++;
+            } while (this->V.count(current_b) == 0 || ! this->V[current_b]->is_function);
         }
     }
-
-    return in;
 }
-
-set<string> liveVariables_f3(set<string> in, T_Instruction instr) {
-    char c;
-    in.erase(instr.result.name);
-
-    c = instr.operands[0].name[0];
-    if (('A' <= c && c <= 'z') || c == '_') {
-        in.insert(instr.operands[0].name);
-    }
-
-    c = instr.operands[1].name[0];
-    if (('A' <= c && c <= 'z') || c == '_') {
-        in.insert(instr.operands[1].name);
-    }
-
-    return in;
-}
-
-set<string> liveVariables_f2(set<string> in, T_Instruction instr) {
-    char c;
-
-    in.erase(instr.result.name);
-
-    c = instr.operands[0].name[0];
-    if (('A' <= c && c <= 'z') || c == '_') {
-        in.insert(instr.operands[0].name);
-    }
-
-    return in;
-}
-
-set<string> liveVariables_f1(set<string> in, T_Instruction instr) {
-    char c;
-
-    c = instr.result.name[0];
-    if (('A' <= c && c <= 'z') || c == '_') {
-        in.insert(instr.result.name);
-    }
-
-    return in;
-}
-
-set<string> liveVariables_condGo(set<string> in, T_Instruction instr) {
-    char c = instr.operands[0].name[0];
-    if (('A' <= c && c <= 'z') || c == '_') {
-        in.insert(instr.operands[0].name);
-    }
-    
-    return in;
-}
-
-set<string> liveVariables_memcpy(set<string> in, T_Instruction instr) {
-    char c;
-    
-    in.insert(instr.result.name);
-    in.insert(instr.operands[0].name);
-
-    c = instr.operands[1].name[0];
-    if (('A' <= c && c <= 'z') || c == '_') {
-        in.insert(instr.operands[01].name);
-    }
-    
-    return in;
-}
-
-set<string> liveVariables_call(set<string> in, T_Instruction instr) {
-    in.erase(instr.result.name);
-    return in;
-}
-
-set<string> liveVariables_f(set<string> in, T_Instruction instr) {
-    return in;
-}
-
-/*
- * Analisis de flujo para variables vivas.
- */
-map<uint64_t, vector<set<string>>> FlowGraph::liveVariables(void) {
-    return this->flowAnalysis<string>(
-        &liveVariables_init,
-        &liveVaraibles_initEntryOut,
-        &liveVariables_initExitIn,
-        {
-            {"assignw", &liveVariables_assign},
-            {"assignb", &liveVariables_assign},
-            {"add"    , &liveVariables_f3},
-            {"sub"    , &liveVariables_f3},
-            {"mult"   , &liveVariables_f3},
-            {"div"    , &liveVariables_f3},
-            {"mod"    , &liveVariables_f3},
-            {"minus"  , &liveVariables_f2},
-            {"ftoi"   , &liveVariables_f2},
-            {"itof"   , &liveVariables_f2},
-            {"eq"     , &liveVariables_f3},
-            {"neq"    , &liveVariables_f3},
-            {"lt"     , &liveVariables_f3},
-            {"leq"    , &liveVariables_f3},
-            {"gt"     , &liveVariables_f3},
-            {"geq"    , &liveVariables_f3},
-            {"or"     , &liveVariables_f3},
-            {"and"    , &liveVariables_f3},
-            {"goto"   , &liveVariables_f},
-            {"goif"   , &liveVariables_condGo},
-            {"goifnot", &liveVariables_condGo},
-            {"malloc" , &liveVariables_f2},
-            {"memcpy" , &liveVariables_f3},
-            {"free"   , &liveVariables_f1},
-            {"exit"   , &liveVariables_f1},
-            {"param"  , &liveVariables_f2},
-            {"return" , &liveVariables_f1},
-            {"call"   , &liveVariables_call},
-            {"printc" , &liveVariables_f1},
-            {"printi" , &liveVariables_f1},
-            {"printf" , &liveVariables_f1},
-            {"print"  , &liveVariables_f1},
-            {"readc"  , &liveVariables_f1},
-            {"readi"  , &liveVariables_f1},
-            {"readf"  , &liveVariables_f1},
-            {"read"   , &liveVariables_f1}
-        },
-        false,
-        false
-    );
-}
-
-
 
 void FlowGraph::print(void) {
     for (pair<uint64_t, FlowNode*> n : this->V) {
@@ -443,8 +331,76 @@ void FlowGraph::print(void) {
 }
 
 void FlowGraph::prettyPrint(void) {
+    // Cola de nodos a imprimir
+    queue<uint64_t> toPrint;
+    // Nodos que ya se visitaron
+    set<uint64_t> visited;
+    // Indica si un nodo de ser impreso urgentemente
+    FlowNode *v, *v_aux;
+    bool urgent;
+    string instr;
+
+    urgent = false;
+
     for (pair<uint64_t, FlowNode*> n : this->V) {
-        if (n.second->is_function) cout << "\n\n";
-        n.second->prettyPrint();
+        if (visited.count(n.first) == 0) {
+            toPrint.push(n.first);
+            visited.insert(n.first);
+
+            while (toPrint.size() > 0 || urgent) {
+                // Si no hay ningun nodo urgente por imprimir, obtenemos el siguiente nodo
+                // de la cola.
+                if (! urgent) {
+                    v = this->V[toPrint.front()];
+                    toPrint.pop();
+                }
+
+                if (v->is_function) cout << "\n\n";
+                v->prettyPrint();
+
+                // Si el nodo no termina en "goto", "return" o "exit" significa que no
+                // tiene un sucesor directo, asi que simplemente agregamos sus sucesores
+                instr = v->block.back().id;
+                if (instr == "goto" || instr == "return" || instr == "exit") {
+                    urgent = false;
+                    for (uint64_t succ : this->E[v->id]) {
+                        if (visited.count(succ) == 0) {
+                            visited.insert(succ);
+                            toPrint.push(succ);
+                        }
+                    }
+                }
+                // En caso contrario, si tiene un solo sucesor, este se debe imprimir
+                // urgentemente.
+                else if (this->E[v->id].size() == 1) {
+                    v = this->V[*this->E[v->id].begin()];
+                    if (visited.count(v->id) == 0) {
+                        urgent = true;
+                        visited.insert(v->id);
+                    }
+                }
+                // En caso contrario, si tiene dos sucesores, significa que hay un goif
+                // o un goifnot. Agregamos a la cola el destino del salto y colocamos
+                // urgente al otro sucesor.
+                else if (this->E[v->id].size() == 2) {
+                    urgent = false;
+                    v_aux = v;
+                    for (uint64_t succ : this->E[v->id]) {
+                        if (visited.count(succ) == 0) {
+                            visited.insert(succ);
+                            if (v->block.back().result.name == this->V[succ]->getName()) {
+                                toPrint.push(succ);
+                            }
+                            else {
+                                v_aux = this->V[succ];
+                                urgent = true;
+                            }
+                        }
+                    }
+                    v = v_aux;
+                } 
+            }
+        }
+
     }
 }

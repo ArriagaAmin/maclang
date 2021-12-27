@@ -1,14 +1,12 @@
+let Int a = readi(), b = readi(), c;
+let Bool B = readi() != 0;
 
-let Int i = 0, n = 0;
-def F(Int a=0) => Int {
-	if a > 0 then return a;
-	else return -a;
-	done
-}
-i + i + i;
-
-while i < 10 do
-	if i % 2 == 0 then n = n + i + F(); done 
+while True do
+    while True do 
+        c = a + b;
+        if B then break; done
+    done 
+    if B then break; done 
 done
-let Int f = F(i);
-f + 1;
+
+exit c;
