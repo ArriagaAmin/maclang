@@ -74,9 +74,27 @@ const unordered_map<string, string> mips_instructions ({
 
     // Memory management
     // TODO
-    {"malloc", ""}, // malloc ID Rval
+    {"malloc", "li  $v0, 9 \nsyscall"},
     {"memcpy", ""}, // memcpy ID ID int
-    {"free", ""}, // free rval
+    {"free", "li  $v0, 9 \nsyscall"},
+
+    /******* Float Instructions *******/
+    // Aritmethic operations
+    {"fadd", "add.s"},
+    {"fsub", "sub.s"},
+    {"fmult", "mul.s"},
+    {"fdiv", "div.s"},
+    {"fmod", "div.s"},
+    {"fminus", "negu.s"},
+
+    // Jumps and memory access
+    {"fload", "l.s"},
+    {"fstore", "s.s"},
+
+    // Logic operations
+    {"feq", "c.eq.s"},
+    {"fleq", "c.le.s"},
+    {"flt", "c.lt.s"},
 });
 
 class Translator
@@ -115,15 +133,21 @@ private:
     void translateMetaIntruction(T_Instruction instruction);
     void translateOperationInstruction(T_Instruction instruction, vector<string>& section, bool is_copy = false, uint16_t type = 0);
     void translateIOIntruction(T_Instruction instruction, vector<string>& section);
+
+    // Setters
+    bool insertRegister(string id);
+    bool insertFloatRegister(string id);
+    bool insertVariable(string id, uint16_t type, string value = "1");
+    void insertInstruction(T_Instruction* instruction);
+
+    // Getters
+    vector<string> getRegisterDescriptor(string id);
+    vector<string> getVariableDescriptor(string id);
+
 public:
     Translator();
     void translate();
-    bool insertRegister(string id);
-    bool insertVariable(string id, uint16_t type, string value = "1");
-    void insertInstruction(T_Instruction* instruction);
     void insertFlowGraph(FlowGraph* graph);
-    vector<string> getRegisterDescriptor(string id);
-    vector<string> getVariableDescriptor(string id);
     void print();
     void printVariablesDescriptors();
 };

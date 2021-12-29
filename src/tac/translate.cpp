@@ -29,6 +29,15 @@ Translator::Translator()
         i++;
     }
 
+    // Add the float registers
+    i = 0;
+    
+    while (i < 32)
+    {   
+        insertRegister("$f" + to_string(i));
+        i++;
+    }
+
     // Add constant variables
     insertVariable("BASE", 0);
     insertVariable("STACK", 0);
@@ -49,6 +58,17 @@ bool Translator::insertRegister(string id)
         return false;
     
     this->m_registers[id] = vector<string>();
+    return true;
+}
+
+bool Translator::insertFloatRegister(string id)
+{
+    auto found = this->m_float_registers.find(id);
+
+    if(found != this->m_float_registers.end()) 
+        return false;
+    
+    this->m_float_registers[id] = vector<string>();
     return true;
 }
 
@@ -419,6 +439,68 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
         return;
     }
 
+    // Memory management instructions
+    if(instruction.id == "malloc")
+    {
+        insertVariable(instruction.result.name, 0);
+        vector<string> op_registers = getReg(instruction, section, false);
+
+        // The size of the memory needed to be allocated should be in $a0
+        // First, save whatever value is in the register
+        vector<string> regDescriptor = getRegisterDescriptor("$a0");
+        for(string currentVar : regDescriptor)
+        {
+            section.emplace_back(mips_instructions.at("store") + space + "$a0" + sep + currentVar);
+            availability(currentVar, currentVar);
+        }
+        regDescriptor.clear();
+        removeElementFromDescriptors(this->m_variables, "$a0", "");
+
+        // Move the value to $a0
+        section.emplace_back(mips_instructions.at("assign") + space + "$a0" + sep + op_registers[1]);
+
+        // Call the syscall
+        section.emplace_back(mips_instructions.at(instruction.id));
+
+        // The direction of the allocated memory is in $v0
+        vector<string> regDescriptor = getRegisterDescriptor("$v0");
+        for(string currentVar : regDescriptor)
+        {
+            section.emplace_back(mips_instructions.at("store") + space + "$v0" + sep + currentVar);
+            availability(currentVar, currentVar);
+        }
+        regDescriptor.clear();
+        removeElementFromDescriptors(this->m_variables, "$v0", "");
+
+        // Save the direction in the temporal
+        section.emplace_back(mips_instructions.at("store") + space + "$v0" + sep + op_registers[0]);
+        return;
+    }
+
+    if(instruction.id == "free")
+    {
+        vector<string> op_registers = getReg(instruction, section, false);
+
+        // The size of the memory needed to be allocated should be in $a0
+        // First, save whatever value is in the register
+        vector<string> regDescriptor = getRegisterDescriptor("$a0");
+        for(string currentVar : regDescriptor)
+        {
+            section.emplace_back(mips_instructions.at("store") + space + "$a0" + sep + currentVar);
+            availability(currentVar, currentVar);
+        }
+        regDescriptor.clear();
+        removeElementFromDescriptors(this->m_variables, "$a0", "");
+
+        // Move the value to shrink to $a0
+        section.emplace_back(mips_instructions.at("assign") + space + "$a0" + sep + op_registers[0]);
+        section.emplace_back(mips_instructions.at("minus") + space + "$a0" + sep + "$a0");
+
+        // Call the syscall
+        section.emplace_back(mips_instructions.at(instruction.id));
+        return;
+    }
+
     // Branching instructions
     if(instruction.id.find("go") != string::npos)
     {
@@ -652,8 +734,10 @@ void Translator::translateIOIntruction(T_Instruction instruction, vector<string>
             for(string currentVar : regDescriptor)
             {
                 section.emplace_back(mips_instructions.at("store") + space + argRegister + sep + currentVar);
-                availability(currentVar, currentVar);
+                //availability(currentVar, currentVar);
             }
+            regDescriptor.clear();
+            removeElementFromDescriptors(this->m_variables, "$a0", "");
 
             // Move the element to $a0
             section.emplace_back(mips_instructions.at("assign") + space + argRegister + sep + instruction.result.name);
@@ -686,15 +770,20 @@ void Translator::translateIOIntruction(T_Instruction instruction, vector<string>
             for(string currentVar : regDescriptor)
             {
                 section.emplace_back(mips_instructions.at("store") + space + addrRegister + sep + currentVar);
-                availability(currentVar, currentVar);
+                //availability(currentVar, currentVar);
             }
+            regDescriptor.clear();
+            removeElementFromDescriptors(this->m_variables, "$a0", "");
+
             // Max size of the string in $a1
             regDescriptor = getRegisterDescriptor(sizeRegister);
             for(string currentVar : regDescriptor)
             {
                 section.emplace_back(mips_instructions.at("store") + space + sizeRegister + sep + currentVar);
-                availability(currentVar, currentVar);
+                //availability(currentVar, currentVar);
             }
+            regDescriptor.clear();
+            removeElementFromDescriptors(this->m_variables, "$a1", "");
 
             // Move buffer to $a0
             section.emplace_back(mips_instructions.at("assign") + space + addrRegister + sep + instruction.result.name);
