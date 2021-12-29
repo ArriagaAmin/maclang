@@ -168,9 +168,10 @@ void Translator::cleanRegistersDescriptor()
     }
 }
 
-bool Translator::assignment(string register_id, string variable_id, bool replace)
+bool Translator::assignment(string register_id, string variable_id, unordered_map<string, vector<string>>& curr_registers, 
+                            bool replace)
 {
-    return insertElementToDescriptor(this->m_registers, register_id, variable_id, replace);
+    return insertElementToDescriptor(curr_registers, register_id, variable_id, replace);
 }
 
 bool Translator::availability(string variable_id, string location, bool replace)
@@ -178,9 +179,9 @@ bool Translator::availability(string variable_id, string location, bool replace)
     return insertElementToDescriptor(this->m_variables, variable_id, location, replace);
 }
 
-vector<string> Translator::getRegisterDescriptor(string id)
+vector<string> Translator::getRegisterDescriptor(string id, unordered_map<string, vector<string>>& curr_registers)
 {
-    return this->m_registers[id];
+    return curr_registers[id];
 }
 
 vector<string> Translator::getVariableDescriptor(string id)
@@ -207,10 +208,10 @@ string Translator::findElementInDescriptors(unordered_map<string, vector<string>
     return "";
 }
 
-vector<string> Translator::findFreeRegister()
+vector<string> Translator::findFreeRegister(unordered_map<string, vector<string>>& curr_registers)
 {
     vector<string> regs;
-    for (pair<string, vector<string>> current_register : this->m_registers) 
+    for (pair<string, vector<string>> current_register : curr_registers) 
     {
         if(current_register.second.empty())
             regs.push_back(current_register.first);
@@ -219,7 +220,8 @@ vector<string> Translator::findFreeRegister()
     return regs;
 }
 
-string Translator::recycleRegister(T_Instruction instruction, vector<string>& section)
+string Translator::recycleRegister(T_Instruction instruction, unordered_map<string, vector<string>>& descriptors, 
+                                    vector<string>& section)
 {
     // Traverse all the register and check which one is the most viable
     // for recycling and using it
@@ -229,7 +231,7 @@ string Translator::recycleRegister(T_Instruction instruction, vector<string>& se
     // Counter of spills
     map<string, int> spills;
     
-    for (pair<string, vector<string>> current_register : this->m_registers) 
+    for (pair<string, vector<string>> current_register : descriptors) 
     {
         //bool isSafe = false;
         int current_spills = 0;
@@ -284,10 +286,11 @@ string Translator::recycleRegister(T_Instruction instruction, vector<string>& se
     return best_reg;
 }
 
-void Translator::selectRegister(string operand, T_Instruction instruction, vector<string> &regs, vector<string> &free_regs, vector<string>& section)
+void Translator::selectRegister(string operand, T_Instruction instruction, unordered_map<string, vector<string>>& descriptors,
+                                vector<string> &regs, vector<string> &free_regs, vector<string>& section)
 {
     // First, verify is the operand is store in another register
-    string reg = findElementInDescriptors(this->m_registers, operand);
+    string reg = findElementInDescriptors(descriptors, operand);
     if(!reg.empty())
     {
         regs.push_back(reg);
@@ -304,7 +307,7 @@ void Translator::selectRegister(string operand, T_Instruction instruction, vecto
     
     // If any of the simple cases are not meet, the we move to the complex ones
     // No free registers and the operand is not store in any
-    reg = recycleRegister(instruction, section);
+    reg = recycleRegister(instruction, descriptors, section);
     regs.push_back(reg);
 }
 
@@ -312,11 +315,30 @@ vector<string> Translator::getReg(T_Instruction instruction, vector<string>& sec
 {
     vector<string> registers;
 
-    vector<string> free_regs = findFreeRegister();
+    // Look for the registers that are available, depending if float registers or normal
+    vector<string> free_r = findFreeRegister(this->m_registers);
+    vector<string> free_fr = findFreeRegister(this->m_float_registers);
 
+    // References necessaries depending if the operand is a float
+    unordered_map<string, vector<string>>& curr_desc = this->m_registers;
+    vector<string>& free_regs = free_r; 
+
+    // Choose register for every operand
     for (T_Variable current_operand : instruction.operands)
     {
-        selectRegister(current_operand.name, instruction, registers, free_regs, section);
+        // If the operand is a float change the references
+        if(current_operand.name.front() == 'f' || current_operand.name.front() == 'F')
+        {
+            free_regs = free_fr;
+            curr_desc = this->m_float_registers;
+        }
+        else
+        {
+            curr_desc = this->m_registers;
+            free_regs = free_r;
+        }
+        
+        selectRegister(current_operand.name, instruction, curr_desc, registers, free_regs, section);
     }
     
     // If a jump instruction then is just necessary the register for the operand
@@ -331,9 +353,21 @@ vector<string> Translator::getReg(T_Instruction instruction, vector<string>& sec
     }
     else
     {
+        // Check if the result is a float to look in the correct descriptors
+        if(instruction.result.name.front() == 'f' || instruction.result.name.front() == 'F')
+        {
+            free_regs = free_fr;
+            curr_desc = this->m_float_registers;
+        }
+        else
+        {
+            curr_desc = this->m_registers;
+            free_regs = free_r;
+        }    
+
         // Look for a register that ONLY has the result
-        string reg = findElementInDescriptors(this->m_registers, instruction.result.name);
-        if(!reg.empty() && getRegisterDescriptor(reg).size() < 2)
+        string reg = findElementInDescriptors(curr_desc, instruction.result.name);
+        if(!reg.empty() && getRegisterDescriptor(reg, curr_desc).size() < 2)
         {
             registers.insert(registers.begin(), reg);
         }
@@ -341,7 +375,7 @@ vector<string> Translator::getReg(T_Instruction instruction, vector<string>& sec
         else
         {
             // Otherwise the same as one of the operands
-            selectRegister(instruction.result.name, instruction, registers, free_regs, section);
+            selectRegister(instruction.result.name, instruction, curr_desc, registers, free_regs, section);
             string reg = registers.back();
             registers.pop_back();
             registers.insert(registers.begin(), reg);
@@ -447,11 +481,11 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
 
         // The size of the memory needed to be allocated should be in $a0
         // First, save whatever value is in the register
-        vector<string> regDescriptor = getRegisterDescriptor("$a0");
+        vector<string> regDescriptor = getRegisterDescriptor("$a0", this->m_registers);
         for(string currentVar : regDescriptor)
         {
             section.emplace_back(mips_instructions.at("store") + space + "$a0" + sep + currentVar);
-            availability(currentVar, currentVar);
+            //availability(currentVar, currentVar);
         }
         regDescriptor.clear();
         removeElementFromDescriptors(this->m_variables, "$a0", "");
@@ -463,7 +497,7 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
         section.emplace_back(mips_instructions.at(instruction.id));
 
         // The direction of the allocated memory is in $v0
-        vector<string> regDescriptor = getRegisterDescriptor("$v0");
+        regDescriptor = getRegisterDescriptor("$v0", this->m_registers);
         for(string currentVar : regDescriptor)
         {
             section.emplace_back(mips_instructions.at("store") + space + "$v0" + sep + currentVar);
@@ -483,7 +517,7 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
 
         // The size of the memory needed to be allocated should be in $a0
         // First, save whatever value is in the register
-        vector<string> regDescriptor = getRegisterDescriptor("$a0");
+        vector<string> regDescriptor = getRegisterDescriptor("$a0", this->m_registers);
         for(string currentVar : regDescriptor)
         {
             section.emplace_back(mips_instructions.at("store") + space + "$a0" + sep + currentVar);
@@ -625,32 +659,48 @@ void Translator::translateOperationInstruction(T_Instruction instruction, vector
     // Choose the registers to use
     vector<string> op_registers = getReg(instruction, section, is_copy);
     int op_index = 1;
+    string load_id = "load";
 
     for (T_Variable current_operand : instruction.operands)
     {
         // Check if the operand is in the registers, if not then load it
         string current_reg = op_registers[op_index];
-        vector<string> reg_descriptor = getRegisterDescriptor(current_reg);
+        unordered_map<string, vector<string>>& regs_to_find = this->m_registers;
+
+        if(current_operand.name.front() == 'f' || current_operand.name.front() == 'F')
+        {
+            regs_to_find = this->m_float_registers;
+            load_id = "fload";
+        }
+        else
+        {
+            regs_to_find = this->m_registers;
+            load_id = "load";
+        }
+
+        vector<string> reg_descriptor = getRegisterDescriptor(current_reg, regs_to_find);
         if ( find(reg_descriptor.begin(), reg_descriptor.end(), current_operand.name) == reg_descriptor.end() )
         {
             string best_location = findOptimalLocation(current_operand.name);
 
-            section.emplace_back(mips_instructions.at("load") + space + current_reg + sep + best_location);
+            section.emplace_back(mips_instructions.at(load_id) + space + current_reg + sep + best_location);
         }
 
         // Maintain descriptors
-        assignment(current_reg, current_operand.name, true);
+        assignment(current_reg, current_operand.name, regs_to_find, true);
         availability(current_operand.name, current_reg);
 
         if(is_copy)
         {
-            assignment(current_reg, instruction.result.name);
+            assignment(current_reg, instruction.result.name, regs_to_find);
             availability(instruction.result.name, current_reg, true);
         }
 
         op_index++; 
     }
     
+    unordered_map<string, vector<string>>& regs_to_find = this->m_registers;
+
     if(is_copy)
     {
         // Take into account indirections
@@ -661,16 +711,27 @@ void Translator::translateOperationInstruction(T_Instruction instruction, vector
         }
         else if(instruction.result.is_acc)
         {
+            string load_id = "load";
+            string store_id = "store";
+
+            // Check if result register is a float
+            if(instruction.result.name.front() == 'f' || instruction.result.name.front() == 'F')
+            {
+                regs_to_find = this->m_float_registers;
+                load_id = "f" + load_id;
+                store_id = "f" + store_id;
+            }
+
             // Load the base direction of what we want to make an indirection
-            vector<string> reg_descriptor = getRegisterDescriptor(op_registers[0]);
+            vector<string> reg_descriptor = getRegisterDescriptor(op_registers[0], regs_to_find);
             if ( find(reg_descriptor.begin(), reg_descriptor.end(), instruction.result.name) == reg_descriptor.end() )
             {
                 string best_location = findOptimalLocation(instruction.result.name);
-                section.emplace_back(mips_instructions.at("load") + space + op_registers[0] + sep + best_location);
+                section.emplace_back(mips_instructions.at(load_id) + space + op_registers[0] + sep + best_location);
             }
             // Store the new value in the new direction
             string op = instruction.result.acc + "(" + op_registers[0] + ")";
-            section.emplace_back(mips_instructions.at("store") + space + op_registers[1] + sep + op);
+            section.emplace_back(mips_instructions.at(store_id) + space + op_registers[1] + sep + op);
         }
         return;
     }
@@ -679,6 +740,13 @@ void Translator::translateOperationInstruction(T_Instruction instruction, vector
     int i = 0;
     if(instruction.id == "div" || instruction.id == "mod")
         i = 1;
+    
+    // Check if result register is a float
+    if(instruction.result.name.front() == 'f' || instruction.result.name.front() == 'F')
+    {
+        regs_to_find = this->m_float_registers;
+        instruction.id = "f" + instruction.id;
+    }
     
     string emit = mips_instructions.at(instruction.id) + space;
     for (;i < (int) op_registers.size(); i++)
@@ -698,9 +766,10 @@ void Translator::translateOperationInstruction(T_Instruction instruction, vector
         section.emplace_back(mips_instructions.at("low") + space + op_registers[0]);
     else if(instruction.id == "mod")
         section.emplace_back(mips_instructions.at("high") + space + op_registers[0]);
+    
 
     // Maintain descriptor
-    assignment(op_registers[0], instruction.result.name, true);
+    assignment(op_registers[0], instruction.result.name, regs_to_find, true);
     availability(instruction.result.name, op_registers[0], true);
     removeElementFromDescriptors(this->m_variables, op_registers[0], instruction.result.name);
 }
@@ -726,67 +795,114 @@ void Translator::translateIOIntruction(T_Instruction instruction, vector<string>
 {
     if(instruction.id.find("print") != string::npos)
     {
-        const char* argRegister = "$a0";
+        const char* arg_register = "$a0";
         if(instruction.id.back() != 'f')
         {
             // Is need to have the element to print in $a0, store the elements if needed
-            vector<string> regDescriptor = getRegisterDescriptor(argRegister);
+            vector<string> regDescriptor = getRegisterDescriptor(arg_register, this->m_registers);
             for(string currentVar : regDescriptor)
             {
-                section.emplace_back(mips_instructions.at("store") + space + argRegister + sep + currentVar);
+                section.emplace_back(mips_instructions.at("store") + space + arg_register + sep + currentVar);
                 //availability(currentVar, currentVar);
             }
             regDescriptor.clear();
-            removeElementFromDescriptors(this->m_variables, "$a0", "");
+            removeElementFromDescriptors(this->m_variables, arg_register, "");
 
             // Move the element to $a0
-            section.emplace_back(mips_instructions.at("assign") + space + argRegister + sep + instruction.result.name);
+            section.emplace_back(mips_instructions.at("assign") + space + arg_register + sep + instruction.result.name);
             // Load the correct syscall
             section.emplace_back(mips_instructions.at(instruction.id));
         }
         else
         {
-            // TODO: Missing float print
+            arg_register = "$f12";
+            // Is need to have the element to print in $f12, store the elements if needed
+            vector<string> regDescriptor = getRegisterDescriptor(arg_register, this->m_float_registers);
+            for(string currentVar : regDescriptor)
+            {
+                section.emplace_back(mips_instructions.at("store") + space + arg_register + sep + currentVar);
+            }
+            regDescriptor.clear();
+            removeElementFromDescriptors(this->m_variables, arg_register, "");
+
+            // Move the element to $a0
+            section.emplace_back(mips_instructions.at("assign") + space + arg_register + sep + instruction.result.name);
+            // Load the correct syscall
+            section.emplace_back(mips_instructions.at(instruction.id));
         }
     }
     else    
     {
         if(instruction.id.back() == 'i' || instruction.id.back() == 'c')
         {
+            // Create temporal where is going to be stored
+            insertVariable(instruction.result.name, 0);
+
+            // Result is going to be store in $v0
+            vector<string> regDescriptor = getRegisterDescriptor("$v0", this->m_registers);
+            for(string currentVar : regDescriptor)
+            {
+                section.emplace_back(mips_instructions.at("store") + space + "$v0" + sep + currentVar);
+                availability(currentVar, currentVar);
+            }
+            regDescriptor.clear();
+            removeElementFromDescriptors(this->m_variables, "$v0", "");
+
             // Load correct syscall
             section.emplace_back(mips_instructions.at(instruction.id));
+
+            // Store read value
+            section.emplace_back(mips_instructions.at("store") + space + "$v0" + sep + instruction.result.name);
+
         }
         else if(instruction.id.back() == 'f')
         {
-            // TODO: Missing floats read
+            // Create temporal where is going to be stored
+            insertVariable(instruction.result.name, 0);
+
+            // Result is going to be store in $v0
+            vector<string> regDescriptor = getRegisterDescriptor("$f12", this->m_float_registers);
+            for(string currentVar : regDescriptor)
+            {
+                section.emplace_back(mips_instructions.at("store") + space + "$f12" + sep + currentVar);
+                availability(currentVar, currentVar);
+            }
+            regDescriptor.clear();
+            removeElementFromDescriptors(this->m_variables, "$f12", "");
+
+            // Load correct syscall
+            section.emplace_back(mips_instructions.at(instruction.id));
+
+            // Store read value
+            section.emplace_back(mips_instructions.at("store") + space + "$f12" + sep + instruction.result.name);
         }
         else
         {
-            const char* addrRegister = "$a0";
-            const char* sizeRegister = "$a1";
+            const char* addr_register = "$a0";
+            const char* size_register = "$a1";
 
             // Is neccesary the buffer where the string is going to be loaded in $a0
-            vector<string> regDescriptor = getRegisterDescriptor(addrRegister);
+            vector<string> regDescriptor = getRegisterDescriptor(addr_register, this->m_registers);
             for(string currentVar : regDescriptor)
             {
-                section.emplace_back(mips_instructions.at("store") + space + addrRegister + sep + currentVar);
+                section.emplace_back(mips_instructions.at("store") + space + addr_register + sep + currentVar);
                 //availability(currentVar, currentVar);
             }
             regDescriptor.clear();
-            removeElementFromDescriptors(this->m_variables, "$a0", "");
+            removeElementFromDescriptors(this->m_variables, addr_register, "");
 
             // Max size of the string in $a1
-            regDescriptor = getRegisterDescriptor(sizeRegister);
+            regDescriptor = getRegisterDescriptor(size_register, this->m_registers);
             for(string currentVar : regDescriptor)
             {
-                section.emplace_back(mips_instructions.at("store") + space + sizeRegister + sep + currentVar);
+                section.emplace_back(mips_instructions.at("store") + space + size_register + sep + currentVar);
                 //availability(currentVar, currentVar);
             }
             regDescriptor.clear();
-            removeElementFromDescriptors(this->m_variables, "$a1", "");
+            removeElementFromDescriptors(this->m_variables, size_register, "");
 
             // Move buffer to $a0
-            section.emplace_back(mips_instructions.at("assign") + space + addrRegister + sep + instruction.result.name);
+            section.emplace_back(mips_instructions.at("assign") + space + addr_register + sep + instruction.result.name);
             // TODO: Add size of what is going to be read
             // Load correct syscall
             section.emplace_back(mips_instructions.at(instruction.id));

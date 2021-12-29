@@ -119,13 +119,13 @@ private:
     
     // Registers management
     vector<string> getReg(T_Instruction instruction, vector<string>& section, bool is_copy = false);
-    vector<string> findFreeRegister();
-    string recycleRegister(T_Instruction instruction, vector<string>& section);
-    void selectRegister(string operand, T_Instruction instruction, vector<string> &regs, vector<string> &free_regs, vector<string>& section);
+    vector<string> findFreeRegister(unordered_map<string, vector<string>>& curr_registers);
+    string recycleRegister(T_Instruction instruction, unordered_map<string, vector<string>>& descriptors, vector<string>& section);
+    void selectRegister(string operand, T_Instruction instruction, unordered_map<string, vector<string>>& descriptors, vector<string> &regs, vector<string> &free_regs, vector<string>& section);
     void cleanRegistersDescriptor();
     
     // Updating descriptors
-    bool assignment(string register_id, string variable_id, bool replace = false);
+    bool assignment(string register_id, string variable_id, unordered_map<string, vector<string>>& curr_registers, bool replace = false);
     bool availability(string variable_id, string location, bool replace = false);
 
     // Instructions tranlations
@@ -138,15 +138,15 @@ private:
     bool insertRegister(string id);
     bool insertFloatRegister(string id);
     bool insertVariable(string id, uint16_t type, string value = "1");
-    void insertInstruction(T_Instruction* instruction);
 
     // Getters
-    vector<string> getRegisterDescriptor(string id);
+    vector<string> getRegisterDescriptor(string id, unordered_map<string, vector<string>>& curr_registers);
     vector<string> getVariableDescriptor(string id);
 
 public:
     Translator();
     void translate();
+    void insertInstruction(T_Instruction* instruction);
     void insertFlowGraph(FlowGraph* graph);
     void print();
     void printVariablesDescriptors();
