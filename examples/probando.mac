@@ -1,12 +1,10 @@
 let Int a = readi(), b = readi(), c;
 let Bool B = readi() != 0;
 
-while True do
-    while True do 
+while B do
+    #while B do 
         c = a + b;
-        if B then break; done
-    done 
-    if B then break; done 
+    #done 
 done
 
 exit c;

@@ -125,7 +125,7 @@ void FlowGraph::computNaturalLoops(void) {
     for (pair<uint64_t, uint64_t> edge : retEdges) {
         // Aplicamos DFS sobre el grafo inverso.
         visited = {edge.first, edge.second};
-        toVisite.push(edge.first);
+        if (edge.first != edge.second) toVisite.push(edge.first);
 
         while (toVisite.size() > 0) {
             node = toVisite.top();
@@ -350,3 +350,4 @@ void FlowGraph::invariantDetection(void) {
         }
     }
 }
+

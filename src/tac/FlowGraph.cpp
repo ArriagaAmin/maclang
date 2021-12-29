@@ -110,8 +110,6 @@ void FlowNode::prettyPrint(void) {
     }
 }
 
-
-
 void FlowGraph::insertArc(uint64_t u, uint64_t v) {
     // Agregamos el arco normal
     this->E[u].insert(v);

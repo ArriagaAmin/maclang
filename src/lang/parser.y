@@ -755,7 +755,6 @@
 /* ======================= EXPRESSIONS =============================== */
   W     : /* lambda */        
           { 
-            // La siguiente instruccion vacia es para evitar repeticion de etiquetas
             $$ = new string(tac->newLabel()); 
             tac->gen("@label " + *$$);
           }
@@ -2706,25 +2705,54 @@
 
 
 /* ======================= LOOPS ===================================== */
-  LoopWhile : While W Cond M DO I DONE
+  LoopWhile : While M Cond M W DO I DONE
               { 
-                $$ = new NodeWhile($3, $6); 
+                $$ = new NodeWhile($3, $7); 
 
-                if ($6 != NULL) {
-                  tac->backpatch($6->nextlist, *$2);
-                }
+                // Si Cond da True, ejecutamos la instruccion.
                 tac->backpatch($3->truelist, $4);
+
+                // Si Cond da False, pasamos a la siguiente instruccion.
                 $$->nextlist = merge<unsigned long long>(
                   $3->falselist, 
                   tac->breaklist.top()
                 );
                 tac->breaklist.pop();
 
-                tac->gen("goto " + *$2);
-
+                // Parcheamos el cuerpo con la siguiente instruccion.
+                if ($7 != NULL) {
+                  tac->backpatch($7->nextlist, tac->instructions.size());
+                }
                 // Parcheamos los continues encontrados.
-                tac->backpatch(tac->continuelist.top(), *$2);
+                tac->backpatch(tac->continuelist.top(), tac->instructions.size());
                 tac->continuelist.pop();
+
+                // Hacemos una copia de la Condicion para simular un do while, incluyendo
+                // copiar su truelist y falselist.
+                unsigned long long diff = tac->instructions.size() - $2;
+                vector<unsigned long long> truelist, falselist;
+                // Copiamos la truelist
+                for (unsigned long long instr : $3->truelist) {
+                  truelist.push_back(diff + instr);
+                }
+                // Copiamos la falselist
+                for (unsigned long long instr : $3->falselist) {
+                  falselist.push_back(diff + instr);
+                }
+                // Copiamos las instrucciones
+                for (unsigned long long i = $2; i < $4; i++) {
+                  tac->gen(tac->instructions[i]);
+                }
+                
+                // El nuevo truelist lo parcheamos con el inicio del cuerpo
+                tac->backpatch(truelist, *$5);
+
+                // El nuevo falselist se combinara con el nextlist de la instruccion
+                // completa
+                $$->nextlist = merge<unsigned long long>(
+                  $$->nextlist, 
+                  falselist
+                );
                 
                 table->exitScope();
               }
