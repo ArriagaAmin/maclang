@@ -400,11 +400,11 @@ void Translator::translate()
         vector<string>& section = text;
 
         // If the functions section starts
-        if(currentNode->is_function && !function_section)
-        {
-            function_section = true;
-            cout << "\n# ===== Functions Section ====="<< endl;
-        }
+        // if(currentNode->is_function && !function_section)
+        // {
+        //     function_section = true;
+        //     cout << "\n# ===== Functions Section ====="<< endl;
+        // }
         
         // Name of the block
         section.emplace_back(currentNode->getName() + decl);
@@ -743,14 +743,12 @@ void Translator::translateOperationInstruction(T_Instruction instruction, vector
         }
         else if(instruction.result.is_acc)
         {
-            string load_id = "load";
             string store_id = "store";
 
             // Check if result register is a float
             if(instruction.result.name.front() == 'f' || instruction.result.name.front() == 'F')
             {
                 regs_to_find = this->m_float_registers;
-                load_id = "f" + load_id;
                 store_id = "f" + store_id;
             }
 
@@ -759,7 +757,7 @@ void Translator::translateOperationInstruction(T_Instruction instruction, vector
             if ( find(reg_descriptor.begin(), reg_descriptor.end(), instruction.result.name) == reg_descriptor.end() )
             {
                 string best_location = findOptimalLocation(instruction.result.name);
-                section.emplace_back(mips_instructions.at(load_id) + space + op_registers[0] + sep + best_location);
+                section.emplace_back(mips_instructions.at("loada") + space + op_registers[0] + sep + best_location);
             }
             // Store the new value in the new direction
             string op = instruction.result.acc + "(" + op_registers[0] + ")";

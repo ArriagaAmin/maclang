@@ -47,8 +47,9 @@ const unordered_map<string, string> mips_instructions ({
     {"low", "mflo"},
     {"high", "mfhi"},
     {"load", "lw"},
-    {"store", "sw"},
     {"loadi", "li"},
+    {"loada", "la"},
+    {"store", "sw"},
 
     // Special registers
     {"ra", "$ra"},
