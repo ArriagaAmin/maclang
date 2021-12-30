@@ -328,9 +328,10 @@ void FlowGraph::print(void) {
     }
 }
 
-void FlowGraph::prettyPrint(void) {
-    // Cola de nodos a imprimir
-    queue<uint64_t> toPrint;
+vector<FlowNode*> FlowGraph::getOrderedBlocks(void) {
+    vector<FlowNode*> orderedBlocks;
+    // Cola de nodos a visitar
+    queue<uint64_t> toVisit;
     // Nodos que ya se visitaron
     set<uint64_t> visited;
     // Indica si un nodo de ser impreso urgentemente
@@ -342,19 +343,18 @@ void FlowGraph::prettyPrint(void) {
 
     for (pair<uint64_t, FlowNode*> n : this->V) {
         if (visited.count(n.first) == 0) {
-            toPrint.push(n.first);
+            toVisit.push(n.first);
             visited.insert(n.first);
 
-            while (toPrint.size() > 0 || urgent) {
+            while (toVisit.size() > 0 || urgent) {
                 // Si no hay ningun nodo urgente por imprimir, obtenemos el siguiente nodo
                 // de la cola.
                 if (! urgent) {
-                    v = this->V[toPrint.front()];
-                    toPrint.pop();
+                    v = this->V[toVisit.front()];
+                    toVisit.pop();
                 }
 
-                if (v->is_function) cout << "\n\n";
-                v->prettyPrint();
+                orderedBlocks.push_back(v);
 
                 // Si el nodo no termina en "goto", "return" o "exit" significa que no
                 // tiene un sucesor directo, asi que simplemente agregamos sus sucesores
@@ -364,7 +364,7 @@ void FlowGraph::prettyPrint(void) {
                     for (uint64_t succ : this->E[v->id]) {
                         if (visited.count(succ) == 0) {
                             visited.insert(succ);
-                            toPrint.push(succ);
+                            toVisit.push(succ);
                         }
                     }
                 }
@@ -387,7 +387,7 @@ void FlowGraph::prettyPrint(void) {
                         if (visited.count(succ) == 0) {
                             visited.insert(succ);
                             if (v->block.back().result.name == this->V[succ]->getName()) {
-                                toPrint.push(succ);
+                                toVisit.push(succ);
                             }
                             else {
                                 v_aux = this->V[succ];
@@ -399,6 +399,14 @@ void FlowGraph::prettyPrint(void) {
                 } 
             }
         }
+    }
 
+    return orderedBlocks;
+}
+
+void FlowGraph::prettyPrint(void) {
+    for (FlowNode *n : this->getOrderedBlocks()) {
+        if (n->is_function) cout << "\n\n";
+        n->prettyPrint();
     }
 }
