@@ -34,7 +34,7 @@ Translator::Translator()
     
     while (i < 32)
     {   
-        insertRegister("$f" + to_string(i));
+        insertFloatRegister("$f" + to_string(i));
         i++;
     }
 
@@ -470,6 +470,13 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
     {
         section.emplace_back(mips_instructions.at("load") + space + "$a0" + sep + instruction.result.name);
         section.emplace_back(mips_instructions.at(instruction.id));
+        return;
+    }
+
+    // I/O Instructions
+    if(instruction.id.find("print") != string::npos || instruction.id.find("read") != string::npos)
+    {
+        translateIOIntruction(instruction, section);
         return;
     }
 
