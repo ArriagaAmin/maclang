@@ -563,18 +563,35 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
     // Function calls instructions
     if(instruction.id == "param")
     {
-        current_params.emplace_back(make_pair(instruction.result.name, stoi(instruction.operands[0].name)));
+        // Create param variable
+        insertVariable(instruction.result.name, 0);
 
-        // insertVariable(instruction.result.name, 0);
-        // vector<string> reg = getReg(instruction, section);
-        // vector<string> reg_descriptor = getRegisterDescriptor(reg[0]);
-        // if ( find(reg_descriptor.begin(), reg_descriptor.end(), instruction.result.name) == reg_descriptor.end() )
-        // {
-        //     string best_location = findOptimalLocation(instruction.result.name);
+        // Get the register
+        vector<string> reg = getReg(instruction, section);
 
-        //     section.emplace_back(mips_instructions.at("load") + space + reg[0] + sep + best_location);
-        // }
-        // section.emplace_back(mips_instructions.at(instruction.id) + space + reg[0] + sep + instruction.operands[0].name + "($sp)");
+        // References
+        unordered_map<string, vector<string>>& curr_desc = this->m_registers;
+        string load_id = "load";
+
+        // If the operand is a float change the references
+        if(instruction.result.name.front() == 'f' || instruction.result.name.front() == 'F')
+        {
+            curr_desc = this->m_float_registers;
+            load_id = "fload";
+        }
+
+        // If the element is not on the register load it
+        vector<string> reg_descriptor = getRegisterDescriptor(reg[0], curr_desc);
+        if ( find(reg_descriptor.begin(), reg_descriptor.end(), instruction.result.name) == reg_descriptor.end() )
+        {
+            string best_location = findOptimalLocation(instruction.result.name);
+
+            section.emplace_back(mips_instructions.at(load_id) + space + reg[0] + sep + best_location);
+        }
+
+        // Add the parameter to a list so the call can emplace it
+        current_params.emplace_back(make_pair(reg[0], stoi(instruction.operands[0].name)));
+
         return;
     }
 
@@ -816,7 +833,7 @@ void Translator::translateIOIntruction(T_Instruction instruction, vector<string>
             removeElementFromDescriptors(this->m_variables, arg_register, "");
 
             // Move the element to $a0
-            section.emplace_back(mips_instructions.at("assign") + space + arg_register + sep + instruction.result.name);
+            section.emplace_back(mips_instructions.at("load") + space + arg_register + sep + instruction.result.name);
             // Load the correct syscall
             section.emplace_back(mips_instructions.at(instruction.id));
         }
@@ -833,7 +850,7 @@ void Translator::translateIOIntruction(T_Instruction instruction, vector<string>
             removeElementFromDescriptors(this->m_variables, arg_register, "");
 
             // Move the element to $a0
-            section.emplace_back(mips_instructions.at("assign") + space + arg_register + sep + instruction.result.name);
+            section.emplace_back(mips_instructions.at("fload") + space + arg_register + sep + instruction.result.name);
             // Load the correct syscall
             section.emplace_back(mips_instructions.at(instruction.id));
         }
