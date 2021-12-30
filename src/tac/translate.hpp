@@ -107,7 +107,8 @@ private:
     unordered_map<string, vector<string>> m_variables;
     vector<string> data;
     vector<string> text;
-    vector<string> functions;
+    //vector<string> functions;
+    bool function_section = false;
 
     vector<pair<string, int>> current_params;
     

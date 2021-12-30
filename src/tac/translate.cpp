@@ -41,8 +41,6 @@ Translator::Translator()
     // Add constant variables
     insertVariable("BASE", 0);
     insertVariable("STACK", 0);
-    insertVariable("lastbase", 0);
-
 }
 
 void Translator::insertInstruction(T_Instruction* instruction)
@@ -119,14 +117,14 @@ void Translator::print()
         cout << inst << endl;
     }
 
-    if(functions.size() > 0)
-    {
-        cout << "\n# ===== Functions Section ====="<< endl;
-        for(string inst : functions)
-        {
-            cout << inst << endl;
-        }
-    }
+    // if(functions.size() > 0)
+    // {
+    //     cout << "\n# ===== Functions Section ====="<< endl;
+    //     for(string inst : functions)
+    //     {
+    //         cout << inst << endl;
+    //     }
+    // }
 
     cout << "\n.data" << endl;
     for(string inst : data)
@@ -393,20 +391,26 @@ void Translator::translate()
         translateInstruction(*currentInstr, text);
     }
 
-    // Then tranlate the code
-    for(auto currentNode : m_graph->V)
-    {
-        // Choose in which section to put the current instruction (TEXT or FUNCTIONS)
-        FlowNode* currentNodeData = currentNode.second;
-        vector<string>* section = &text;
+    vector<FlowNode*> nodes = m_graph->getOrderedBlocks();
 
-        if(currentNodeData->is_function)
-            section = &functions;
-        
-        (*section).emplace_back(currentNodeData->getName() + decl);
-        for(T_Instruction current_inst : currentNodeData->block)
+    // Then tranlate the code
+    for(FlowNode* currentNode : nodes)
+    {
+        // Choose in which section to put the current instruction
+        vector<string>& section = text;
+
+        // If the functions section starts
+        if(currentNode->is_function && !function_section)
         {
-            translateInstruction(current_inst, *section);
+            function_section = true;
+            cout << "\n# ===== Functions Section ====="<< endl;
+        }
+        
+        // Name of the block
+        section.emplace_back(currentNode->getName() + decl);
+        for(T_Instruction current_inst : currentNode->block)
+        {
+            translateInstruction(current_inst, section);
         }
 
         vector<string> aliveVars;
@@ -429,25 +433,25 @@ void Translator::translate()
             string lastInstr = "";
             
             // If the last instruction is a jump, update before jumping
-            string lastInstrId = currentNodeData->block.back().id;
+            string lastInstrId = currentNode->block.back().id;
             if(lastInstrId == "goto" || lastInstrId== "goif" ||
                 lastInstrId == "goifnot" || lastInstrId == "call" ||
                 lastInstrId== "return")
             {
-                lastInstr = section->back();
-                section->pop_back();
+                lastInstr = section.back();
+                section.pop_back();
             }
 
-            (*section).emplace_back("# Updating the temporals");
+            section.emplace_back("# Updating the temporals");
 
             for(string line : aliveVars)
             {
-                (*section).push_back(line);
+                section.push_back(line);
             }
 
             if(!lastInstr.empty())
             {
-                (*section).push_back(lastInstr);
+                section.push_back(lastInstr);
             }
         }
 
@@ -619,9 +623,7 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
         }
         current_params.clear();
 
-        // Update BASE, lastbase and STACK
-        section.emplace_back(mips_instructions.at("load") + space + "$a0" + sep + "BASE");
-        section.emplace_back(mips_instructions.at("store") + space + "$a0" + sep + "lastbase");
+        // Update BASE and STACK
         section.emplace_back("addi  $a0, $fp, 4");
         section.emplace_back(mips_instructions.at("store") + space + "$a0" + sep + "BASE");
         section.emplace_back(mips_instructions.at("store") + space + "$sp" + sep + "STACK");
