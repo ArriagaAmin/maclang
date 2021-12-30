@@ -150,6 +150,7 @@ class FlowGraph {
         void deleteBlock(uint64_t id);
         uint64_t makeSubGraph(T_Function *function, uint64_t init_id);
         void print(void);
+        vector<FlowNode*> getOrderedBlocks(void); 
         void prettyPrint(void);
 
         // ==================== ANALISIS DE FLUJO ==================== //

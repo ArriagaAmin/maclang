@@ -92,11 +92,12 @@
 
                 // Mostramos el grafo resultante
                 fg->prettyPrint();
+                cout << "// ================================================ // \n\n\n";
                 //fg->flowPrint<uint64_t>(fg->dominators);
 
-                //CB->insertFlowGraph(fg);
-                //CB->translate();
-                //CB->print();
+                CB->insertFlowGraph(fg);
+                CB->translate();
+                CB->print();
               }
             }
           ;
@@ -445,7 +446,7 @@ int main(int argc, char **argv) {
   }
 
   //CB->translate();
-  CB->print();
+  //CB->print();
   //CB->printVariablesDescriptors();
 
   return 0;
