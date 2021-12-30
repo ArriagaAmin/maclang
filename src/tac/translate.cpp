@@ -630,13 +630,19 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
 
         // Jump to the function
         section.emplace_back(mips_instructions.at(instruction.id) + space + instruction.operands[0].name);
+
+        // Save return value
+        section.emplace_back(mips_instructions.at("load") + space + "$v0" + sep + "-4($sp)");
+        section.emplace_back(mips_instructions.at("store") + space + "$v0" + sep + instruction.result.name);
+
         return;
     }
 
     if(instruction.id == "return")
     {
         // Store the return value
-        section.emplace_back(mips_instructions.at("store") + space + "-4($fp)" + sep + instruction.result.name);
+        section.emplace_back(mips_instructions.at("load") + space + "$v0" + sep + instruction.result.name);
+        section.emplace_back(mips_instructions.at("store") + space + "$v0" + sep + "-4($fp)");
         
         // Restore the old frame and the return address
         section.emplace_back(mips_instructions.at("load") + space + "$ra" + sep + "-8($fp)");
