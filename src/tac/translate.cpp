@@ -593,8 +593,14 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
             section.emplace_back(mips_instructions.at(load_id) + space + reg[0] + sep + best_location);
         }
 
+        // Save where the parameter is going to be
+        int jump_size = stoi(instruction.operands[0].name) + 12;
+        section.emplace_back(mips_instructions.at(load_id) + space + reg[1] + sep + to_string(jump_size) +"($sp)");
+
+        section.emplace_back(mips_instructions.at("store") + space + reg[1] + sep + reg[0]);
+
         // Add the parameter to a list so the call can emplace it
-        current_params.emplace_back(make_pair(reg[0], stoi(instruction.operands[0].name)));
+        //current_params.emplace_back(make_pair(reg[0], stoi(instruction.operands[0].name)));
 
         return;
     }
@@ -616,12 +622,12 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
         length *= 4;
         section.emplace_back("addi  $sp, $sp, -" + to_string(length));
 
-        for(pair<string, int> param : current_params)
-        {
-            int jump_size = param.second + 12;
-            section.emplace_back(mips_instructions.at("store") + space + param.first + sep + "-" + to_string(jump_size) + "($fp)");    
-        }
-        current_params.clear();
+        // for(pair<string, int> param : current_params)
+        // {
+        //     int jump_size = param.second + 12;
+        //     section.emplace_back(mips_instructions.at("store") + space + param.first + sep + "-" + to_string(jump_size) + "($fp)");    
+        // }
+        // current_params.clear();
 
         // Update BASE and STACK
         section.emplace_back("addi  $a0, $fp, 4");
