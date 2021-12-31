@@ -824,6 +824,7 @@ void Translator::translateMetaIntruction(T_Instruction instruction)
 {
     if(instruction.id == "@string")
     {
+        data.emplace_back(".align 2");
         insertVariable(instruction.result.name, 2, instruction.operands[0].name);
         //data.emplace_back(instruction.result.name + decl + mips_instructions.at(instruction.id) + space + instruction.operands[0].name);
         return;
