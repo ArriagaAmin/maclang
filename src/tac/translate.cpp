@@ -715,6 +715,9 @@ void Translator::translateOperationInstruction(T_Instruction instruction, vector
         {
             string best_location = findOptimalLocation(current_operand.name);
 
+            if(is_number(best_location))
+                load_id = "loadi";
+
             section.emplace_back(mips_instructions.at(load_id) + space + current_reg + sep + best_location);
         }
 
@@ -950,4 +953,15 @@ void Translator::printVariablesDescriptors()
             cout << element << endl;
         }
     }
+}
+
+bool Translator::is_number(const string& str)
+{
+    for(size_t i = 0; i < str.size(); i++)
+    {
+        if(!isdigit(str[i]))
+            return false;
+    }
+
+    return true;
 }

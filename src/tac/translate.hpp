@@ -145,6 +145,9 @@ private:
     vector<string> getRegisterDescriptor(string id, unordered_map<string, vector<string>>& curr_registers);
     vector<string> getVariableDescriptor(string id);
 
+    // Utilities
+    bool is_number(const string& str);
+
 public:
     Translator();
     void translate();
