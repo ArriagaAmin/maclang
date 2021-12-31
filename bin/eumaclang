@@ -1,0 +1,23 @@
+#!/bin/bash
+
+# Obtenemos el directorio donde se encuentra este archivo
+# Referencia: 
+#     https://stackoverflow.com/questions/59895/how-can-i-get-the-source-directory-of-a-bash-script-from-within-the-script-itsel
+SOURCE=${BASH_SOURCE[0]}
+# resolve $SOURCE until the file is no longer a symlink
+while [ -h "$SOURCE" ]; do 
+    DIR=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
+    SOURCE=$(readlink "$SOURCE")
+    # if $SOURCE was a relative symlink, we need to resolve it relative to the path where 
+    # the symlink file was located
+    [[ $SOURCE != /* ]] && SOURCE=$DIR/$SOURCE 
+done
+DIR=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
+
+# .mac  =>  .tac
+SOURCE=$1
+$DIR/mac2tac tac $SOURCE > "$SOURCE.tac"
+# .tac  =>  optimized .tac  =>  .asm
+$DIR/tac2mips "$SOURCE.tac" > "$SOURCE.asm"
+# Exec .asm in MIPS
+java -jar $DIR/mars.jar "$SOURCE.asm"

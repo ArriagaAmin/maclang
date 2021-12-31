@@ -6,9 +6,9 @@ CFLAGS  = -D__USE_POSIX -g -Wall -Wextra -pedantic -std=gnu++11 -Wno-unused-para
 
 .PHONY: clean
 
-all: eumaclang clean
+all: mac2tac clean
 
-eumaclang: parser.tab.h lex.yy.c
+mac2tac: parser.tab.h lex.yy.c
 	$(CXX) $(CFLAGS) *.c *.cpp -o $@
 
 parser.tab.h: parser.y

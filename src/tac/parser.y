@@ -91,8 +91,8 @@
                 fg->invariantDetection();
 
                 // Mostramos el grafo resultante
-                fg->prettyPrint();
-                cout << "// ================================================ // \n\n\n";
+                //fg->prettyPrint();
+                //cout << "// ================================================ // \n\n\n";
                 //fg->flowPrint<uint64_t>(fg->dominators);
 
                 CB->insertFlowGraph(fg);

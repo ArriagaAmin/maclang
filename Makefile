@@ -1,15 +1,15 @@
 MAKE = make
-PROGRAMS = eumaclang tac2mips 
+PROGRAMS = mac2tac tac2mips 
 
 .PHONY: $(PROGRAMS)
 
 all: $(PROGRAMS)
 
-eumaclang:
+mac2tac:
 	cd src/lang && $(MAKE) || \
-	(echo -e "\n\033[1;31mError. \033[0mEumaclang compilation termined." && exit 1)
-	mv src/lang/eumaclang bin/ 
-	echo -e "\n\033[1;36mEumaclang compilation successfully.\033[0m"
+	(echo -e "\n\033[1;31mError. \033[0mMac2tac compilation termined." && exit 1)
+	mv src/lang/mac2tac bin/ 
+	echo -e "\n\033[1;36mMac2tac compilation successfully.\033[0m"
 
 tac2mips:
 	cd src/tac && $(MAKE) || \
