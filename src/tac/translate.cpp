@@ -400,11 +400,11 @@ void Translator::translate()
         vector<string>& section = text;
 
         // If the functions section starts
-        // if(currentNode->is_function && !function_section)
-        // {
-        //     function_section = true;
-        //     cout << "\n# ===== Functions Section ====="<< endl;
-        // }
+        if(currentNode->is_function && !function_section)
+        {
+            function_section = true;
+            section.emplace_back("\n# ===== Functions Section =====");
+        }
         
         // Name of the block
         section.emplace_back(currentNode->getName() + decl);
@@ -567,6 +567,8 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
     // Function calls instructions
     if(instruction.id == "param")
     {
+        section.emplace_back("# == Parameter ==");
+
         // Create param variable
         insertVariable(instruction.result.name, 0);
 
@@ -595,9 +597,9 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
 
         // Save where the parameter is going to be
         int jump_size = stoi(instruction.operands[0].name) + 12;
-        section.emplace_back(mips_instructions.at(load_id) + space + reg[1] + sep + to_string(jump_size) +"($sp)");
+        section.emplace_back(mips_instructions.at(load_id) + space + reg[1] + sep + "-" + to_string(jump_size) +"($sp)");
 
-        section.emplace_back(mips_instructions.at("store") + space + reg[1] + sep + reg[0]);
+        section.emplace_back(mips_instructions.at("store") + space + reg[1] + sep + "0(" + reg[0] + ")");
 
         // Add the parameter to a list so the call can emplace it
         //current_params.emplace_back(make_pair(reg[0], stoi(instruction.operands[0].name)));
