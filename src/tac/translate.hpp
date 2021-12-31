@@ -50,6 +50,7 @@ const unordered_map<string, string> mips_instructions ({
     {"loadi", "li"},
     {"loada", "la"},
     {"store", "sw"},
+    {"storeb", "sb"},
 
     // Special registers
     {"ra", "$ra"},

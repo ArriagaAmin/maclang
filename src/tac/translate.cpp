@@ -575,7 +575,7 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
 
         // References
         unordered_map<string, vector<string>>& curr_desc = this->m_registers;
-        string load_id = "load";
+        string load_id = "loada";
 
         // If the operand is a float change the references
         if(instruction.result.name.front() == 'f' || instruction.result.name.front() == 'F')
@@ -725,7 +725,7 @@ void Translator::translateOperationInstruction(T_Instruction instruction, vector
         assignment(current_reg, current_operand.name, regs_to_find, true);
         availability(current_operand.name, current_reg);
 
-        if(is_copy)
+        if(is_copy && !instruction.result.is_acc)
         {
             assignment(current_reg, instruction.result.name, regs_to_find);
             availability(instruction.result.name, current_reg, true);
@@ -746,13 +746,13 @@ void Translator::translateOperationInstruction(T_Instruction instruction, vector
         }
         else if(instruction.result.is_acc)
         {
-            string store_id = "store";
+            string store_id = instruction.id.back() == 'b' ? "storeb" : "store";
 
             // Check if result register is a float
             if(instruction.result.name.front() == 'f' || instruction.result.name.front() == 'F')
             {
                 regs_to_find = this->m_float_registers;
-                store_id = "f" + store_id;
+                store_id = "fstore";
             }
 
             // Load the base direction of what we want to make an indirection
@@ -762,6 +762,11 @@ void Translator::translateOperationInstruction(T_Instruction instruction, vector
                 string best_location = findOptimalLocation(instruction.result.name);
                 section.emplace_back(mips_instructions.at("loada") + space + op_registers[0] + sep + best_location);
             }
+
+            // Maintain descriptors
+            assignment(op_registers[0], instruction.result.name, regs_to_find, true);
+            availability(instruction.result.name, op_registers[0]);
+
             // Store the new value in the new direction
             string op = instruction.result.acc + "(" + op_registers[0] + ")";
             section.emplace_back(mips_instructions.at(store_id) + space + op_registers[1] + sep + op);
