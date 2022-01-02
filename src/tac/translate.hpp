@@ -115,7 +115,7 @@ private:
     //vector<string> functions;
     bool function_section = false;
 
-    vector<pair<string, int>> current_params;
+    uint32_t current_params;
     
     // Descriptors management
     bool insertElementToDescriptor(unordered_map<string, vector<string>> &descriptors, string key, string element, bool replace = false);

@@ -609,6 +609,7 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
 
         // Add the parameter to a list so the call can emplace it
         //current_params.emplace_back(make_pair(reg[0], stoi(instruction.operands[0].name)));
+        current_params += 1;
 
         return;
     }
@@ -626,9 +627,11 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
         section.emplace_back(mips_instructions.at("store") + space + "$ra" + sep + "-8($fp)");
         
         // Save the call parameters
-        int length = stoi(instruction.operands[1].name);
-        length *= 4;
+        // int length = stoi(instruction.operands[1].name);
+        // length *= 4;
+        uint32_t length = current_params * 4;
         section.emplace_back("addi  $sp, $sp, -" + to_string(length));
+        current_params = 0;
 
         // for(pair<string, int> param : current_params)
         // {
@@ -638,7 +641,7 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
         // current_params.clear();
 
         // Update BASE and STACK
-        section.emplace_back("addi  $a0, $fp, 4");
+        section.emplace_back("addi  $a0, $fp, -12");
         section.emplace_back(mips_instructions.at("store") + space + "$a0" + sep + "BASE");
         section.emplace_back(mips_instructions.at("store") + space + "$sp" + sep + "STACK");
 
