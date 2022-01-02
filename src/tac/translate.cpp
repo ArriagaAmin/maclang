@@ -95,7 +95,7 @@ bool Translator::insertVariable(string id, uint32_t type, string value)
     if(id.front() == 'f' or id.front() == 'F')
     {
         s_type = "float";
-        type = 3;
+        type = 2;
     }
 
     data.emplace_back(id + decl + mips_instructions.at(s_type) + space + value);
@@ -429,7 +429,7 @@ void Translator::translate()
             string store_id = m_tags[var_id] == 1 ? "storeb" : "store";
             if ( find(var_descriptor.begin(), var_descriptor.end(), var_id) == var_descriptor.end() )
             {
-                aliveVars.emplace_back(mips_instructions.at("store") + space + var_descriptor[0] + sep + var_id);
+                aliveVars.emplace_back(mips_instructions.at(store_id) + space + var_descriptor[0] + sep + var_id);
                 availability(var_id, var_id, true);
             }
         }
