@@ -41,6 +41,9 @@ Translator::Translator()
     // Add constant variables
     insertVariable("BASE", 0);
     insertVariable("STACK", 0);
+
+    // Oh no...
+    text.emplace_back("li  $sp, 2415919104");
 }
 
 void Translator::insertInstruction(T_Instruction* instruction)
@@ -603,7 +606,7 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
 
         // Save where the parameter is going to be
         int jump_size = stoi(instruction.operands[0].name) + 12;
-        section.emplace_back(mips_instructions.at(load_id) + space + reg[1] + sep + "-" + to_string(jump_size) +"($sp)");
+        section.emplace_back(mips_instructions.at(load_id) + space + reg[1] + sep + to_string(jump_size) +"($sp)");
 
         section.emplace_back(mips_instructions.at("store") + space + reg[1] + sep + "0(" + reg[0] + ")");
 
@@ -620,11 +623,11 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
         insertVariable(instruction.result.name, 0);
 
         // Save the current frame
-        section.emplace_back("addi  $sp, $sp, -4");
+        section.emplace_back("addi  $sp, $sp, 4");
         section.emplace_back(mips_instructions.at("store") + space + "$fp" + sep + "0($sp)");
         section.emplace_back("move  $fp, $sp");
-        section.emplace_back("addi  $sp, $sp, -8");
-        section.emplace_back(mips_instructions.at("store") + space + "$ra" + sep + "-4($fp)");
+        section.emplace_back("addi  $sp, $sp, 8");
+        section.emplace_back(mips_instructions.at("store") + space + "$ra" + sep + "4($fp)");
         
         // Save the call parameters
         // int length = stoi(instruction.operands[1].name);
@@ -641,7 +644,7 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
         // current_params.clear();
 
         // Update BASE and STACK
-        section.emplace_back("addi  $a0, $fp, -8");
+        section.emplace_back("addi  $a0, $fp, 8");
         section.emplace_back(mips_instructions.at("store") + space + "$a0" + sep + "BASE");
         section.emplace_back(mips_instructions.at("store") + space + "$sp" + sep + "STACK");
 
@@ -649,7 +652,7 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
         section.emplace_back(mips_instructions.at(instruction.id) + space + instruction.operands[0].name);
 
         // Save return value
-        section.emplace_back(mips_instructions.at("load") + space + "$v0" + sep + "-4($sp)");
+        section.emplace_back(mips_instructions.at("load") + space + "$v0" + sep + "4($sp)");
         section.emplace_back(mips_instructions.at("store") + space + "$v0" + sep + instruction.result.name);
 
         return;
@@ -662,9 +665,9 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
         section.emplace_back(mips_instructions.at("store") + space + "$v0" + sep + "0($fp)");
         
         // Restore the old frame and the return address
-        section.emplace_back(mips_instructions.at("load") + space + "$ra" + sep + "-4($fp)");
-        section.emplace_back(mips_instructions.at("load") + space + "$fp" + sep + "4($fp)");
-        section.emplace_back("addi  $sp, $sp, 12");
+        section.emplace_back(mips_instructions.at("load") + space + "$ra" + sep + "4($fp)");
+        section.emplace_back(mips_instructions.at("load") + space + "$fp" + sep + "-4($fp)");
+        section.emplace_back("addi  $sp, $sp, -12");
 
         // Jump back to the caller
         section.emplace_back(mips_instructions.at(instruction.id) + space + "$ra");
