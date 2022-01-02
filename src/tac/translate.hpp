@@ -107,6 +107,9 @@ private:
     unordered_map<string, vector<string>> m_registers;
     unordered_map<string, vector<string>> m_float_registers;
     unordered_map<string, vector<string>> m_variables;
+    unordered_map<string, uint32_t> m_tags;
+
+    // Mips data
     vector<string> data;
     vector<string> text;
     //vector<string> functions;
@@ -134,13 +137,13 @@ private:
     // Instructions tranlations
     void translateInstruction(T_Instruction instruction, vector<string>& section);
     void translateMetaIntruction(T_Instruction instruction);
-    void translateOperationInstruction(T_Instruction instruction, vector<string>& section, bool is_copy = false, uint16_t type = 0);
+    void translateOperationInstruction(T_Instruction instruction, vector<string>& section, bool is_copy = false, uint32_t type = 0);
     void translateIOIntruction(T_Instruction instruction, vector<string>& section);
 
     // Setters
     bool insertRegister(string id);
     bool insertFloatRegister(string id);
-    bool insertVariable(string id, uint16_t type, string value = "1");
+    bool insertVariable(string id, uint32_t type, string value = "1");
 
     // Getters
     vector<string> getRegisterDescriptor(string id, unordered_map<string, vector<string>>& curr_registers);

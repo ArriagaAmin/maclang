@@ -70,7 +70,7 @@ bool Translator::insertFloatRegister(string id)
     return true;
 }
 
-bool Translator::insertVariable(string id, uint16_t type, string value)
+bool Translator::insertVariable(string id, uint32_t type, string value)
 {
     auto found = this->m_variables.find(id);
 
@@ -85,7 +85,7 @@ bool Translator::insertVariable(string id, uint16_t type, string value)
     case 1:
         s_type = "byte";
         break;
-    case 2:
+    case 3:
         s_type = "@string";
         break;
     default:
@@ -95,10 +95,15 @@ bool Translator::insertVariable(string id, uint16_t type, string value)
     if(id.front() == 'f' or id.front() == 'F')
     {
         s_type = "float";
+        type = 3;
     }
 
     data.emplace_back(id + decl + mips_instructions.at(s_type) + space + value);
+
+    // Insert tag
+    this->m_tags[id] = type;
     
+    // Insert descriptor
     vector<string> locations { id };
     this->m_variables[id] = locations;
     return true;
@@ -421,6 +426,7 @@ void Translator::translate()
             string var_id = current_variable.first;
             vector<string> var_descriptor = current_variable.second;
 
+            string store_id = m_tags[var_id] == 1 ? "storeb" : "store";
             if ( find(var_descriptor.begin(), var_descriptor.end(), var_id) == var_descriptor.end() )
             {
                 aliveVars.emplace_back(mips_instructions.at("store") + space + var_descriptor[0] + sep + var_id);
@@ -691,7 +697,7 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
     translateOperationInstruction(instruction, section, is_copy, type);
 }
 
-void Translator::translateOperationInstruction(T_Instruction instruction, vector<string>& section, bool is_copy, uint16_t type)
+void Translator::translateOperationInstruction(T_Instruction instruction, vector<string>& section, bool is_copy, uint32_t type)
 {
     // Try to create the variable descriptor
     insertVariable(instruction.result.name, type);
@@ -755,6 +761,10 @@ void Translator::translateOperationInstruction(T_Instruction instruction, vector
         else if(instruction.result.is_acc)
         {
             string store_id = instruction.id.back() == 'b' ? "storeb" : "store";
+            string load_id =  "load";
+
+            if(this->m_tags[instruction.result.name] == 3 || this->m_tags[instruction.result.name] == 4)
+                load_id = "loada";
 
             // Check if result register is a float
             if(instruction.result.name.front() == 'f' || instruction.result.name.front() == 'F')
@@ -768,7 +778,7 @@ void Translator::translateOperationInstruction(T_Instruction instruction, vector
             if ( find(reg_descriptor.begin(), reg_descriptor.end(), instruction.result.name) == reg_descriptor.end() )
             {
                 string best_location = findOptimalLocation(instruction.result.name);
-                section.emplace_back(mips_instructions.at("loada") + space + op_registers[0] + sep + best_location);
+                section.emplace_back(mips_instructions.at(load_id) + space + op_registers[0] + sep + best_location);
             }
 
             // Maintain descriptors
@@ -825,14 +835,14 @@ void Translator::translateMetaIntruction(T_Instruction instruction)
     if(instruction.id == "@string")
     {
         data.emplace_back(".align 2");
-        insertVariable(instruction.result.name, 2, instruction.operands[0].name);
+        insertVariable(instruction.result.name, 3, instruction.operands[0].name);
         //data.emplace_back(instruction.result.name + decl + mips_instructions.at(instruction.id) + space + instruction.operands[0].name);
         return;
     }
     
     if(instruction.id == "@staticv")
     {
-        insertVariable(instruction.result.name, 0, instruction.operands[0].name);
+        insertVariable(instruction.result.name, 4, instruction.operands[0].name);
         //data.emplace_back(instruction.result.name + decl + mips_instructions.at("word") + space + instruction.operands[0].name);
         return;
     }
