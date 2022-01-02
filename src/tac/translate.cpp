@@ -624,7 +624,7 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
         section.emplace_back(mips_instructions.at("store") + space + "$fp" + sep + "0($sp)");
         section.emplace_back("move  $fp, $sp");
         section.emplace_back("addi  $sp, $sp, -8");
-        section.emplace_back(mips_instructions.at("store") + space + "$ra" + sep + "-8($fp)");
+        section.emplace_back(mips_instructions.at("store") + space + "$ra" + sep + "-4($fp)");
         
         // Save the call parameters
         // int length = stoi(instruction.operands[1].name);
@@ -641,7 +641,7 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
         // current_params.clear();
 
         // Update BASE and STACK
-        section.emplace_back("addi  $a0, $fp, -12");
+        section.emplace_back("addi  $a0, $fp, -8");
         section.emplace_back(mips_instructions.at("store") + space + "$a0" + sep + "BASE");
         section.emplace_back(mips_instructions.at("store") + space + "$sp" + sep + "STACK");
 
@@ -659,11 +659,11 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
     {
         // Store the return value
         section.emplace_back(mips_instructions.at("load") + space + "$v0" + sep + instruction.result.name);
-        section.emplace_back(mips_instructions.at("store") + space + "$v0" + sep + "-4($fp)");
+        section.emplace_back(mips_instructions.at("store") + space + "$v0" + sep + "0($fp)");
         
         // Restore the old frame and the return address
-        section.emplace_back(mips_instructions.at("load") + space + "$ra" + sep + "-8($fp)");
-        section.emplace_back(mips_instructions.at("load") + space + "$fp" + sep + "0($fp)");
+        section.emplace_back(mips_instructions.at("load") + space + "$ra" + sep + "-4($fp)");
+        section.emplace_back(mips_instructions.at("load") + space + "$fp" + sep + "4($fp)");
         section.emplace_back("addi  $sp, $sp, 12");
 
         // Jump back to the caller
