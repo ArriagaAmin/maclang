@@ -48,6 +48,7 @@ const unordered_map<string, string> mips_instructions ({
     {"high", "mfhi"},
     {"load", "lw"},
     {"loadi", "li"},
+    {"loadb", "lb"},
     {"loada", "la"},
     {"store", "sw"},
     {"storeb", "sb"},
