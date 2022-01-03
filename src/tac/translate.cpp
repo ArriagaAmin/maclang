@@ -3,7 +3,7 @@
 Translator::Translator()
 {
     // Add MIPS registers
-    insertRegister("$v0");
+    //insertRegister("$v0");
     insertRegister("$v1");
 
     int i = 0;
@@ -326,8 +326,8 @@ vector<string> Translator::getReg(T_Instruction instruction, vector<string>& sec
     vector<string> free_fr = findFreeRegister(this->m_float_registers);
 
     // References necessaries depending if the operand is a float
-    unordered_map<string, vector<string>>& curr_desc = this->m_registers;
-    vector<string>& free_regs = free_r; 
+    unordered_map<string, vector<string>>* curr_desc = &this->m_registers;
+    vector<string>* free_regs = &free_r; 
 
     // Choose register for every operand
     for (T_Variable current_operand : instruction.operands)
@@ -335,16 +335,16 @@ vector<string> Translator::getReg(T_Instruction instruction, vector<string>& sec
         // If the operand is a float change the references
         if(current_operand.name.front() == 'f' || current_operand.name.front() == 'F')
         {
-            free_regs = free_fr;
-            curr_desc = this->m_float_registers;
+            free_regs = &free_fr;
+            curr_desc = &this->m_float_registers;
         }
         else
         {
-            curr_desc = this->m_registers;
-            free_regs = free_r;
+            free_regs = &free_r;
+            curr_desc = &this->m_registers;
         }
-        
-        selectRegister(current_operand.name, instruction, curr_desc, registers, free_regs, section);
+
+        selectRegister(current_operand.name, instruction, *curr_desc, registers, *free_regs, section);
     }
     
     // If a jump instruction then is just necessary the register for the operand
@@ -352,7 +352,7 @@ vector<string> Translator::getReg(T_Instruction instruction, vector<string>& sec
         return registers;
 
     // Choose the register for the result
-    if(is_copy && !instruction.result.is_acc)
+    if(is_copy && !instruction.result.is_acc && !instruction.operands[0].is_acc)
     {
         string result_reg = registers[0];
         registers.insert(registers.begin(), result_reg);
@@ -362,18 +362,18 @@ vector<string> Translator::getReg(T_Instruction instruction, vector<string>& sec
         // Check if the result is a float to look in the correct descriptors
         if(instruction.result.name.front() == 'f' || instruction.result.name.front() == 'F')
         {
-            free_regs = free_fr;
-            curr_desc = this->m_float_registers;
+            free_regs = &free_fr;
+            curr_desc = &this->m_float_registers;
         }
         else
         {
-            curr_desc = this->m_registers;
-            free_regs = free_r;
+            free_regs = &free_r;
+            curr_desc = &this->m_registers;
         }    
 
         // Look for a register that ONLY has the result
-        string reg = findElementInDescriptors(curr_desc, instruction.result.name);
-        if(!reg.empty() && getRegisterDescriptor(reg, curr_desc).size() < 2)
+        string reg = findElementInDescriptors(*curr_desc, instruction.result.name);
+        if(!reg.empty() && getRegisterDescriptor(reg, *curr_desc).size() < 2)
         {
             registers.insert(registers.begin(), reg);
         }
@@ -381,12 +381,12 @@ vector<string> Translator::getReg(T_Instruction instruction, vector<string>& sec
         else
         {
             // Otherwise the same as one of the operands
-            selectRegister(instruction.result.name, instruction, curr_desc, registers, free_regs, section);
+            selectRegister(instruction.result.name, instruction, *curr_desc, registers, *free_regs, section);
             string reg = registers.back();
             registers.pop_back();
             registers.insert(registers.begin(), reg);
         }
-    } 
+    }
     
     return registers;
 }
@@ -410,8 +410,11 @@ void Translator::translate()
         // If the functions section starts
         if(currentNode->is_function && !function_section)
         {
-            function_section = true;
-            section.emplace_back("\n# ===== Functions Section =====");
+            if(!function_section)
+            {
+                function_section = true;
+                section.emplace_back("\n# ===== Functions Section =====");
+            }
         }
         
         // Name of the block
@@ -517,14 +520,14 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
         section.emplace_back(mips_instructions.at(instruction.id));
 
         // The direction of the allocated memory is in $v0
-        regDescriptor = getRegisterDescriptor("$v0", this->m_registers);
-        for(string currentVar : regDescriptor)
-        {
-            section.emplace_back(mips_instructions.at("store") + space + "$v0" + sep + currentVar);
-            availability(currentVar, currentVar);
-        }
-        regDescriptor.clear();
-        removeElementFromDescriptors(this->m_variables, "$v0", "");
+        // regDescriptor = getRegisterDescriptor("$v0", this->m_registers);
+        // for(string currentVar : regDescriptor)
+        // {
+        //     section.emplace_back(mips_instructions.at("store") + space + "$v0" + sep + currentVar);
+        //     availability(currentVar, currentVar);
+        // }
+        // regDescriptor.clear();
+        // removeElementFromDescriptors(this->m_variables, "$v0", "");
 
         // Save the direction in the temporal
         section.emplace_back(mips_instructions.at("store") + space + "$v0" + sep + op_registers[0]);
@@ -745,7 +748,7 @@ void Translator::translateOperationInstruction(T_Instruction instruction, vector
         assignment(current_reg, current_operand.name, regs_to_find, true);
         availability(current_operand.name, current_reg);
 
-        if(is_copy && !instruction.result.is_acc)
+        if(is_copy && !instruction.result.is_acc && !current_operand.is_acc)
         {
             assignment(current_reg, instruction.result.name, regs_to_find);
             availability(instruction.result.name, current_reg, true);
@@ -762,8 +765,28 @@ void Translator::translateOperationInstruction(T_Instruction instruction, vector
         if(instruction.operands[0].is_acc)
         {
             string load_id = instruction.id.back() == 'b' ? "loadb" : "load";
-            string op = instruction.operands[0].acc + "(" + op_registers[1] + ")";
-            section.emplace_back(mips_instructions.at(load_id) + space + op_registers[0] + sep + op);
+
+            // Check if is a float
+            if(instruction.result.name.front() == 'f' || instruction.result.name.front() == 'F')
+            {
+                section.emplace_back(mips_instructions.at("load") + space + "$v0" + sep + instruction.operands[0].acc);
+                section.emplace_back(mips_instructions.at("add") + space + "$v0" + sep + op_registers[1] + sep + "$v0");
+                section.emplace_back(mips_instructions.at("fload") + space + op_registers[0] + sep + "($v0)");
+            }
+            else
+            {
+                if(!is_number(instruction.operands[0].acc))
+                {
+                    section.emplace_back(mips_instructions.at("load") + space + op_registers[0] + sep + instruction.operands[0].acc);
+                    section.emplace_back(mips_instructions.at("add") + space + op_registers[0] + sep + op_registers[0] + sep + op_registers[1]);
+                    section.emplace_back(mips_instructions.at(load_id) + space + op_registers[0] + sep + "0(" + op_registers[0] + ")");
+                }
+                else
+                {
+                    string op = instruction.operands[0].acc + "(" + op_registers[1] + ")";
+                    section.emplace_back(mips_instructions.at(load_id) + space + op_registers[0] + sep + op);
+                }
+            }
         }
         else if(instruction.result.is_acc)
         {
@@ -903,14 +926,14 @@ void Translator::translateIOIntruction(T_Instruction instruction, vector<string>
             insertVariable(instruction.result.name, 0);
 
             // Result is going to be store in $v0
-            vector<string> regDescriptor = getRegisterDescriptor("$v0", this->m_registers);
-            for(string currentVar : regDescriptor)
-            {
-                section.emplace_back(mips_instructions.at("store") + space + "$v0" + sep + currentVar);
-                availability(currentVar, currentVar);
-            }
-            regDescriptor.clear();
-            removeElementFromDescriptors(this->m_variables, "$v0", "");
+            // vector<string> regDescriptor = getRegisterDescriptor("$v0", this->m_registers);
+            // for(string currentVar : regDescriptor)
+            // {
+            //     section.emplace_back(mips_instructions.at("store") + space + "$v0" + sep + currentVar);
+            //     availability(currentVar, currentVar);
+            // }
+            // regDescriptor.clear();
+            // removeElementFromDescriptors(this->m_variables, "$v0", "");
 
             // Load correct syscall
             section.emplace_back(mips_instructions.at(instruction.id));
