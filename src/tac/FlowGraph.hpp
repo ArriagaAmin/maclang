@@ -61,6 +61,28 @@ struct T_Instruction
         if (result != instr.result) return result < instr.result;
         return operands < instr.operands;
     }
+    friend std::string to_string(const T_Instruction& instr) {
+        string result = "";
+        result += instr.id + " " + instr.result.name;
+        if (instr.result.is_acc) result += "[" + instr.result.acc + "]";
+        result += " ";
+
+        if (instr.operands.size() > 0) {
+            result += instr.operands[0].name;
+            if (instr.operands[0].is_acc) result += "[" + instr.operands[0].acc + "]";
+            result += " ";
+        }
+
+        if (instr.operands.size() > 1) {
+            result += instr.operands[1].name;
+        }
+
+        return result;
+    }
+    friend std::ostream& operator<<(std::ostream& o, T_Instruction instr) {
+        o << to_string(instr);
+        return o;
+    }
 };
 
 struct T_Function

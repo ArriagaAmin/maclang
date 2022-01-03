@@ -333,7 +333,7 @@ vector<FlowNode*> FlowGraph::getOrderedBlocks(void) {
     // Cola de nodos a visitar
     queue<uint64_t> toVisit;
     // Nodos que ya se visitaron
-    set<uint64_t> visited;
+    map<uint64_t, bool> visited;
     // Indica si un nodo de ser impreso urgentemente
     FlowNode *v, *v_aux;
     bool urgent;
@@ -344,7 +344,7 @@ vector<FlowNode*> FlowGraph::getOrderedBlocks(void) {
     for (pair<uint64_t, FlowNode*> n : this->V) {
         if (visited.count(n.first) == 0) {
             toVisit.push(n.first);
-            visited.insert(n.first);
+            visited[n.first] = false;
 
             while (toVisit.size() > 0 || urgent) {
                 // Si no hay ningun nodo urgente por imprimir, obtenemos el siguiente nodo
@@ -354,7 +354,9 @@ vector<FlowNode*> FlowGraph::getOrderedBlocks(void) {
                     toVisit.pop();
                 }
 
+                if (visited[v->id]) continue;
                 orderedBlocks.push_back(v);
+                visited[v->id] = true;
 
                 // Si el nodo no termina en "goto", "return" o "exit" significa que no
                 // tiene un sucesor directo, asi que simplemente agregamos sus sucesores
@@ -363,7 +365,7 @@ vector<FlowNode*> FlowGraph::getOrderedBlocks(void) {
                     urgent = false;
                     for (uint64_t succ : this->E[v->id]) {
                         if (visited.count(succ) == 0) {
-                            visited.insert(succ);
+                            visited[succ] = false;
                             toVisit.push(succ);
                         }
                     }
@@ -374,7 +376,7 @@ vector<FlowNode*> FlowGraph::getOrderedBlocks(void) {
                     v = this->V[*this->E[v->id].begin()];
                     if (visited.count(v->id) == 0) {
                         urgent = true;
-                        visited.insert(v->id);
+                        visited[v->id] = false;
                     }
                 }
                 // En caso contrario, si tiene dos sucesores, significa que hay un goif
@@ -385,7 +387,7 @@ vector<FlowNode*> FlowGraph::getOrderedBlocks(void) {
                     v_aux = v;
                     for (uint64_t succ : this->E[v->id]) {
                         if (visited.count(succ) == 0) {
-                            visited.insert(succ);
+                            visited[succ] = false;
                             if (v->block.back().result.name == this->V[succ]->getName()) {
                                 toVisit.push(succ);
                             }

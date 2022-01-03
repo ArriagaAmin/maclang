@@ -418,6 +418,7 @@ void Translator::translate()
         section.emplace_back(currentNode->getName() + decl);
         for(T_Instruction current_inst : currentNode->block)
         {
+            text.push_back("# " + to_string(current_inst));
             translateInstruction(current_inst, section);
         }
 
