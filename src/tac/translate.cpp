@@ -408,13 +408,30 @@ void Translator::translate()
         vector<string>& section = text;
 
         // If the functions section starts
-        if(currentNode->is_function && !function_section)
+        if(currentNode->is_function)
         {
             if(!function_section)
             {
                 function_section = true;
                 section.emplace_back("\n# ===== Functions Section =====");
             }
+
+            // Foreword
+            section.emplace_back("addi  $sp, $sp, 4");
+            section.emplace_back(mips_instructions.at("store") + space + "$fp" + sep + "0($sp)");
+            section.emplace_back("move  $fp, $sp");
+            section.emplace_back("addi  $sp, $sp, 8");
+            section.emplace_back(mips_instructions.at("store") + space + "$ra" + sep + "4($fp)");
+            
+            // Save the call parameters
+            uint32_t length = current_params * 4;
+            section.emplace_back("addi  $sp, $sp, " + to_string(length));
+            current_params = 0;
+
+            // Update BASE and STACK
+            section.emplace_back("addi  $a0, $fp, 8");
+            section.emplace_back(mips_instructions.at("store") + space + "$a0" + sep + "BASE");
+            section.emplace_back(mips_instructions.at("store") + space + "$sp" + sep + "STACK");
         }
         
         // Name of the block
@@ -626,30 +643,21 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
         insertVariable(instruction.result.name, 0);
 
         // Save the current frame
-        section.emplace_back("addi  $sp, $sp, 4");
-        section.emplace_back(mips_instructions.at("store") + space + "$fp" + sep + "0($sp)");
-        section.emplace_back("move  $fp, $sp");
-        section.emplace_back("addi  $sp, $sp, 8");
-        section.emplace_back(mips_instructions.at("store") + space + "$ra" + sep + "4($fp)");
+        // section.emplace_back("addi  $sp, $sp, 4");
+        // section.emplace_back(mips_instructions.at("store") + space + "$fp" + sep + "0($sp)");
+        // section.emplace_back("move  $fp, $sp");
+        // section.emplace_back("addi  $sp, $sp, 8");
+        // section.emplace_back(mips_instructions.at("store") + space + "$ra" + sep + "4($fp)");
         
         // Save the call parameters
-        // int length = stoi(instruction.operands[1].name);
-        // length *= 4;
-        uint32_t length = current_params * 4;
-        section.emplace_back("addi  $sp, $sp, " + to_string(length));
-        current_params = 0;
-
-        // for(pair<string, int> param : current_params)
-        // {
-        //     int jump_size = param.second + 12;
-        //     section.emplace_back(mips_instructions.at("store") + space + param.first + sep + "-" + to_string(jump_size) + "($fp)");    
-        // }
-        // current_params.clear();
+        // uint32_t length = current_params * 4;
+        // section.emplace_back("addi  $sp, $sp, " + to_string(length));
+        // current_params = 0;
 
         // Update BASE and STACK
-        section.emplace_back("addi  $a0, $fp, 8");
-        section.emplace_back(mips_instructions.at("store") + space + "$a0" + sep + "BASE");
-        section.emplace_back(mips_instructions.at("store") + space + "$sp" + sep + "STACK");
+        // section.emplace_back("addi  $a0, $fp, 8");
+        // section.emplace_back(mips_instructions.at("store") + space + "$a0" + sep + "BASE");
+        // section.emplace_back(mips_instructions.at("store") + space + "$sp" + sep + "STACK");
 
         // Jump to the function
         section.emplace_back(mips_instructions.at(instruction.id) + space + instruction.operands[0].name);
