@@ -43,7 +43,7 @@ Translator::Translator()
     insertVariable("STACK", 0);
 
     // Oh no...
-    text.emplace_back("li  $sp, 2415919104");
+    text.emplace_back("li  $sp, 0x7fc00000");
 }
 
 void Translator::insertInstruction(T_Instruction* instruction)
@@ -633,7 +633,7 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
         // int length = stoi(instruction.operands[1].name);
         // length *= 4;
         uint32_t length = current_params * 4;
-        section.emplace_back("addi  $sp, $sp, -" + to_string(length));
+        section.emplace_back("addi  $sp, $sp, " + to_string(length));
         current_params = 0;
 
         // for(pair<string, int> param : current_params)
@@ -761,8 +761,9 @@ void Translator::translateOperationInstruction(T_Instruction instruction, vector
         // Take into account indirections
         if(instruction.operands[0].is_acc)
         {
+            string load_id = instruction.id.back() == 'b' ? "loadb" : "load";
             string op = instruction.operands[0].acc + "(" + op_registers[1] + ")";
-            section.emplace_back(mips_instructions.at("load") + space + op_registers[0] + sep + op);
+            section.emplace_back(mips_instructions.at(load_id) + space + op_registers[0] + sep + op);
         }
         else if(instruction.result.is_acc)
         {
