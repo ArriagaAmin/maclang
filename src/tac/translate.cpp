@@ -549,17 +549,6 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
         regDescriptor.clear();
         removeElementFromDescriptors(this->m_variables, "$a0", "");
 
-        // The value is going to be on $v0
-        vector<string> regDescriptor = getRegisterDescriptor("$v0", this->m_registers);
-        for(string currentVar : regDescriptor)
-        {
-            section.emplace_back(mips_instructions.at("store") + space + "$v0" + sep + currentVar);
-            availability(currentVar, currentVar);
-        }
-
-        regDescriptor.clear();
-        removeElementFromDescriptors(this->m_variables, "$v0", "");
-
         // Move the value to $a0
         section.emplace_back(mips_instructions.at("assign") + space + "$a0" + sep + op_registers[1]);
 
@@ -579,7 +568,7 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
     if(instruction.id == "free")
     {
         // BIG DOUBT ABOUT THIS ONE
-        
+
         vector<string> op_registers = getReg(instruction, section, false);
 
         // The size of the memory needed to be allocated should be in $a0
