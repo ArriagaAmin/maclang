@@ -148,6 +148,9 @@ bool Translator::insertElementToDescriptor(unordered_map<string, vector<string>>
     if(found == descriptors.end()) 
         return false;
     
+    if(find(descriptors[key].begin(), descriptors[key].end(), element) != descriptors[key].end())
+        return false;
+    
     if(replace)
         descriptors[key].clear();
 
@@ -540,6 +543,7 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
         for(string currentVar : regDescriptor)
         {
             section.emplace_back(mips_instructions.at("store") + space + "$a0" + sep + currentVar);
+            availability(currentVar, currentVar);
         }
 
         regDescriptor.clear();
@@ -566,6 +570,7 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
         for(string currentVar : regDescriptor)
         {
             section.emplace_back(mips_instructions.at("store") + space + "$a0" + sep + currentVar);
+            availability(currentVar, currentVar);
         }
 
         regDescriptor.clear();
@@ -912,17 +917,27 @@ void Translator::translateIOIntruction(T_Instruction instruction, vector<string>
         if(instruction.id.back() != 'f')
         {
             // Is need to have the element to print in $a0, store the elements if needed
-            vector<string> regDescriptor = getRegisterDescriptor(arg_register, this->m_registers);
-            for(string currentVar : regDescriptor)
+            vector<string> reg_descriptor = getRegisterDescriptor(arg_register, this->m_registers);
+            for(string currentVar : reg_descriptor)
             {
                 section.emplace_back(mips_instructions.at("store") + space + arg_register + sep + currentVar);
-                //availability(currentVar, currentVar);
+                availability(currentVar, currentVar);
             }
-            regDescriptor.clear();
+            reg_descriptor.clear();
             removeElementFromDescriptors(this->m_variables, arg_register, "");
 
+            string curr_reg = findElementInDescriptors(this->m_registers, instruction.result.name);
+
             // Move the element to $a0
-            section.emplace_back(mips_instructions.at("load") + space + arg_register + sep + instruction.result.name);
+            if(!curr_reg.empty())
+            {
+                section.emplace_back(mips_instructions.at("assign") + space + arg_register + sep + curr_reg);
+            }
+            else
+            {
+                section.emplace_back(mips_instructions.at("load") + space + arg_register + sep + instruction.result.name);
+            }
+            
             // Load the correct syscall
             section.emplace_back(mips_instructions.at(instruction.id));
         }
@@ -934,6 +949,7 @@ void Translator::translateIOIntruction(T_Instruction instruction, vector<string>
             for(string currentVar : regDescriptor)
             {
                 section.emplace_back(mips_instructions.at("store") + space + arg_register + sep + currentVar);
+                availability(currentVar, currentVar);
             }
             regDescriptor.clear();
             removeElementFromDescriptors(this->m_variables, arg_register, "");
@@ -1009,7 +1025,7 @@ void Translator::translateIOIntruction(T_Instruction instruction, vector<string>
             for(string currentVar : regDescriptor)
             {
                 section.emplace_back(mips_instructions.at("store") + space + size_register + sep + currentVar);
-                //availability(currentVar, currentVar);
+                availability(currentVar, currentVar);
             }
             regDescriptor.clear();
             removeElementFromDescriptors(this->m_variables, size_register, "");
