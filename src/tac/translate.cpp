@@ -147,13 +147,13 @@ bool Translator::insertElementToDescriptor(unordered_map<string, vector<string>>
 
     if(found == descriptors.end()) 
         return false;
-    
+        
     if(find(descriptors[key].begin(), descriptors[key].end(), element) != descriptors[key].end())
         return false;
     
     if(replace)
         descriptors[key].clear();
-
+    
     descriptors[key].push_back(element);
     return true;
 }
@@ -165,7 +165,9 @@ void Translator::removeElementFromDescriptors(unordered_map<string, vector<strin
         if(current_descriptor.first == current_container)
             continue;
 
-        remove(descriptors[current_descriptor.first].begin(), descriptors[current_descriptor.first].end(), element);
+        descriptors[current_descriptor.first].erase(
+            remove(descriptors[current_descriptor.first].begin(), descriptors[current_descriptor.first].end(), element),
+            descriptors[current_descriptor.first].end());
     }
 }
 
@@ -308,7 +310,9 @@ string Translator::recycleRegister(T_Instruction instruction, unordered_map<stri
         string store_id = reg_info.first;
         string element = reg_info.second;
 
-        section.emplace_back(mips_instructions.at(store_id) + space + best_reg + sep + element);
+        // If static variable ignore
+        if(m_tags[element] != 3 || m_tags[element] != 4)
+            section.emplace_back(mips_instructions.at(store_id) + space + best_reg + sep + element);
 
         // Maintain the descriptors
         availability(element, element);
@@ -487,7 +491,7 @@ void Translator::translate()
         {
             string var_id = current_variable.first;
             vector<string> var_descriptor = current_variable.second;
-
+            
             string store_id = m_tags[var_id] == 1 ? "storeb" : "store";
 
             if(m_tags[var_id] == 2)
@@ -495,7 +499,9 @@ void Translator::translate()
             
             if ( find(var_descriptor.begin(), var_descriptor.end(), var_id) == var_descriptor.end() )
             {
-                aliveVars.emplace_back(mips_instructions.at(store_id) + space + var_descriptor[0] + sep + var_id);
+                // If static variable ignore
+                if(m_tags[var_id] != 3 && m_tags[var_id] != 4)
+                    aliveVars.emplace_back(mips_instructions.at(store_id) + space + var_descriptor[0] + sep + var_id);
                 availability(var_id, var_id, true);
             }
         }
@@ -520,13 +526,13 @@ void Translator::translate()
             {
                 section.push_back(line);
             }
+            
+            section.emplace_back("# ==============================");
 
             if(!lastInstr.empty())
             {
                 section.push_back(lastInstr);
             }
-
-            section.emplace_back("# ==============================");
         }
 
         // Clean the registers of values
@@ -583,7 +589,10 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
             if(is_number(currentVar))
                 continue;
             
-            section.emplace_back(mips_instructions.at("store") + space + "$a0" + sep + currentVar);
+            // If static variable ignore
+            if(m_tags[currentVar] != 3 && m_tags[currentVar] != 4)
+                section.emplace_back(mips_instructions.at("store") + space + "$a0" + sep + currentVar);
+            
             availability(currentVar, currentVar);
         }
 
@@ -616,7 +625,10 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
             if(is_number(currentVar))
                 continue;
             
-            section.emplace_back(mips_instructions.at("store") + space + "$v1" + sep + currentVar);
+            // If static variable ignore
+            if(m_tags[currentVar] != 3 && m_tags[currentVar] != 4)
+                section.emplace_back(mips_instructions.at("store") + space + "$v1" + sep + currentVar);
+            
             availability(currentVar, currentVar);
         }
 
@@ -680,7 +692,10 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
             if(is_number(currentVar))
                 continue;
             
-            section.emplace_back(mips_instructions.at("store") + space + "$a0" + sep + currentVar);
+            // If static variable ignore
+            if(m_tags[currentVar] != 3 && m_tags[currentVar] != 4)
+                section.emplace_back(mips_instructions.at("store") + space + "$a0" + sep + currentVar);
+            
             availability(currentVar, currentVar);
         }
 
@@ -709,6 +724,27 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
         else
         {
             vector<string> reg = getReg(instruction, section);
+            unordered_map<string, vector<string>>* curr_desc = &this->m_registers;
+
+            string load_id = this->m_tags[instruction.operands[0].name] == 1 ? "loadb" : "load";
+
+            if(instruction.operands[0].name.front() == 'f' || instruction.operands[0].name.front() == 'F')
+            {
+                curr_desc = &this->m_float_registers;
+                load_id = "fload";
+            }
+
+            vector<string> reg_descriptor = getRegisterDescriptor(reg[0], *curr_desc);
+            if ( find(reg_descriptor.begin(), reg_descriptor.end(), instruction.operands[0].name) == reg_descriptor.end() )
+            {
+                string best_location = findOptimalLocation(instruction.operands[0].name);
+
+                if(is_number(best_location))
+                    load_id = "loadi";
+
+                section.emplace_back(mips_instructions.at(load_id) + space + reg[0] + sep + best_location);
+            }
+
             section.emplace_back(mips_instructions.at(instruction.id) + space + reg[0] + sep + instruction.result.name);
         }
         return;
@@ -1004,9 +1040,7 @@ void Translator::translateOperationInstruction(T_Instruction instruction, vector
     assignment(op_registers[0], instruction.result.name, *regs_to_find, true);
     availability(instruction.result.name, op_registers[0], true);
     removeElementFromDescriptors(this->m_variables, op_registers[0], instruction.result.name);
-
-    // cout << "***** " << instruction.id << " " << instruction.result.name << " " << instruction.operands[0].name << " *****" << endl;
-    // printVariablesDescriptors();
+    removeElementFromDescriptors(*regs_to_find, instruction.result.name, op_registers[0]);
 }
 
 void Translator::translateMetaIntruction(T_Instruction instruction)
@@ -1015,14 +1049,12 @@ void Translator::translateMetaIntruction(T_Instruction instruction)
     {
         data.emplace_back(".align 2");
         insertVariable(instruction.result.name, 3, instruction.operands[0].name);
-        //data.emplace_back(instruction.result.name + decl + mips_instructions.at(instruction.id) + space + instruction.operands[0].name);
         return;
     }
     
     if(instruction.id == "@staticv")
     {
         insertVariable(instruction.result.name, 4, instruction.operands[0].name);
-        //data.emplace_back(instruction.result.name + decl + mips_instructions.at("word") + space + instruction.operands[0].name);
         return;
     }
 }
@@ -1040,8 +1072,11 @@ void Translator::translateIOIntruction(T_Instruction instruction, vector<string>
             {
                 if(is_number(currentVar))
                     continue;
+                
+                // If static variable ignore
+                if(m_tags[currentVar] != 3 && m_tags[currentVar] != 4)
+                    section.emplace_back(mips_instructions.at("store") + space + arg_register + sep + currentVar);
 
-                section.emplace_back(mips_instructions.at("store") + space + arg_register + sep + currentVar);
                 availability(currentVar, currentVar);
             }
             reg_descriptor.clear();
@@ -1071,8 +1106,11 @@ void Translator::translateIOIntruction(T_Instruction instruction, vector<string>
             {
                 if(is_number(currentVar))
                     continue;
+                
+                // If static variable ignore
+                if(m_tags[currentVar] != 3 && m_tags[currentVar] != 4)
+                    section.emplace_back(mips_instructions.at("store") + space + arg_register + sep + currentVar);
 
-                section.emplace_back(mips_instructions.at("store") + space + arg_register + sep + currentVar);
                 availability(currentVar, currentVar);
             }
             regDescriptor.clear();
@@ -1090,16 +1128,6 @@ void Translator::translateIOIntruction(T_Instruction instruction, vector<string>
         {
             // Create temporal where is going to be stored
             insertVariable(instruction.result.name, 0);
-
-            // Result is going to be store in $v0
-            // vector<string> regDescriptor = getRegisterDescriptor("$v0", this->m_registers);
-            // for(string currentVar : regDescriptor)
-            // {
-            //     section.emplace_back(mips_instructions.at("store") + space + "$v0" + sep + currentVar);
-            //     availability(currentVar, currentVar);
-            // }
-            // regDescriptor.clear();
-            // removeElementFromDescriptors(this->m_variables, "$v0", "");
 
             // Load correct syscall
             section.emplace_back(mips_instructions.at(instruction.id));
@@ -1120,7 +1148,10 @@ void Translator::translateIOIntruction(T_Instruction instruction, vector<string>
                 if(is_number(currentVar))
                     continue;
                 
-                section.emplace_back(mips_instructions.at("store") + space + "$f12" + sep + currentVar);
+                // If static variable ignore
+                if(m_tags[currentVar] != 3 && m_tags[currentVar] != 4)
+                    section.emplace_back(mips_instructions.at("store") + space + "$f12" + sep + currentVar);
+                
                 availability(currentVar, currentVar);
             }
             regDescriptor.clear();
@@ -1143,8 +1174,11 @@ void Translator::translateIOIntruction(T_Instruction instruction, vector<string>
             {
                 if(is_number(currentVar))
                     continue;
+                
+                // If static variable ignore
+                if(m_tags[currentVar] != 3 && m_tags[currentVar] != 4)
+                    section.emplace_back(mips_instructions.at("store") + space + addr_register + sep + currentVar);
 
-                section.emplace_back(mips_instructions.at("store") + space + addr_register + sep + currentVar);
                 availability(currentVar, currentVar);
             }
             regDescriptor.clear();
@@ -1156,8 +1190,11 @@ void Translator::translateIOIntruction(T_Instruction instruction, vector<string>
             {
                 if(is_number(currentVar))
                     continue;
+                
+                // If static variable ignore
+                if(m_tags[currentVar] != 3 && m_tags[currentVar] != 4)
+                    section.emplace_back(mips_instructions.at("store") + space + size_register + sep + currentVar);
 
-                section.emplace_back(mips_instructions.at("store") + space + size_register + sep + currentVar);
                 availability(currentVar, currentVar);
             }
             regDescriptor.clear();
@@ -1174,7 +1211,7 @@ void Translator::translateIOIntruction(T_Instruction instruction, vector<string>
 
 void Translator::printVariablesDescriptors()
 {
-    for(auto vari : this->m_variables)
+    for(auto vari : this->m_registers)
     {
         cout << "== " << vari.first << " ==" << endl;
         for(auto element : vari.second)
