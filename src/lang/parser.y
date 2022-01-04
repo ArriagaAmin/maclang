@@ -3881,7 +3881,7 @@ void scope0(void) {
   temps[11] = tac->newFloat();
   for (int i = 0; i < 7; i++) labels[i] = tac->newLabel();
   tac->gen("@function " + fe->addr + " 24");
-  tac->gen("assignb test " + fe->optargs_addr + "[5]");
+  tac->gen("assignb test " + fe->optargs_addr + "[4]");
   tac->gen("goif " + labels[0] + " test");
   tac->gen("assignw BASE[20] " + nl->addr);
   tac->gen("@label " + labels[0]);
@@ -3938,6 +3938,7 @@ void scope0(void) {
   tac->gen("goto " + labels[1]);
   tac->gen("@label " + labels[1] + "_end");
   tac->gen("assignw " + temps[7] + " BASE[20]");
+  tac->gen("add " + temps[7] + " " + temps[7] + " 4");
   tac->gen("print " + temps[7]);
   tac->gen("return 0");
   tac->gen("@endfunction 24");

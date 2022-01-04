@@ -87,7 +87,6 @@
                 fg->constantPropagation();
                 fg->deleteDeadVariables();
                 fg->lazyCodeMotion();
-
                 fg->invariantDetection();
 
                 // Mostramos el grafo resultante
