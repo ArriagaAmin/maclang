@@ -1,3 +1,4 @@
+${
 def fact(Int n) => Int {
     if n == 0 then return 1; 
     else return n * fact(n-1);
@@ -15,3 +16,6 @@ done
 
 print("Resultado calculado!");
 exit(fact(input));
+}$
+
+print("Hello world!");
