@@ -18,4 +18,4 @@ print("Resultado calculado!");
 exit(fact(input));
 }$
 
-print("Hello world!");
+print("Hello %c%cworld!", chars=['\n', '\n']);

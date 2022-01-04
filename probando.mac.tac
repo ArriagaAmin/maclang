@@ -1,6 +1,6 @@
 @staticv A0 5
 @string S0 "0000\n"
-@string S1 "0000Hello world!"
+@string S1 "0000Hello %c%cworld!"
 assignw NULL 0
 assignw lastbase 0
 assignw T0 1
@@ -101,12 +101,31 @@ add T15 T15 4
 print T15
 return 0
 @endfunction 24
-assignw S1[0] 12
-param T20 0
-assignw T20[0] S1
-assignb A0[0] 0
+assignw S1[0] 16
+assignb T20 10
+assignb T21 10
+assignw T22 2
+assignw T24 T22
+assignw T25 1
+mult T25 T25 T24
+add T25 T25 4
+malloc T23 T25
+assignw T23[0] T24
+assignb T23[5] T21
+assignb T23[4] T20
+param T26 0
+assignw T26[0] S1
+assignw T28 T23[0]
+assignw T29 1
+mult T29 T29 T28
+add T29 T29 4
+malloc T27 T29
+memcpy T27 T23 T29
+param T30 4
+assignw T30[0] T27
+assignb A0[0] 1
 assignb A0[1] 0
 assignb A0[2] 0
 assignb A0[3] 0
 assignb A0[4] 0
-call T21 PRINT 6
+call T31 PRINT 6
