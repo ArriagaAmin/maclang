@@ -249,6 +249,9 @@ string Translator::recycleRegister(T_Instruction instruction, unordered_map<stri
 
         for(string element : descriptor)
         {
+            if(is_number(element))
+                continue;
+            
             // First, verify if the current element is store in another place
             if(this->m_variables[element].size() > 1)
                 // The register is safe to use
@@ -272,7 +275,12 @@ string Translator::recycleRegister(T_Instruction instruction, unordered_map<stri
             // Check that the current element doesn't have later uses
 
             // If the register is still not safe, spill
-            section.emplace_back(mips_instructions.at("store") + space + current_register.first + sep + element);
+            string store_id = m_tags[element] == 1 ? "storeb" : "store";
+
+            if(m_tags[element] == 2)
+                store_id = "fstore";
+            
+            section.emplace_back(mips_instructions.at(store_id) + space + current_register.first + sep + element);
 
             // Maintain the descriptors
             availability(element, element);
@@ -496,6 +504,7 @@ void Translator::translate()
             {
                 section.push_back(lastInstr);
             }
+            section.emplace_back(""); // just to fix some alignments
             section.emplace_back("# ==============================");
         }
 
