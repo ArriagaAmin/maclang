@@ -19,6 +19,7 @@ const string decl = ": ";
 const unordered_map<string, string> mips_instructions ({
     // Aritmethic operations
     {"add", "add"},
+    {"addi", "addi"},
     {"sub", "sub"},
     {"mult", "mul"},
     {"div", "div"}, // Is in low
@@ -117,6 +118,7 @@ private:
     bool function_section = false;
 
     uint32_t current_params;
+    uint64_t last_label_id;
     
     // Descriptors management
     bool insertElementToDescriptor(unordered_map<string, vector<string>> &descriptors, string key, string element, bool replace = false);

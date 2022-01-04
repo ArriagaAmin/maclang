@@ -496,7 +496,6 @@ void Translator::translate()
             {
                 section.push_back(lastInstr);
             }
-
             section.emplace_back("# ==============================");
         }
 
@@ -562,6 +561,41 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
 
     if(instruction.id == "memcpy")
     {
+        vector<string> op_registers = getReg(instruction, section, false);
+
+        // We need some temporal registers to use, so we store some
+        vector<string> regDescriptor = getRegisterDescriptor("$v1", this->m_registers);
+        for(string currentVar : regDescriptor)
+        {
+            section.emplace_back(mips_instructions.at("store") + space + "$v1" + sep + currentVar);
+            availability(currentVar, currentVar);
+        }
+
+        regDescriptor.clear();
+        removeElementFromDescriptors(this->m_variables, "$v1", "");
+
+        // Start copying the memory
+        section.emplace_back(mips_instructions.at("load") + space + op_registers[0] + sep + instruction.result.name);
+        section.emplace_back(mips_instructions.at("load") + space + op_registers[1] + sep + instruction.operands[0].name);
+        section.emplace_back(mips_instructions.at("load") + space + op_registers[2] + sep + instruction.operands[1].name);
+
+        // Generate the new labels
+        string label_init = "MC" + to_string(last_label_id);
+        string label_end = "MC" + to_string(last_label_id) + "_END";
+        section.emplace_back(label_init + decl);
+
+        // Loop byte by byte, copying from source to destination
+        section.emplace_back(mips_instructions.at("goifnot") + space + op_registers[2] + sep + label_end);
+        section.emplace_back(mips_instructions.at("addi") + space + op_registers[2] + sep + op_registers[2] + sep + "-1");
+        section.emplace_back(mips_instructions.at("add") + space + "$v0" + sep + op_registers[1] + sep + op_registers[2]);
+        section.emplace_back(mips_instructions.at("loadb") + space + "$v0" + sep + "0($v0)");
+        section.emplace_back(mips_instructions.at("add") + space + "$v1" + sep + op_registers[0] + sep + op_registers[2]);
+        section.emplace_back(mips_instructions.at("storeb") + space + "$v0" + sep + "0($v1)");
+        section.emplace_back(mips_instructions.at("goto") + space + label_init);
+        
+        section.emplace_back(label_end + decl);
+        last_label_id++;
+
         return;
     }
 
@@ -688,6 +722,7 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
         // Jump back to the caller
         section.emplace_back(mips_instructions.at(instruction.id) + space + "$ra");
         section.emplace_back("# ====================");
+        section.emplace_back(""); // just to fix some alignments
 
         return;
     }
