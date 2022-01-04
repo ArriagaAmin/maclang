@@ -584,10 +584,28 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
         regDescriptor.clear();
         removeElementFromDescriptors(this->m_variables, "$v1", "");
 
-        // Start copying the memory
-        section.emplace_back(mips_instructions.at("load") + space + op_registers[0] + sep + instruction.result.name);
-        section.emplace_back(mips_instructions.at("load") + space + op_registers[1] + sep + instruction.operands[0].name);
-        section.emplace_back(mips_instructions.at("load") + space + op_registers[2] + sep + instruction.operands[1].name);
+        // Load temporals if necessary
+        vector<string> reg_descriptor = getRegisterDescriptor(op_registers[0], this->m_registers);
+        if ( find(reg_descriptor.begin(), reg_descriptor.end(), instruction.result.name) == reg_descriptor.end() )
+        {
+            string best_location = findOptimalLocation(instruction.result.name);
+            section.emplace_back(mips_instructions.at("load") + space + op_registers[0] + sep + best_location);
+        }
+
+        for(size_t i = 1; i < op_registers.size(); i++)
+        {
+            string load_id = "load";
+            vector<string> reg_descriptor = getRegisterDescriptor(op_registers[i], this->m_registers);
+            if ( find(reg_descriptor.begin(), reg_descriptor.end(), instruction.operands[i-1].name) == reg_descriptor.end() )
+            {
+                string best_location = findOptimalLocation(instruction.operands[i-1].name);
+
+                if(is_number(best_location))
+                    load_id = "loadi";
+
+                section.emplace_back(mips_instructions.at(load_id) + space + op_registers[i] + sep + best_location);
+            }
+        }
 
         // Generate the new labels
         string label_init = "MC" + to_string(last_label_id);
@@ -1080,7 +1098,7 @@ void Translator::translateIOIntruction(T_Instruction instruction, vector<string>
             {
                 if(is_number(currentVar))
                     continue;
-                    
+
                 section.emplace_back(mips_instructions.at("store") + space + addr_register + sep + currentVar);
                 availability(currentVar, currentVar);
             }
