@@ -129,7 +129,7 @@ private:
     // Registers management
     vector<string> getReg(T_Instruction instruction, vector<string>& section, bool is_copy = false);
     vector<string> findFreeRegister(unordered_map<string, vector<string>>& curr_registers);
-    string recycleRegister(T_Instruction instruction, unordered_map<string, vector<string>>& descriptors, vector<string>& section);
+    string recycleRegister(T_Instruction instruction, unordered_map<string, vector<string>>& descriptors, vector<string>& section, vector<string> &regs);
     void selectRegister(string operand, T_Instruction instruction, unordered_map<string, vector<string>>& descriptors, vector<string> &regs, vector<string> &free_regs, vector<string>& section);
     void cleanRegistersDescriptor();
     

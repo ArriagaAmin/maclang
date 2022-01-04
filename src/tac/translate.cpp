@@ -230,7 +230,7 @@ vector<string> Translator::findFreeRegister(unordered_map<string, vector<string>
 }
 
 string Translator::recycleRegister(T_Instruction instruction, unordered_map<string, vector<string>>& descriptors, 
-                                    vector<string>& section)
+                                    vector<string>& section, vector<string> &regs)
 {
     // Traverse all the register and check which one is the most viable
     // for recycling and using it
@@ -239,9 +239,14 @@ string Translator::recycleRegister(T_Instruction instruction, unordered_map<stri
 
     // Counter of spills
     map<string, int> spills;
+    unordered_map<string, vector<pair<string, string>>> spills_emit;
     
     for (pair<string, vector<string>> current_register : descriptors) 
     {
+        // If the register is already one we chose, not spill it
+        if(find(regs.begin(), regs.end(), current_register.first) != regs.end())
+            continue;
+        
         //bool isSafe = false;
         int current_spills = 0;
 
@@ -279,11 +284,9 @@ string Translator::recycleRegister(T_Instruction instruction, unordered_map<stri
 
             if(m_tags[element] == 2)
                 store_id = "fstore";
-            
-            section.emplace_back(mips_instructions.at(store_id) + space + current_register.first + sep + element);
 
-            // Maintain the descriptors
-            availability(element, element);
+            // Add emit for the possible spill
+            spills_emit[current_register.first].push_back(make_pair(store_id, element));
             
             current_spills += 1;
         }
@@ -300,6 +303,20 @@ string Translator::recycleRegister(T_Instruction instruction, unordered_map<stri
             best_reg = spill.first;
     }
 
+    for(auto reg_info : spills_emit[best_reg])
+    {
+        string store_id = reg_info.first;
+        string element = reg_info.second;
+
+        section.emplace_back(mips_instructions.at(store_id) + space + best_reg + sep + element);
+
+        // Maintain the descriptors
+        availability(element, element);
+    }
+
+    getRegisterDescriptor(best_reg, descriptors).clear();
+    removeElementFromDescriptors(this->m_variables, best_reg, "");
+
     return best_reg;
 }
 
@@ -308,6 +325,7 @@ void Translator::selectRegister(string operand, T_Instruction instruction, unord
 {
     // First, verify is the operand is store in another register
     string reg = findElementInDescriptors(descriptors, operand);
+
     if(!reg.empty())
     {
         regs.push_back(reg);
@@ -324,7 +342,7 @@ void Translator::selectRegister(string operand, T_Instruction instruction, unord
     
     // If any of the simple cases are not meet, the we move to the complex ones
     // No free registers and the operand is not store in any
-    reg = recycleRegister(instruction, descriptors, section);
+    reg = recycleRegister(instruction, descriptors, section, regs);
     regs.push_back(reg);
 }
 
@@ -343,6 +361,9 @@ vector<string> Translator::getReg(T_Instruction instruction, vector<string>& sec
     // Choose register for every operand
     for (T_Variable current_operand : instruction.operands)
     {
+        if(current_operand.name.empty())
+            continue;
+        
         // If the operand is a float change the references
         if(current_operand.name.front() == 'f' || current_operand.name.front() == 'F')
         {
@@ -504,7 +525,7 @@ void Translator::translate()
             {
                 section.push_back(lastInstr);
             }
-            section.emplace_back(""); // just to fix some alignments
+
             section.emplace_back("# ==============================");
         }
 
@@ -543,7 +564,16 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
     if(instruction.id == "malloc")
     {
         insertVariable(instruction.result.name, 0);
-        vector<string> op_registers = getReg(instruction, section, false);
+        vector<string> op_registers = getReg(instruction, section);
+
+        string load_id = is_number(instruction.operands[0].name) ? "loadi" : "load";
+
+        vector<string> reg_descriptor = getRegisterDescriptor(op_registers[1], this->m_registers);
+        if ( find(reg_descriptor.begin(), reg_descriptor.end(), instruction.operands[0].name) == reg_descriptor.end() )
+        {
+            string best_location = findOptimalLocation(instruction.operands[0].name);
+            section.emplace_back(mips_instructions.at(load_id) + space + op_registers[1] + sep + best_location);
+        }
 
         // The size of the memory needed to be allocated should be in $a0
         // First, save whatever value is in the register
@@ -811,6 +841,9 @@ void Translator::translateOperationInstruction(T_Instruction instruction, vector
 
     for (T_Variable current_operand : instruction.operands)
     {
+        if(current_operand.name.empty())
+            continue;
+        
         // Check if the operand is in the registers, if not then load it
         string current_reg = op_registers[op_index];
 
@@ -971,6 +1004,9 @@ void Translator::translateOperationInstruction(T_Instruction instruction, vector
     assignment(op_registers[0], instruction.result.name, *regs_to_find, true);
     availability(instruction.result.name, op_registers[0], true);
     removeElementFromDescriptors(this->m_variables, op_registers[0], instruction.result.name);
+
+    // cout << "***** " << instruction.id << " " << instruction.result.name << " " << instruction.operands[0].name << " *****" << endl;
+    // printVariablesDescriptors();
 }
 
 void Translator::translateMetaIntruction(T_Instruction instruction)
