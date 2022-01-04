@@ -457,6 +457,10 @@ void Translator::translate()
             vector<string> var_descriptor = current_variable.second;
 
             string store_id = m_tags[var_id] == 1 ? "storeb" : "store";
+
+            if(m_tags[var_id] == 2)
+                store_id = "fstore";
+            
             if ( find(var_descriptor.begin(), var_descriptor.end(), var_id) == var_descriptor.end() )
             {
                 aliveVars.emplace_back(mips_instructions.at(store_id) + space + var_descriptor[0] + sep + var_id);
@@ -597,7 +601,7 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
     // Function calls instructions
     if(instruction.id == "param")
     {
-        section.emplace_back("# == Parameter ==");
+        section.emplace_back("# ===== Parameter =====");
 
         // Create param variable
         insertVariable(instruction.result.name, 0);
@@ -630,6 +634,8 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
         section.emplace_back(mips_instructions.at(load_id) + space + reg[1] + sep + to_string(jump_size) +"($sp)");
 
         section.emplace_back(mips_instructions.at("store") + space + reg[1] + sep + "0(" + reg[0] + ")");
+
+        section.emplace_back("# =====================");
 
         // Add the parameter to a list so the foreword knows how to move the stack
         current_params += 1;
@@ -669,7 +675,6 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
 
         // Jump back to the caller
         section.emplace_back(mips_instructions.at(instruction.id) + space + "$ra");
-
         section.emplace_back("# ====================");
 
         return;
@@ -740,6 +745,8 @@ void Translator::translateOperationInstruction(T_Instruction instruction, vector
 
             if(is_number(best_location))
                 load_id = "loadi";
+            else if(this->m_tags[current_operand.name] == 3 || this->m_tags[current_operand.name] == 4)
+                load_id = "loada";
 
             section.emplace_back(mips_instructions.at(load_id) + space + current_reg + sep + best_location);
         }
@@ -804,8 +811,8 @@ void Translator::translateOperationInstruction(T_Instruction instruction, vector
             }
 
             // Maintain descriptors
-            assignment(op_registers[0], instruction.result.name, *regs_to_find, true);
-            availability(instruction.result.name, op_registers[0]);
+            assignment(op_registers[0], instruction.result.name, *regs_to_find);
+            availability(instruction.result.name, op_registers[0], true);
         }
         else if(instruction.result.is_acc)
         {
@@ -831,8 +838,8 @@ void Translator::translateOperationInstruction(T_Instruction instruction, vector
             }
 
             // Maintain descriptors
-            assignment(op_registers[0], instruction.result.name, *regs_to_find, true);
-            availability(instruction.result.name, op_registers[0]);
+            assignment(op_registers[0], instruction.result.name, *regs_to_find);
+            availability(instruction.result.name, op_registers[0], true);
 
             // Store the new value in the new direction
             string op = instruction.result.acc + "(" + op_registers[0] + ")";
@@ -1020,11 +1027,12 @@ void Translator::printVariablesDescriptors()
 {
     for(auto vari : this->m_variables)
     {
-        cout << vari.first << endl;
+        cout << "== " << vari.first << " ==" << endl;
         for(auto element : vari.second)
         {
-            cout << element << endl;
+            cout << element << " ";
         }
+        cout << endl;
     }
 }
 
