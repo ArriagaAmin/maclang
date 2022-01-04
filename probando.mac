@@ -18,4 +18,10 @@ print("Resultado calculado!");
 exit(fact(input));
 }$
 
-print("Hello %c%cworld!", chars=['\n', '\n']);
+print(
+    "Caracteres: %c %c%cNumeros: %i %i%c%cTextos %s %s%c", 
+    chars=['A', '\t', 'n', '\n', '\n', '\n'],
+    ints=[42, -69],
+    strings=["Hello", " world!"],
+    end="Final"
+);

@@ -1,6 +1,9 @@
 @staticv A0 5
 @string S0 "0000\n"
-@string S1 "0000Hello %c%cworld!"
+@string S1 "0000Caracteres: %c %c%cNumeros: %i %i%c%cTextos %s %s%c"
+@string S2 "0000Hello"
+@string S3 "0000 world!"
+@string S4 "0000Final"
 assignw NULL 0
 assignw lastbase 0
 assignw T0 1
@@ -92,6 +95,7 @@ goto L1
 @label L6
 assignw T15 BASE[16]
 assignw T18 T15[T12]
+add T18 T18 4
 print T18
 add T12 T12 4
 goto L1
@@ -101,31 +105,102 @@ add T15 T15 4
 print T15
 return 0
 @endfunction 24
-assignw S1[0] 16
-assignb T20 10
-assignb T21 10
-assignw T22 2
-assignw T24 T22
-assignw T25 1
-mult T25 T25 T24
-add T25 T25 4
-malloc T23 T25
-assignw T23[0] T24
-assignb T23[5] T21
-assignb T23[4] T20
-param T26 0
-assignw T26[0] S1
-assignw T28 T23[0]
+assignw S1[0] 51
+assignb T20 65
+assignb T21 9
+assignb T22 110
+assignb T23 10
+assignb T24 10
+assignb T25 10
+assignw T26 6
+assignw T28 T26
 assignw T29 1
 mult T29 T29 T28
 add T29 T29 4
 malloc T27 T29
-memcpy T27 T23 T29
-param T30 4
-assignw T30[0] T27
+assignw T27[0] T28
+assignb T27[9] T25
+assignb T27[8] T24
+assignb T27[7] T23
+assignb T27[6] T22
+assignb T27[5] T21
+assignb T27[4] T20
+assignw T30 42
+assignw T31 69
+minus T32 T31
+assignw T33 2
+assignw T35 T33
+assignw T36 4
+mult T36 T36 T35
+add T36 T36 4
+malloc T34 T36
+assignw T34[0] T35
+assignw T34[8] T32
+assignw T34[4] T30
+assignw S2[0] 5
+assignw S3[0] 7
+assignw T39 2
+assignw T41 T39
+assignw T42 4
+mult T42 T42 T41
+add T42 T42 4
+malloc T40 T42
+assignw T40[0] T41
+@label L7
+sub T42 T42 4
+lt test T42 0
+goif L7_end test
+goto L7
+@label L7_end
+assignw T40[8] S3
+assignw T40[4] S2
+assignw S4[0] 5
+param T44 0
+assignw T44[0] S1
+assignw T46 T27[0]
+assignw T47 1
+mult T47 T47 T46
+add T47 T47 4
+malloc T45 T47
+memcpy T45 T27 T47
+param T48 4
+assignw T48[0] T45
 assignb A0[0] 1
-assignb A0[1] 0
+assignw T50 T34[0]
+assignw T51 4
+mult T51 T51 T50
+add T51 T51 4
+malloc T49 T51
+memcpy T49 T34 T51
+param T52 8
+assignw T52[0] T49
+assignb A0[1] 1
 assignb A0[2] 0
-assignb A0[3] 0
-assignb A0[4] 0
-call T31 PRINT 6
+assignw T54 T40[0]
+assignw T55 4
+mult T55 T55 T54
+add T55 T55 4
+malloc T53 T55
+assignw T56 T55
+@label L8
+sub T56 T56 4
+lt test T56 0
+goif L8_end test
+assignw T57 T40[T56]
+assignw T58 T53[T56]
+assignw T59 T57[0]
+assignw T60 1
+mult T60 T60 T59
+add T60 T60 4
+malloc T58 T60
+assignw T58[0] T58
+memcpy T58 T57 T60
+goto L8
+@label L8_end
+param T61 16
+assignw T61[0] T53
+assignb A0[3] 1
+param T62 20
+assignw T62[0] S4
+assignb A0[4] 1
+call T63 PRINT 6

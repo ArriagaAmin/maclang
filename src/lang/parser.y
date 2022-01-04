@@ -3933,6 +3933,7 @@ void scope0(void) {
   tac->gen("@label " + labels[6]);
   tac->gen("assignw " + temps[7] + " BASE[16]");
   tac->gen("assignw " + temps[10] + " " + temps[7] + "[" + temps[4] + "]");
+  tac->gen("add " + temps[10] + " " + temps[10] + " 4");
   tac->gen("print " + temps[10]);
   tac->gen("add " + temps[4] + " " + temps[4] + " 4");
   tac->gen("goto " + labels[1]);
