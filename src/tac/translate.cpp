@@ -541,6 +541,9 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
         vector<string> regDescriptor = getRegisterDescriptor("$a0", this->m_registers);
         for(string currentVar : regDescriptor)
         {
+            if(is_number(currentVar))
+                continue;
+            
             section.emplace_back(mips_instructions.at("store") + space + "$a0" + sep + currentVar);
             availability(currentVar, currentVar);
         }
@@ -556,6 +559,10 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
 
         // Save the direction in the temporal
         section.emplace_back(mips_instructions.at("assign") + space + op_registers[0] + sep + "$v0");
+
+        // Maintain descriptors
+        assignment(op_registers[0], instruction.result.name, this->m_registers);
+        availability(instruction.result.name, op_registers[0], true);
         return;
     }
 
@@ -567,6 +574,9 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
         vector<string> regDescriptor = getRegisterDescriptor("$v1", this->m_registers);
         for(string currentVar : regDescriptor)
         {
+            if(is_number(currentVar))
+                continue;
+            
             section.emplace_back(mips_instructions.at("store") + space + "$v1" + sep + currentVar);
             availability(currentVar, currentVar);
         }
@@ -610,6 +620,9 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
         vector<string> regDescriptor = getRegisterDescriptor("$a0", this->m_registers);
         for(string currentVar : regDescriptor)
         {
+            if(is_number(currentVar))
+                continue;
+            
             section.emplace_back(mips_instructions.at("store") + space + "$a0" + sep + currentVar);
             availability(currentVar, currentVar);
         }
@@ -962,6 +975,9 @@ void Translator::translateIOIntruction(T_Instruction instruction, vector<string>
             vector<string> reg_descriptor = getRegisterDescriptor(arg_register, this->m_registers);
             for(string currentVar : reg_descriptor)
             {
+                if(is_number(currentVar))
+                    continue;
+
                 section.emplace_back(mips_instructions.at("store") + space + arg_register + sep + currentVar);
                 availability(currentVar, currentVar);
             }
@@ -990,6 +1006,9 @@ void Translator::translateIOIntruction(T_Instruction instruction, vector<string>
             vector<string> regDescriptor = getRegisterDescriptor(arg_register, this->m_float_registers);
             for(string currentVar : regDescriptor)
             {
+                if(is_number(currentVar))
+                    continue;
+
                 section.emplace_back(mips_instructions.at("store") + space + arg_register + sep + currentVar);
                 availability(currentVar, currentVar);
             }
@@ -1035,6 +1054,9 @@ void Translator::translateIOIntruction(T_Instruction instruction, vector<string>
             vector<string> regDescriptor = getRegisterDescriptor("$f12", this->m_float_registers);
             for(string currentVar : regDescriptor)
             {
+                if(is_number(currentVar))
+                    continue;
+                
                 section.emplace_back(mips_instructions.at("store") + space + "$f12" + sep + currentVar);
                 availability(currentVar, currentVar);
             }
@@ -1056,8 +1078,11 @@ void Translator::translateIOIntruction(T_Instruction instruction, vector<string>
             vector<string> regDescriptor = getRegisterDescriptor(addr_register, this->m_registers);
             for(string currentVar : regDescriptor)
             {
+                if(is_number(currentVar))
+                    continue;
+                    
                 section.emplace_back(mips_instructions.at("store") + space + addr_register + sep + currentVar);
-                //availability(currentVar, currentVar);
+                availability(currentVar, currentVar);
             }
             regDescriptor.clear();
             removeElementFromDescriptors(this->m_variables, addr_register, "");
@@ -1066,6 +1091,9 @@ void Translator::translateIOIntruction(T_Instruction instruction, vector<string>
             regDescriptor = getRegisterDescriptor(size_register, this->m_registers);
             for(string currentVar : regDescriptor)
             {
+                if(is_number(currentVar))
+                    continue;
+
                 section.emplace_back(mips_instructions.at("store") + space + size_register + sep + currentVar);
                 availability(currentVar, currentVar);
             }

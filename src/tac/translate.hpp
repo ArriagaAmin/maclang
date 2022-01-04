@@ -41,7 +41,7 @@ const unordered_map<string, string> mips_instructions ({
     {"goto", "j"},
     {"assign", "move"},
     {"goif", "bnez"},
-    {"goifnot", "bez"},
+    {"goifnot", "beqz"},
     {"param", "sw"},
     {"call", "jal"},
     {"return", "jr"},
