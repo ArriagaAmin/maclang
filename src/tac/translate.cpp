@@ -708,9 +708,9 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
 
         // Save where the parameter is going to be
         int jump_size = stoi(instruction.operands[0].name) + 12;
-        section.emplace_back(mips_instructions.at(load_id) + space + reg[1] + sep + to_string(jump_size) +"($sp)");
+        section.emplace_back(mips_instructions.at(load_id) + space + "$v0" + sep + to_string(jump_size) +"($sp)");
 
-        section.emplace_back(mips_instructions.at("store") + space + reg[1] + sep + "0(" + reg[0] + ")");
+        section.emplace_back(mips_instructions.at("store") + space + "$v0" + sep + "0(" + reg[0] + ")");
 
         section.emplace_back("# =====================");
 
@@ -1144,6 +1144,9 @@ bool Translator::is_number(const string& str)
 {
     for(size_t i = 0; i < str.size(); i++)
     {
+        if(str[i] == '-')
+            continue;
+        
         if(!isdigit(str[i]))
             return false;
     }
