@@ -767,7 +767,7 @@ void Translator::translateOperationInstruction(T_Instruction instruction, vector
             string load_result = instruction.id.back() == 'b' ? "loadb" : "load";
             string load_id = "load";
 
-            if(this->m_tags[instruction.result.name] == 3 || this->m_tags[instruction.result.name] == 4)
+            if(this->m_tags[instruction.operands[0].name] == 3 || this->m_tags[instruction.operands[0].name] == 4)
                 load_id = "loada";
 
             // Check if is a float
