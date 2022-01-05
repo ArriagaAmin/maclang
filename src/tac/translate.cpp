@@ -987,6 +987,7 @@ void Translator::translateOperationInstruction(T_Instruction instruction, vector
                 store_id = "fstore";
             }
 
+
             // Load the base direction of what we want to make an indirection
             vector<string> reg_descriptor = getRegisterDescriptor(op_registers[0], *regs_to_find);
             if ( find(reg_descriptor.begin(), reg_descriptor.end(), instruction.result.name) == reg_descriptor.end() )
@@ -998,9 +999,16 @@ void Translator::translateOperationInstruction(T_Instruction instruction, vector
             // Maintain descriptors
             assignment(op_registers[0], instruction.result.name, *regs_to_find);
             availability(instruction.result.name, op_registers[0], true);
-
-            // Store the new value in the new direction
+            
             string op = instruction.result.acc + "(" + op_registers[0] + ")";
+
+            if(!is_number(instruction.result.acc))
+            {
+                section.emplace_back(mips_instructions.at("load") + space + "$v0" + sep + instruction.result.acc);
+                section.emplace_back(mips_instructions.at("add") + space + op_registers[0] + sep + op_registers[0] + sep + "$v0");
+                op = mips_instructions.at(store_id) + space + op_registers[1] + sep + "0(" + op_registers[0] + ")";
+            }
+
             section.emplace_back(mips_instructions.at(store_id) + space + op_registers[1] + sep + op);
         }
         return;
