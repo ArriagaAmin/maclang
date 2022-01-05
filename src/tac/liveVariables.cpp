@@ -153,7 +153,7 @@ map<string, set<string> (*) (set<string>, T_Instruction)> functions = {
     {"goif"   , &liveVariables_condGo},
     {"goifnot", &liveVariables_condGo},
     {"malloc" , &liveVariables_f2},
-    {"memcpy" , &liveVariables_f3},
+    {"memcpy" , &liveVariables_memcpy},
     {"free"   , &liveVariables_f1},
     {"exit"   , &liveVariables_f1},
     {"param"  , &liveVariables_f2},

@@ -1,6 +1,6 @@
 @staticv A0 5
 @string S0 "0000\n"
-@string S1 "0000Caracteres: %c %c%cNumeros: %i %i%c%cTextos %s %s%c"
+@string S1 "0000Caracteres: %c %c%cNumeros: %i %i%cTextos: %s %s%c"
 @string S2 "0000Hello"
 @string S3 "0000 world!"
 @string S4 "0000Final"
@@ -105,26 +105,25 @@ add T15 T15 4
 print T15
 return 0
 @endfunction 24
-assignw S1[0] 51
+assignw S1[0] 50
 assignb T20 65
 assignb T21 9
-assignb T22 110
+assignb T22 10
 assignb T23 10
 assignb T24 10
-assignb T25 10
-assignw T26 6
-assignw T28 T26
-assignw T29 1
-mult T29 T29 T28
-add T29 T29 4
-malloc T27 T29
-assignw T27[0] T28
-assignb T27[9] T25
-assignb T27[8] T24
-assignb T27[7] T23
-assignb T27[6] T22
-assignb T27[5] T21
-assignb T27[4] T20
+assignw T25 5
+assignw T27 T25
+assignw T28 1
+mult T28 T28 T27
+add T28 T28 4
+malloc T29 T28
+assignw T29[0] T27
+assignw T26 T29
+assignb T26[8] T24
+assignb T26[7] T23
+assignb T26[6] T22
+assignb T26[5] T21
+assignb T26[4] T20
 assignw T30 42
 assignw T31 69
 minus T32 T31
@@ -133,74 +132,79 @@ assignw T35 T33
 assignw T36 4
 mult T36 T36 T35
 add T36 T36 4
-malloc T34 T36
-assignw T34[0] T35
+malloc T37 T36
+assignw T37[0] T35
+assignw T34 T37
 assignw T34[8] T32
 assignw T34[4] T30
 assignw S2[0] 5
 assignw S3[0] 7
-assignw T39 2
-assignw T41 T39
-assignw T42 4
-mult T42 T42 T41
-add T42 T42 4
-malloc T40 T42
-assignw T40[0] T41
+assignw T40 2
+assignw T42 T40
+assignw T43 4
+mult T43 T43 T42
+add T43 T43 4
+malloc T44 T43
+assignw T44[0] T42
+assignw T41 T44
 @label L7
-sub T42 T42 4
-lt test T42 0
+sub T43 T43 4
+lt test T43 4
 goif L7_end test
 goto L7
 @label L7_end
-assignw T40[8] S3
-assignw T40[4] S2
+assignw T41[8] S3
+assignw T41[4] S2
 assignw S4[0] 5
-param T44 0
-assignw T44[0] S1
-assignw T46 T27[0]
-assignw T47 1
-mult T47 T47 T46
-add T47 T47 4
-malloc T45 T47
-memcpy T45 T27 T47
-param T48 4
-assignw T48[0] T45
+param T46 0
+assignw T46[0] S1
+assignw T48 T26[0]
+assignw T49 1
+mult T49 T49 T48
+add T49 T49 4
+malloc T50 T49
+assignw T47 T50
+memcpy T47 T26 T49
+param T51 4
+assignw T51[0] T47
 assignb A0[0] 1
-assignw T50 T34[0]
-assignw T51 4
-mult T51 T51 T50
-add T51 T51 4
-malloc T49 T51
-memcpy T49 T34 T51
-param T52 8
-assignw T52[0] T49
+assignw T53 T34[0]
+assignw T54 4
+mult T54 T54 T53
+add T54 T54 4
+malloc T55 T54
+assignw T52 T55
+memcpy T52 T34 T54
+param T56 8
+assignw T56[0] T52
 assignb A0[1] 1
 assignb A0[2] 0
-assignw T54 T40[0]
-assignw T55 4
-mult T55 T55 T54
-add T55 T55 4
-malloc T53 T55
-assignw T56 T55
+assignw T58 T41[0]
+assignw T59 4
+mult T59 T59 T58
+add T59 T59 4
+malloc T60 T59
+assignw T57 T60
+assignw T61 T59
 @label L8
-sub T56 T56 4
-lt test T56 0
+sub T61 T61 4
+lt test T61 4
 goif L8_end test
-assignw T57 T40[T56]
-assignw T58 T53[T56]
-assignw T59 T57[0]
-assignw T60 1
-mult T60 T60 T59
-add T60 T60 4
-malloc T58 T60
-assignw T58[0] T58
-memcpy T58 T57 T60
+assignw T62 T41[T61]
+assignw T63 T62[0]
+assignw T64 1
+mult T64 T64 T63
+add T64 T64 4
+malloc T65 T64
+assignw T57[T61] T65
+assignw T66 T57[T61]
+memcpy T66 T62 T64
 goto L8
 @label L8_end
-param T61 16
-assignw T61[0] T53
+param T67 16
+assignw T67[0] T57
 assignb A0[3] 1
-param T62 20
-assignw T62[0] S4
+param T68 20
+assignw T68[0] S4
 assignb A0[4] 1
-call T63 PRINT 6
+call T69 PRINT 6

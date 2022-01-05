@@ -87,7 +87,7 @@
                 fg->constantPropagation();
                 fg->deleteDeadVariables();
                 fg->lazyCodeMotion();
-                fg->invariantDetection();
+                //fg->invariantDetection();
 
                 // Mostramos el grafo resultante
                 //fg->prettyPrint();
