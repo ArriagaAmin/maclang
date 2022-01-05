@@ -1005,8 +1005,8 @@ void Translator::translateOperationInstruction(T_Instruction instruction, vector
             if(!is_number(instruction.result.acc))
             {
                 section.emplace_back(mips_instructions.at("load") + space + "$v0" + sep + instruction.result.acc);
-                section.emplace_back(mips_instructions.at("add") + space + op_registers[0] + sep + op_registers[0] + sep + "$v0");
-                op = "0(" + op_registers[0] + ")";
+                section.emplace_back(mips_instructions.at("add") + space + "$v0" + sep + op_registers[0] + sep + "$v0");
+                op = "0($v0)";
             }
 
             section.emplace_back(mips_instructions.at(store_id) + space + op_registers[1] + sep + op);
