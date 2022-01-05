@@ -1875,7 +1875,7 @@
                                   assign_type,
                                   addr, 
                                   "lastbase[" + to_string(c_offset) + "]",
-                                  type_str == "Floar"
+                                  type_str == "Float"
                                 });
                               }
                               // Si el pase no es por referencia y es un tipo arreglo
