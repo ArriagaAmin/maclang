@@ -765,18 +765,18 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
         vector<string> reg = getReg(instruction, section);
 
         // References
-        unordered_map<string, vector<string>>& curr_desc = this->m_registers;
+        unordered_map<string, vector<string>>* curr_desc = &this->m_registers;
         string load_id = "loada";
 
         // If the operand is a float change the references
         if(instruction.result.name.front() == 'f' || instruction.result.name.front() == 'F')
         {
-            curr_desc = this->m_float_registers;
+            curr_desc = &this->m_float_registers;
             load_id = "fload";
         }
 
         // If the element is not on the register load it
-        vector<string> reg_descriptor = getRegisterDescriptor(reg[0], curr_desc);
+        vector<string> reg_descriptor = getRegisterDescriptor(reg[0], *curr_desc);
         if ( find(reg_descriptor.begin(), reg_descriptor.end(), instruction.result.name) == reg_descriptor.end() )
         {
             string best_location = findOptimalLocation(instruction.result.name);
@@ -812,13 +812,39 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
 
     if(instruction.id == "return")
     {
-        string load_id = is_number(instruction.result.name) ? "loadi" : "load";
+        // Get the return register
+        vector<string> reg = getReg(instruction, section);
+
+        // References
+        unordered_map<string, vector<string>>* curr_desc = &this->m_registers;
+        string load_id = this->m_tags[instruction.result.name] == 1 ? "loadb" : "load";
+        string store_id = this->m_tags[instruction.result.name] == 1 ? "storeb" : "store";
+
+        // If the operand is a float change the references
+        if(instruction.result.name.front() == 'f' || instruction.result.name.front() == 'F')
+        {
+            curr_desc = &this->m_float_registers;
+            load_id = "fload";
+            store_id = "fstore";
+        }
+
+        // If the element is not on the register load it
+        vector<string> reg_descriptor = getRegisterDescriptor(reg[0], *curr_desc);
+        if ( find(reg_descriptor.begin(), reg_descriptor.end(), instruction.result.name) == reg_descriptor.end() )
+        {
+            string best_location = findOptimalLocation(instruction.result.name);
+
+            if(is_number(instruction.result.name))
+                load_id = "loadi";
+
+            section.emplace_back(mips_instructions.at(load_id) + space + reg[0] + sep + best_location);
+        }
 
         section.emplace_back("# ===== Epilogue =====");
 
         // Store the return value
-        section.emplace_back(mips_instructions.at(load_id) + space + "$v0" + sep + instruction.result.name);
-        section.emplace_back(mips_instructions.at("store") + space + "$v0" + sep + "0($fp)");
+        //section.emplace_back(mips_instructions.at(load_id) + space + "$v0" + sep + instruction.result.name);
+        section.emplace_back(mips_instructions.at(store_id) + space + reg[0] + sep + "0($fp)");
         
         // Restore the old frame and the return address
         section.emplace_back(mips_instructions.at("load") + space + "$ra" + sep + "4($fp)");
