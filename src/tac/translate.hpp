@@ -2,6 +2,7 @@
 
 #include <map>
 #include <string>
+#include <stack>
 #include <vector>
 #include <ctype.h>
 #include <iostream>
@@ -114,10 +115,9 @@ private:
     // Mips data
     vector<string> data;
     vector<string> text;
-    //vector<string> functions;
     bool function_section = false;
 
-    uint32_t current_params;
+    uint64_t current_size;
     uint64_t last_label_id;
     
     // Descriptors management

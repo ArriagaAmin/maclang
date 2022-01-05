@@ -44,6 +44,7 @@ Translator::Translator()
 
     // Oh no...
     text.emplace_back("li  $sp, 0x7fc00000");
+    text.emplace_back("li  $fp, 0x7fc00000");
 }
 
 void Translator::insertInstruction(T_Instruction* instruction)
@@ -440,6 +441,9 @@ void Translator::translate()
     // Then tranlate the code
     for(FlowNode* currentNode : nodes)
     {
+        // Get block size
+        current_size = currentNode->function_size;
+
         // Choose in which section to put the current instruction
         vector<string>& section = text;
 
@@ -458,16 +462,15 @@ void Translator::translate()
         {
             section.emplace_back("# ===== Foreword =====");
 
-            section.emplace_back("addi  $sp, $sp, 4");
             section.emplace_back(mips_instructions.at("store") + space + "$fp" + sep + "0($sp)");
+            section.emplace_back("addi  $sp, $sp, 4");
             section.emplace_back("move  $fp, $sp");
             section.emplace_back("addi  $sp, $sp, 8");
             section.emplace_back(mips_instructions.at("store") + space + "$ra" + sep + "4($fp)");
             
             // Save the call parameters
-            uint32_t length = current_params * 4;
-            section.emplace_back("addi  $sp, $sp, " + to_string(length));
-            current_params = 0;
+            if(current_size != 0)
+                section.emplace_back("addi  $sp, $sp, " + to_string(current_size));
 
             // Update BASE and STACK
             section.emplace_back("addi  $a0, $fp, 8");
@@ -789,9 +792,6 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
 
         section.emplace_back("# =====================");
 
-        // Add the parameter to a list so the foreword knows how to move the stack
-        current_params += 1;
-
         return;
     }
 
@@ -823,7 +823,9 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
         // Restore the old frame and the return address
         section.emplace_back(mips_instructions.at("load") + space + "$ra" + sep + "4($fp)");
         section.emplace_back(mips_instructions.at("load") + space + "$fp" + sep + "-4($fp)");
-        section.emplace_back("addi  $sp, $sp, -12");
+
+        uint64_t size = current_size + 12;
+        section.emplace_back("addi  $sp, $sp, -" + to_string(size));
 
         // Jump back to the caller
         section.emplace_back(mips_instructions.at(instruction.id) + space + "$ra");
@@ -1226,7 +1228,7 @@ bool Translator::is_number(const string& str)
 {
     for(size_t i = 0; i < str.size(); i++)
     {
-        if(str[i] == '-')
+        if(str[i] == '-' || str[i] == '.')
             continue;
         
         if(!isdigit(str[i]))
