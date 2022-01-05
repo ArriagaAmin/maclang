@@ -463,17 +463,16 @@ void Translator::translate()
             section.emplace_back("# ===== Foreword =====");
 
             section.emplace_back(mips_instructions.at("store") + space + "$fp" + sep + "0($sp)");
-            section.emplace_back("addi  $sp, $sp, 4");
+            section.emplace_back(mips_instructions.at("store") + space + "$ra" + sep + "8($sp)");
             section.emplace_back("move  $fp, $sp");
-            section.emplace_back("addi  $sp, $sp, 8");
-            section.emplace_back(mips_instructions.at("store") + space + "$ra" + sep + "4($fp)");
+            // section.emplace_back("addi  $sp, $sp, 12");
             
             // Save the call parameters
-            if(current_size != 0)
-                section.emplace_back("addi  $sp, $sp, " + to_string(current_size));
+            uint64_t size = current_size + 12;
+            section.emplace_back("addi  $sp, $sp, " + to_string(size));
 
             // Update BASE and STACK
-            section.emplace_back("addi  $a0, $fp, 8");
+            section.emplace_back("addi  $a0, $fp, 12");
             section.emplace_back(mips_instructions.at("store") + space + "$a0" + sep + "BASE");
             section.emplace_back(mips_instructions.at("store") + space + "$sp" + sep + "STACK");
             
@@ -804,7 +803,7 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
         section.emplace_back(mips_instructions.at(instruction.id) + space + instruction.operands[0].name);
 
         // Save return value
-        section.emplace_back(mips_instructions.at("load") + space + "$v0" + sep + "4($sp)");
+        section.emplace_back(mips_instructions.at("load") + space + "$v0" + sep + "4($fp)");
         section.emplace_back(mips_instructions.at("store") + space + "$v0" + sep + instruction.result.name);
 
         return;
@@ -842,16 +841,22 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
 
         section.emplace_back("# ===== Epilogue =====");
 
+        section.emplace_back(mips_instructions.at("assign") + space + "$sp" + sep + "$fp");
+        section.emplace_back(mips_instructions.at("load") + space + "$ra" + sep + "8($fp)");
+
         // Store the return value
-        //section.emplace_back(mips_instructions.at(load_id) + space + "$v0" + sep + instruction.result.name);
-        section.emplace_back(mips_instructions.at(store_id) + space + reg[0] + sep + "0($fp)");
+        section.emplace_back(mips_instructions.at(store_id) + space + reg[0] + sep + "4($fp)");
         
         // Restore the old frame and the return address
-        section.emplace_back(mips_instructions.at("load") + space + "$ra" + sep + "4($fp)");
-        section.emplace_back(mips_instructions.at("load") + space + "$fp" + sep + "-4($fp)");
+        section.emplace_back(mips_instructions.at("load") + space + "$fp" + sep + "0($fp)");
 
-        uint64_t size = current_size + 12;
-        section.emplace_back("addi  $sp, $sp, -" + to_string(size));
+        // uint64_t size = current_size + 12;
+        // section.emplace_back("addi  $sp, $sp, -" + to_string(size));
+
+        // Update BASE and STACK
+        section.emplace_back("addi  $a0, $fp, 12");
+        section.emplace_back(mips_instructions.at("store") + space + "$a0" + sep + "BASE");
+        section.emplace_back(mips_instructions.at("store") + space + "$sp" + sep + "STACK");
 
         // Jump back to the caller
         section.emplace_back(mips_instructions.at(instruction.id) + space + "$ra");
