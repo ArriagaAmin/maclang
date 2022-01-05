@@ -803,7 +803,7 @@ void Translator::translateInstruction(T_Instruction instruction, vector<string>&
         section.emplace_back(mips_instructions.at(instruction.id) + space + instruction.operands[0].name);
 
         // Save return value
-        section.emplace_back(mips_instructions.at("load") + space + "$v0" + sep + "4($fp)");
+        section.emplace_back(mips_instructions.at("load") + space + "$v0" + sep + "4($sp)");
         section.emplace_back(mips_instructions.at("store") + space + "$v0" + sep + instruction.result.name);
 
         return;
