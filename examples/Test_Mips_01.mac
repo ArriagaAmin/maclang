@@ -1,0 +1,19 @@
+def fact(Int n) => Int {
+    if n == 0 then return 1; 
+    else return n * fact(n-1);
+    done
+}
+
+let Int input;
+print("Input: ");
+input = readi();
+
+if input < 0 then 
+    print("Hasta luego!");
+    exit(0);
+done 
+
+print("Resultado calculado!");
+let Int result = fact(input);
+print("%i", ints=[result]);
+exit(0);
