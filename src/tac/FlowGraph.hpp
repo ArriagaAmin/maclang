@@ -159,6 +159,7 @@ class FlowGraph {
         map<uint64_t, set<string>> use_T;
         map<string, uint64_t> temps_size;
         map<string, uint64_t> temps_offset;
+        map<string, string> float_literals;
 
         // Conjuntos del analisis de flujo.
         map<uint64_t, vector<map<string, set<pair<uint64_t, uint64_t>>>>> reaching;
@@ -180,6 +181,7 @@ class FlowGraph {
         void deleteBlock(uint64_t id);
         set<string> computeUseT(uint64_t id);
         void computeAllUseT(void);
+        void processingLitFloats(void);
         uint64_t makeSubGraph(T_Function *function, uint64_t init_id);
         void print(void);
         vector<FlowNode*> getOrderedBlocks(void); 

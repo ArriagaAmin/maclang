@@ -88,16 +88,18 @@
                 fg->deleteDeadVariables();
                 fg->lazyCodeMotion();
                 //fg->invariantDetection();
+
                 fg->computeAllUseT();
+                fg->processingLitFloats();
 
                 // Mostramos el grafo resultante
                 //fg->prettyPrint();
                 //cout << "// ================================================ // \n\n\n";
-                fg->flowPrint<string>(fg->use_T);
+                //fg->flowPrint<string>(fg->use_T);
 
-                //CB->insertFlowGraph(fg);
-                //CB->translate();
-                //CB->print();
+                CB->insertFlowGraph(fg);
+                CB->translate();
+                CB->print();
               }
             }
           ;
@@ -266,12 +268,12 @@
               current_function->instructions.push_back({*$1, *$2, {}});
               current_function->leaders.insert(current_function->instructions.size());
             }
-          | I_CALL    ID ID INT
+          | I_CALL    ID ID
             {
               current_function->instructions.push_back({
                 *$1, 
                 {*$2, "", false}, 
-                {{*$3, "", false}, {to_string($4), "", false}}
+                {{*$3, "", false}}
               });
               current_function->leaders.insert(current_function->instructions.size());
             }

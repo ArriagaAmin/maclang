@@ -17,7 +17,17 @@ DIR=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
 # .mac  =>  .tac
 SOURCE=$1
 $DIR/mac2tac tac $SOURCE > "$SOURCE.tac"
+if ! [[ $? -eq "0" ]]; then 
+    cat "$SOURCE.tac" 
+    exit 1
+fi;
+
 # .tac  =>  optimized .tac  =>  .asm
 $DIR/tac2mips "$SOURCE.tac" > "$SOURCE.asm"
+if ! [[ $? -eq "0" ]]; then 
+    cat "$SOURCE.asm"
+    exit 1
+fi;
+
 # Exec .asm in MIPS
 java -jar $DIR/mars.jar "$SOURCE.asm"

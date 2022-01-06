@@ -1984,7 +1984,6 @@
                           type = fe->return_type;
                           $$ = new NodeFunctionCall(*$1, $3, false, type); 
                           $$->addr = type->toString() == "Float" ? tac->newFloat() : tac->newTemp();
-                          string n_args = to_string(fe->args.size());
 
                           if (e->category == "Declaration") {
                             // Almacenamos el scope y el numero de la instruccion donde
@@ -2002,11 +2001,11 @@
                               }};
                             }
 
-                            tac->gen("call " + $$->addr + " _  " + n_args);
+                            tac->gen("call " + $$->addr + " _  ");
                           }
 
                           else {
-                            tac->gen("call " + $$->addr + " " + fe->addr + " " + n_args);
+                            tac->gen("call " + $$->addr + " " + fe->addr + " ");
                           }
 
                           // Realizamos las asignaciones por referencia correspondientes.

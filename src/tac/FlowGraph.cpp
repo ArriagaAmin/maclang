@@ -517,3 +517,43 @@ void FlowGraph::computeAllUseT(void) {
         }
     }
 }
+
+void FlowGraph::processingLitFloats(void) {
+    uint64_t float_count = 0;
+    T_Instruction instr;
+    string temp;
+
+    for (pair<uint64_t, FlowNode*> n : this->V) {
+        for (uint64_t i = 0; i < n.second->block.size(); i++) {
+            instr = n.second->block[i];
+
+            if (instr.operands.size() > 0 && instr.operands[0].name.find(".") != string::npos) {
+                while (this->globals.count("f" + to_string(float_count)) > 0) {
+                    float_count++;
+                }
+
+                temp = "f" + to_string(float_count);
+                this->globals.insert(temp);
+                this->temps_offset[temp] = -1;
+                this->temps_size[temp] = 4;
+
+                this->float_literals[temp] = n.second->block[i].operands[0].name;
+                n.second->block[i].operands[0].name = temp;
+            }
+
+            if (instr.operands.size() > 1 && instr.operands[1].name.find(".") != string::npos) {
+                while (this->globals.count("f" + to_string(float_count)) > 0) {
+                    float_count++;
+                }
+
+                temp = "f" + to_string(float_count);
+                this->globals.insert(temp);
+                this->temps_offset[temp] = -1;
+                this->temps_size[temp] = 4;
+
+                this->float_literals[temp] = n.second->block[i].operands[1].name;
+                n.second->block[i].operands[1].name = temp;
+            }
+        }
+    }
+}
