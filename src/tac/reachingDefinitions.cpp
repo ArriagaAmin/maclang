@@ -195,7 +195,10 @@ T_Instruction arit(
     string op;
 
     // Verificamos si uno de los operadores es flotante
-    if (instr.operands[0].name[0] == 'f' || instr.operands[1].name[0] == 'f') {
+    if (
+        instr.operands[0].name.find(".") != string::npos || 
+        instr.operands[1].name.find(".") != string::npos 
+        ) {
         op = to_string((*floatOp) (stof(instr.operands[0].name), stof(instr.operands[1].name)));
     }
     else {
@@ -222,7 +225,7 @@ T_Instruction minusInstr(T_Instruction instr) {
     string op;
 
     // Verificamos si uno de los operadores es flotante
-    if (instr.operands[0].name[0] == 'f') {
+    if (instr.operands[0].name.find(".") != string::npos) {
         op = to_string(-(stof(instr.operands[0].name)));
     }
     else {

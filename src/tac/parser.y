@@ -88,15 +88,16 @@
                 fg->deleteDeadVariables();
                 fg->lazyCodeMotion();
                 //fg->invariantDetection();
+                fg->computeAllUseT();
 
                 // Mostramos el grafo resultante
                 //fg->prettyPrint();
                 //cout << "// ================================================ // \n\n\n";
-                //fg->flowPrint<uint64_t>(fg->dominators);
+                fg->flowPrint<string>(fg->use_T);
 
-                CB->insertFlowGraph(fg);
-                CB->translate();
-                CB->print();
+                //CB->insertFlowGraph(fg);
+                //CB->translate();
+                //CB->print();
               }
             }
           ;
