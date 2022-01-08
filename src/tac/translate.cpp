@@ -38,13 +38,6 @@ Translator::Translator()
         i++;
     }
 
-    // Add constant variables
-    insertVariable("BASE");
-    insertVariable("STACK");
-    m_data.emplace_back("BASE" + decl + mips_instructions.at("word") + space + "1");
-    m_data.emplace_back("STACK" + decl + mips_instructions.at("word") + space + "1");
-
-
     // Oh no...
     m_text.emplace_back("li  $sp, 0x7fc00000");
     m_text.emplace_back("li  $fp, 0x7fc00000");
@@ -97,6 +90,8 @@ void Translator::loadTemporal(const string& id, const string& register_id, bool 
     {
         descriptors = &m_float_registers;
         load_id = "fload";
+        m_text.emplace_back(mips_instructions.at("load") + space + "$v0" + sep + "BASE");
+        location = to_string(offset) + "($v0)";
     }
     else
     {
