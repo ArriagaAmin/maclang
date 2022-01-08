@@ -495,13 +495,19 @@ void FlowGraph::computeAllUseT(void) {
 
         if (f_id == 0) {
             this->globals = temps_f;
+            this->globals = setUnion<string>(this->globals, this->staticVars);
+            this->globals.insert("BASE");
+            this->globals.insert("STACK");
 
             for (string t : this->use_T[f_id]) {
                 this->temps_offset[t] = -1;
             }
+            this->temps_offset["BASE"] = -1;
+            this->temps_offset["STACK"] = -1;
         }
         else {
             this->use_T[f_id] = setSub<string>(temps_f, this->globals);
+            this->use_T[f_id] = setSub<string>(temps_f, this->staticVars);
             this->use_T[f_id].erase("BASE");
             this->use_T[f_id].erase("STACK");
 
