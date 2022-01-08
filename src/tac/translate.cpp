@@ -732,21 +732,17 @@ void Translator::translateInstruction(T_Instruction instruction)
 
         // References
         unordered_map<string, vector<string>>* curr_desc = &m_registers;
-        string load_id = "loada";
 
         // If the operand is a float change the references
         if(instruction.result.name.front() == 'f' || instruction.result.name.front() == 'F')
-        {
             curr_desc = &m_float_registers;
-            load_id = "fload";
-        }
 
         // If the element is not on the register load it
         vector<string> reg_descriptor = getRegisterDescriptor(reg[0], *curr_desc);
         if ( find(reg_descriptor.begin(), reg_descriptor.end(), instruction.result.name) == reg_descriptor.end() )
         {
-            if (m_graph->globals.count(instruction.result.name))
-                m_text.emplace_back(mips_instructions.at(load_id) + space + reg[0] + sep + instruction.result.name);
+            if (is_global(instruction.result.name))
+                m_text.emplace_back(mips_instructions.at("loada") + space + reg[0] + sep + instruction.result.name);
             else 
                 loadTemporal(instruction.result.name, reg[0]);
         }
