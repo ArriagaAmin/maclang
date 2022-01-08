@@ -321,7 +321,7 @@ string Translator::recycleRegister(T_Instruction instruction, unordered_map<stri
         storeTemporal(element, best_reg);
     }
 
-    getRegisterDescriptor(best_reg, descriptors).clear();
+    descriptors[best_reg].clear();
     removeElementFromDescriptors(m_variables, best_reg, "");
 
     return best_reg;
@@ -578,7 +578,7 @@ void Translator::translateInstruction(T_Instruction instruction)
             storeTemporal(currentVar, "$a0");
         }
 
-        regDescriptor.clear();
+        m_registers["$a0"].clear();
         removeElementFromDescriptors(m_variables, "$a0", "");
 
         // Move the value to $a0
@@ -610,7 +610,7 @@ void Translator::translateInstruction(T_Instruction instruction)
             storeTemporal(currentVar, "$v1");
         }
 
-        regDescriptor.clear();
+        m_registers["$v1"].clear();
         removeElementFromDescriptors(m_variables, "$v1", "");
 
         // Load temporals if necessary
@@ -666,7 +666,7 @@ void Translator::translateInstruction(T_Instruction instruction)
             storeTemporal(currentVar, "$a0");
         }
 
-        regDescriptor.clear();
+        m_registers["$a0"].clear();
         removeElementFromDescriptors(m_variables, "$a0", "");
 
         // Move the value to shrink to $a0
@@ -733,7 +733,10 @@ void Translator::translateInstruction(T_Instruction instruction)
         vector<string> reg_descriptor = getRegisterDescriptor(reg[0], *curr_desc);
         if ( find(reg_descriptor.begin(), reg_descriptor.end(), instruction.result.name) == reg_descriptor.end() )
         {
-            m_text.emplace_back(mips_instructions.at(load_id) + space + reg[0] + sep + instruction.result.name);
+            if (m_graph->globals.count(instruction.result.name))
+                m_text.emplace_back(mips_instructions.at(load_id) + space + reg[0] + sep + instruction.result.name);
+            else 
+                loadTemporal(instruction.result.name, reg[0]);
         }
 
         // Save where the parameter is going to be
@@ -1023,7 +1026,7 @@ void Translator::translateIOIntruction(T_Instruction instruction)
 
                 storeTemporal(currentVar, arg_register);
             }
-            reg_descriptor.clear();
+            m_registers[arg_register].clear();
             removeElementFromDescriptors(m_variables, arg_register, "");
 
             string curr_reg = findElementInDescriptors(m_registers, instruction.result.name);
@@ -1049,7 +1052,7 @@ void Translator::translateIOIntruction(T_Instruction instruction)
                 
                 storeTemporal(currentVar, arg_register);
             }
-            regDescriptor.clear();
+            m_float_registers[arg_register].clear();
             removeElementFromDescriptors(m_variables, arg_register, "");
 
             // Move the element to $f12
@@ -1085,7 +1088,7 @@ void Translator::translateIOIntruction(T_Instruction instruction)
                 
                 storeTemporal(currentVar, "f12");
             }
-            regDescriptor.clear();
+            m_float_registers["$f12"].clear();
             removeElementFromDescriptors(m_variables, "$f12", "");
 
             // Load correct syscall
@@ -1108,7 +1111,7 @@ void Translator::translateIOIntruction(T_Instruction instruction)
                 
                 storeTemporal(currentVar, addr_register);
             }
-            regDescriptor.clear();
+            m_registers[addr_register].clear();
             removeElementFromDescriptors(m_variables, addr_register, "");
 
             // Max size of the string in $a1
@@ -1120,7 +1123,7 @@ void Translator::translateIOIntruction(T_Instruction instruction)
                 
                 storeTemporal(currentVar, size_register);
             }
-            regDescriptor.clear();
+            m_registers[size_register].clear();
             removeElementFromDescriptors(m_variables, size_register, "");
 
             // Move buffer to $a0
