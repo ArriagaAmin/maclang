@@ -506,9 +506,19 @@ void FlowGraph::computeAllUseT(void) {
             this->use_T[f_id].erase("STACK");
 
             totalSize = 0;
+            uint64_t diff;
             for (string t : this->use_T[f_id]) {
-                this->temps_offset[t] = this->V[f_id]->function_size + totalSize;
-                totalSize += this->temps_size[t];
+                if (
+                    this->temps_size[t] != 1 && 
+                    (this->V[f_id]->function_size + totalSize) % 4 != 0) 
+                    {
+                    diff = 4 - (this->V[f_id]->function_size + totalSize) % 4 ;
+                }
+                else {
+                    diff = 0;
+                }
+                this->temps_offset[t] = this->V[f_id]->function_size + totalSize + diff;
+                totalSize += this->temps_size[t] + diff;
             }
 
             for (uint64_t B : visited) {
