@@ -122,7 +122,7 @@ void Translator::storeTemporal(const string& id, const string& register_id, bool
     // If static variable ignore
     if(!is_static(id))
     {
-        if(is_global(id))
+        if(!is_global(id))
         {
             m_text.emplace_back(mips_instructions.at("load") + space + "$v0" + sep + "BASE");    
             m_text.emplace_back(mips_instructions.at(store_id) + space + register_id + sep + to_string(offset) + "($v0)");
