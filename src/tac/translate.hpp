@@ -115,6 +115,7 @@ private:
     // Mips data
     vector<string> m_data;
     vector<string> m_text;
+    set<string> data_statics;
     bool function_section = false;
 
     uint64_t current_size;

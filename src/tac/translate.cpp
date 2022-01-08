@@ -41,6 +41,9 @@ Translator::Translator()
     // Add constant variables
     insertVariable("BASE");
     insertVariable("STACK");
+    m_data.emplace_back("BASE" + decl + mips_instructions.at("word") + space + "1");
+    m_data.emplace_back("STACK" + decl + mips_instructions.at("word") + space + "1");
+
 
     // Oh no...
     m_text.emplace_back("li  $sp, 0x7fc00000");
@@ -438,6 +441,9 @@ void Translator::translate()
     // Add global temporals
     for(string temporal : m_graph->globals)
     {
+        if(data_statics.find(temporal) != data_statics.end())
+            continue;
+        
         insertVariable(temporal);
         string temp_type = m_graph->temps_size[temporal] == 1 ? "byte" : "word";
         m_data.emplace_back(temporal + decl + mips_instructions.at(temp_type) + space + "1");
@@ -878,10 +884,6 @@ void Translator::translateOperationInstruction(T_Instruction instruction, bool i
         if(instruction.operands[0].is_acc)
         {
             string load_result = instruction.id.back() == 'b' ? "loadb" : "load";
-            string load_id = "load";
-
-            if(m_tags[instruction.operands[0].name] == 3 || m_tags[instruction.operands[0].name] == 4)
-                load_id = "loada";
 
             // Check if is a float
             if(instruction.result.name.front() == 'f' || instruction.result.name.front() == 'F')
@@ -890,7 +892,7 @@ void Translator::translateOperationInstruction(T_Instruction instruction, bool i
 
                 if(!is_number(instruction.operands[0].acc))
                 {
-                    m_text.emplace_back(mips_instructions.at("load") + space + "$v0" + sep + instruction.operands[0].acc);
+                    loadTemporal(instruction.operands[0].acc, "$v0", false);
                     m_text.emplace_back(mips_instructions.at("add") + space + "$v0" + sep + op_registers[1] + sep + "$v0");
                     m_text.emplace_back(mips_instructions.at("fload") + space + op_registers[0] + sep + "($v0)");
                 }
@@ -904,7 +906,7 @@ void Translator::translateOperationInstruction(T_Instruction instruction, bool i
             {
                 if(!is_number(instruction.operands[0].acc))
                 {
-                    m_text.emplace_back(mips_instructions.at(load_id) + space + op_registers[0] + sep + instruction.operands[0].acc);
+                    loadTemporal(instruction.operands[0].acc, op_registers[0], false);
                     m_text.emplace_back(mips_instructions.at("add") + space + op_registers[0] + sep + op_registers[0] + sep + op_registers[1]);
                     m_text.emplace_back(mips_instructions.at(load_result) + space + op_registers[0] + sep + "0(" + op_registers[0] + ")");
                 }
@@ -998,6 +1000,7 @@ void Translator::translateMetaIntruction(T_Instruction instruction)
     if(instruction.id == "@string")
     {
         insertVariable(instruction.result.name);
+        data_statics.emplace(instruction.result.name);
         m_data.emplace_back(".align 2");
         m_data.emplace_back(instruction.result.name + decl + mips_instructions.at(instruction.id) + space + instruction.operands[0].name);
         return;
@@ -1006,6 +1009,7 @@ void Translator::translateMetaIntruction(T_Instruction instruction)
     if(instruction.id == "@staticv")
     {
         insertVariable(instruction.result.name);
+        data_statics.emplace(instruction.result.name);
         m_data.emplace_back(instruction.result.name + decl + mips_instructions.at("word") + space + instruction.operands[0].name);
         return;
     }
