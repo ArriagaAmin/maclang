@@ -119,18 +119,14 @@ void Translator::storeTemporal(const string& id, const string& register_id, bool
     if(id.front() == 'f' || id.front() == 'F')
         store_id = "fstore";
 
-    // If static variable ignore
-    if(!is_static(id))
+    if(!is_global(id))
     {
-        if(!is_global(id))
-        {
-            m_text.emplace_back(mips_instructions.at("load") + space + "$v0" + sep + "BASE");    
-            m_text.emplace_back(mips_instructions.at(store_id) + space + register_id + sep + to_string(offset) + "($v0)");
-        }
-        else
-            m_text.emplace_back(mips_instructions.at(store_id) + space + register_id + sep + id);
+        m_text.emplace_back(mips_instructions.at("load") + space + "$v0" + sep + "BASE");    
+        m_text.emplace_back(mips_instructions.at(store_id) + space + register_id + sep + to_string(offset) + "($v0)");
     }
-
+    else
+        m_text.emplace_back(mips_instructions.at(store_id) + space + register_id + sep + id);
+    
     // Maintain descriptors
     availability(id, id, replace);
 }
@@ -318,7 +314,11 @@ string Translator::recycleRegister(T_Instruction instruction, unordered_map<stri
 
     for(auto element : spills_emit[best_reg])
     {
-        storeTemporal(element, best_reg);
+        // If static variable ignore
+        if(!is_static(element))
+            storeTemporal(element, best_reg, false);
+        else
+            availability(element, element);
     }
 
     getRegisterDescriptor(best_reg, descriptors).clear();
@@ -505,7 +505,10 @@ void Translator::translate()
             
             if ( find(var_descriptor.begin(), var_descriptor.end(), var_id) == var_descriptor.end() )
             {
-                storeTemporal(var_id, var_descriptor[0], true);
+                if(!is_static(var_id))
+                    storeTemporal(var_id, var_descriptor[0], true);
+                else
+                    availability(var_id, var_id, true);
             }
         }
 
@@ -587,7 +590,10 @@ void Translator::translateInstruction(T_Instruction instruction)
             if(is_number(currentVar))
                 continue;
 
-            storeTemporal(currentVar, "$a0");
+            if(!is_static(currentVar))
+                storeTemporal(currentVar, "$a0");
+            else
+                availability(currentVar, currentVar);
         }
 
         regDescriptor.clear();
@@ -619,7 +625,10 @@ void Translator::translateInstruction(T_Instruction instruction)
             if(is_number(currentVar))
                 continue;
             
-            storeTemporal(currentVar, "$v1");
+            if(!is_static(currentVar))
+                storeTemporal(currentVar, "$v1");
+            else
+                availability(currentVar, currentVar);
         }
 
         regDescriptor.clear();
@@ -675,7 +684,10 @@ void Translator::translateInstruction(T_Instruction instruction)
             if(is_number(currentVar))
                 continue;
             
-            storeTemporal(currentVar, "$a0");
+            if(!is_static(currentVar))
+                storeTemporal(currentVar, "$a0");
+            else
+                availability(currentVar, currentVar);
         }
 
         regDescriptor.clear();
@@ -772,7 +784,11 @@ void Translator::translateInstruction(T_Instruction instruction)
             
             if ( find(var_descriptor.begin(), var_descriptor.end(), var_id) == var_descriptor.end() )
             {
-                storeTemporal(var_id, var_descriptor[0], true);
+                if(!is_static(var_id))
+                    storeTemporal(var_id, var_descriptor[0], true);
+                else
+                    availability(var_id, var_id);
+                
                 removeElementFromDescriptors(m_registers, var_id, "");
             }
         }
@@ -1032,8 +1048,10 @@ void Translator::translateIOIntruction(T_Instruction instruction)
             {
                 if(is_number(currentVar))
                     continue;
-
-                storeTemporal(currentVar, arg_register);
+                if(!is_static(currentVar))
+                    storeTemporal(currentVar, arg_register);
+                else
+                    availability(currentVar, currentVar);
             }
             reg_descriptor.clear();
             removeElementFromDescriptors(m_variables, arg_register, "");
@@ -1059,7 +1077,10 @@ void Translator::translateIOIntruction(T_Instruction instruction)
                 if(is_number(currentVar))
                     continue;
                 
-                storeTemporal(currentVar, arg_register);
+                if(!is_static(currentVar))
+                    storeTemporal(currentVar, arg_register);
+                else
+                    availability(currentVar, currentVar);
             }
             regDescriptor.clear();
             removeElementFromDescriptors(m_variables, arg_register, "");
@@ -1095,7 +1116,10 @@ void Translator::translateIOIntruction(T_Instruction instruction)
                 if(is_number(currentVar))
                     continue;
                 
-                storeTemporal(currentVar, "f12");
+                if(!is_static(currentVar))
+                    storeTemporal(currentVar, "f12");
+                else
+                    availability(currentVar, currentVar);
             }
             regDescriptor.clear();
             removeElementFromDescriptors(m_variables, "$f12", "");
@@ -1118,7 +1142,10 @@ void Translator::translateIOIntruction(T_Instruction instruction)
                 if(is_number(currentVar))
                     continue;
                 
-                storeTemporal(currentVar, addr_register);
+                if(!is_static(currentVar))
+                    storeTemporal(currentVar, addr_register);
+                else
+                    availability(currentVar, currentVar);
             }
             regDescriptor.clear();
             removeElementFromDescriptors(m_variables, addr_register, "");
@@ -1130,7 +1157,10 @@ void Translator::translateIOIntruction(T_Instruction instruction)
                 if(is_number(currentVar))
                     continue;
                 
-                storeTemporal(currentVar, size_register);
+                if(!is_static(currentVar))
+                    storeTemporal(currentVar, size_register);
+                else
+                    availability(currentVar, currentVar);
             }
             regDescriptor.clear();
             removeElementFromDescriptors(m_variables, size_register, "");
