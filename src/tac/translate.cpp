@@ -737,23 +737,15 @@ void Translator::translateInstruction(T_Instruction instruction)
         if(instruction.result.name.front() == 'f' || instruction.result.name.front() == 'F')
             curr_desc = &m_float_registers;
 
-        // If the element is not on the register load it
-        vector<string> reg_descriptor = getRegisterDescriptor(reg[0], *curr_desc);
-        if ( find(reg_descriptor.begin(), reg_descriptor.end(), instruction.result.name) == reg_descriptor.end() )
-        {
-            if (is_global(instruction.result.name))
-                m_text.emplace_back(mips_instructions.at("loada") + space + reg[0] + sep + instruction.result.name);
-            else 
-                loadTemporal(instruction.result.name, reg[0]);
-        }
-
         // Save where the parameter is going to be
         int jump_size = stoi(instruction.operands[0].name) + 12;
-        m_text.emplace_back(mips_instructions.at("loada") + space + "$v0" + sep + to_string(jump_size) +"($sp)");
-
-        m_text.emplace_back(mips_instructions.at("store") + space + "$v0" + sep + "0(" + reg[0] + ")");
-
+        m_text.emplace_back(mips_instructions.at("loada") + space + reg[0] + sep + to_string(jump_size) +"($sp)");
         m_text.emplace_back("# =====================");
+
+        // Maintain descriptors
+        assignment(reg[0], instruction.result.name, *curr_desc);
+        availability(instruction.result.name, reg[0], true);
+
 
         return;
     }
