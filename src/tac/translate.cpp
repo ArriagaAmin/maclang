@@ -81,19 +81,20 @@ void Translator::loadTemporal(const string& id, const string& register_id, bool 
     string load_id = size == 1 ? "loadb" : "load";
     string location = id;
 
-    // Calculate position to store in the stack or load immediate
+    // Check if is a float
+    if(id.front() == 'f' || id.front() == 'F')
+    {
+        descriptors = &m_float_registers;
+        load_id = "fload";
+    }
+
+    // Calculate position to store in the stack, load immediate or load the address
     if(is_number(id))
         load_id = "loadi";
     else if(is_static(id))
         load_id = "loada";
-    else if(id.front() == 'f' || id.front() == 'F')
-    {
-        descriptors = &m_float_registers;
-        load_id = "fload";
-        m_text.emplace_back(mips_instructions.at("load") + space + "$v0" + sep + "BASE");
-        location = to_string(offset) + "($v0)";
-    }
-    else
+
+    if(!is_global(id))
     {
         m_text.emplace_back(mips_instructions.at("load") + space + "$v0" + sep + "BASE");
         location = to_string(offset) + "($v0)";
@@ -122,8 +123,13 @@ void Translator::storeTemporal(const string& id, const string& register_id, bool
     // If static variable ignore
     if(!is_static(id))
     {
-        m_text.emplace_back(mips_instructions.at("load") + space + "$v0" + sep + "BASE");    
-        m_text.emplace_back(mips_instructions.at(store_id) + space + register_id + sep + to_string(offset) + "($v0)");
+        if(is_global(id))
+        {
+            m_text.emplace_back(mips_instructions.at("load") + space + "$v0" + sep + "BASE");    
+            m_text.emplace_back(mips_instructions.at(store_id) + space + register_id + sep + to_string(offset) + "($v0)");
+        }
+        else
+            m_text.emplace_back(mips_instructions.at(store_id) + space + register_id + sep + id);
     }
 
     // Maintain descriptors
@@ -1173,6 +1179,14 @@ bool Translator::is_number(const string& str)
 }
 
 bool Translator::is_static(const string& id)
+{
+    if(data_statics.find(id) != data_statics.end())
+        return true;
+    
+    return false;
+}
+
+bool Translator::is_global(const string& id)
 {
     if(m_graph->globals.find(id) != m_graph->globals.end())
         return true;

@@ -157,6 +157,8 @@ private:
     void storeTemporal(const string& id, const string& register_id, bool replace = false);
     bool is_number(const string& str);
     bool is_static(const string& id);
+    bool is_global(const string& id);
+
 
 public:
     Translator();
