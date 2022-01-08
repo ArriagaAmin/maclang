@@ -93,8 +93,7 @@ void Translator::loadTemporal(const string& id, const string& register_id, bool 
         load_id = "loadi";
     else if(is_static(id))
         load_id = "loada";
-
-    if(!is_global(id))
+    else if(!is_global(id))
     {
         m_text.emplace_back(mips_instructions.at("load") + space + "$v0" + sep + "BASE");
         location = to_string(offset) + "($v0)";
