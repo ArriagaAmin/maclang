@@ -34,7 +34,7 @@ Translator::Translator()
     
     while (i < 32)
     {   
-        insertRegister("$f" + to_string(i), m_registers);
+        insertRegister("$f" + to_string(i), m_float_registers);
         i++;
     }
 
@@ -746,6 +746,7 @@ void Translator::translateInstruction(T_Instruction instruction)
         // Create the variable where the return value is going to be store
         insertVariable(instruction.result.name);
 
+        // Save all the temporals that were used
         for(auto current_variable : m_variables)
         {
             string var_id = current_variable.first;
@@ -754,6 +755,7 @@ void Translator::translateInstruction(T_Instruction instruction)
             if ( find(var_descriptor.begin(), var_descriptor.end(), var_id) == var_descriptor.end() )
             {
                 storeTemporal(var_id, var_descriptor[0], true);
+                removeElementFromDescriptors(m_registers, var_id, "");
             }
         }
 
