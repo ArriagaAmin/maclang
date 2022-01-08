@@ -495,9 +495,20 @@ void Translator::translate()
             translateInstruction(current_inst);
         }
 
-        vector<string> aliveVars;
+        string lastInstr = "";
+            
+        // If the last instruction is a jump, update before jumping
+        string lastInstrId = currentNode->block.back().id;
+        if(lastInstrId == "goto" || lastInstrId== "goif" ||
+            lastInstrId == "goifnot" || lastInstrId == "call" ||
+            lastInstrId== "return")
+        {
+            lastInstr = m_text.back();
+            m_text.pop_back();
+        }
 
         // At the end of every basic block, update the temporals
+        m_text.emplace_back("# ===== Updating temporals =====");
         for(auto current_variable : m_variables)
         {
             string var_id = current_variable.first;
@@ -508,34 +519,11 @@ void Translator::translate()
                 storeTemporal(var_id, var_descriptor[0], true);
             }
         }
+        m_text.emplace_back("# ==============================");
 
-        if(aliveVars.size() > 0)
+        if(!lastInstr.empty())
         {
-            string lastInstr = "";
-            
-            // If the last instruction is a jump, update before jumping
-            string lastInstrId = currentNode->block.back().id;
-            if(lastInstrId == "goto" || lastInstrId== "goif" ||
-                lastInstrId == "goifnot" || lastInstrId == "call" ||
-                lastInstrId== "return")
-            {
-                lastInstr = m_text.back();
-                m_text.pop_back();
-            }
-
-            m_text.emplace_back("# ===== Updating temporals =====");
-
-            for(string line : aliveVars)
-            {
-                m_text.push_back(line);
-            }
-            
-            m_text.emplace_back("# ==============================");
-
-            if(!lastInstr.empty())
-            {
-                m_text.push_back(lastInstr);
-            }
+            m_text.push_back(lastInstr);
         }
 
         // Clean the registers of values
