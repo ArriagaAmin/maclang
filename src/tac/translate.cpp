@@ -76,7 +76,7 @@ bool Translator::insertVariable(const string& id)
     return true;
 }
 
-void Translator::loadTemporal(const string& id, const string& register_id)
+void Translator::loadTemporal(const string& id, const string& register_id, bool maintain_descriptor)
 {
     // Temporal information
     uint64_t size = m_graph->temps_size[id];
@@ -102,6 +102,9 @@ void Translator::loadTemporal(const string& id, const string& register_id)
     }
     
     m_text.emplace_back(mips_instructions.at(load_id) + space + register_id + sep + location);
+
+    if(!maintain_descriptor)
+        return;
 
     // Maintain descriptors
     assignment(register_id, id, *descriptors, true);
@@ -136,17 +139,18 @@ void Translator::insertFlowGraph(FlowGraph* graph)
 
 void Translator::print()
 {
-    cout << ".text" << endl;
+    cout << ".data" << endl;
+    for(string inst : m_data)
+    {
+        cout << inst << endl;
+    }
+
+    cout << "\n.text" << endl;
     for(string inst : m_text)
     {
         cout << inst << endl;
     }
 
-    cout << "\n.data" << endl;
-    for(string inst : m_data)
-    {
-        cout << inst << endl;
-    }
 }
 
 bool Translator::insertElementToDescriptor(unordered_map<string, vector<string>> &descriptors, 
@@ -251,7 +255,7 @@ string Translator::recycleRegister(T_Instruction instruction, unordered_map<stri
 
     // Counter of spills
     map<string, int> spills;
-    unordered_map<string, vector<pair<string, string>>> spills_emit;
+    unordered_map<string, vector<string>> spills_emit;
     
     for (pair<string, vector<string>> current_register : descriptors) 
     {
@@ -292,13 +296,7 @@ string Translator::recycleRegister(T_Instruction instruction, unordered_map<stri
             // Check that the current element doesn't have later uses
 
             // If the register is still not safe, spill
-            string store_id = m_tags[element] == 1 ? "storeb" : "store";
-
-            if(m_tags[element] == 2)
-                store_id = "fstore";
-
-            // Add emit for the possible spill
-            spills_emit[current_register.first].push_back(make_pair(store_id, element));
+            spills_emit[current_register.first].push_back(element);
             
             current_spills += 1;
         }
@@ -315,17 +313,9 @@ string Translator::recycleRegister(T_Instruction instruction, unordered_map<stri
             best_reg = spill.first;
     }
 
-    for(auto reg_info : spills_emit[best_reg])
+    for(auto element : spills_emit[best_reg])
     {
-        string store_id = reg_info.first;
-        string element = reg_info.second;
-
-        // If static variable ignore
-        if(m_tags[element] != 3 || m_tags[element] != 4)
-            m_text.emplace_back(mips_instructions.at(store_id) + space + best_reg + sep + element);
-
-        // Maintain the descriptors
-        availability(element, element);
+        storeTemporal(element, best_reg);
     }
 
     getRegisterDescriptor(best_reg, descriptors).clear();
@@ -551,9 +541,7 @@ void Translator::translateInstruction(T_Instruction instruction)
     // Finish the program
     if(instruction.id == "exit")
     {
-        string load_id = is_number(instruction.result.name) ? "loadi" : "load";
-
-        m_text.emplace_back(mips_instructions.at(load_id) + space + "$a0" + sep + instruction.result.name);
+        loadTemporal(instruction.result.name, "$a0");
         m_text.emplace_back(mips_instructions.at(instruction.id));
         return;
     }
@@ -571,13 +559,10 @@ void Translator::translateInstruction(T_Instruction instruction)
         insertVariable(instruction.result.name);
         vector<string> op_registers = getReg(instruction);
 
-        string load_id = is_number(instruction.operands[0].name) ? "loadi" : "load";
-
         vector<string> reg_descriptor = getRegisterDescriptor(op_registers[1], m_registers);
         if ( find(reg_descriptor.begin(), reg_descriptor.end(), instruction.operands[0].name) == reg_descriptor.end() )
         {
-            string best_location = findOptimalLocation(instruction.operands[0].name);
-            m_text.emplace_back(mips_instructions.at(load_id) + space + op_registers[1] + sep + best_location);
+            loadTemporal(instruction.operands[0].name, op_registers[1]);
         }
 
         // The size of the memory needed to be allocated should be in $a0
@@ -587,12 +572,8 @@ void Translator::translateInstruction(T_Instruction instruction)
         {
             if(is_number(currentVar))
                 continue;
-            
-            // If static variable ignore
-            if(m_tags[currentVar] != 3 && m_tags[currentVar] != 4)
-                m_text.emplace_back(mips_instructions.at("store") + space + "$a0" + sep + currentVar);
-            
-            availability(currentVar, currentVar);
+
+            storeTemporal(currentVar, "$a0");
         }
 
         regDescriptor.clear();
@@ -624,11 +605,7 @@ void Translator::translateInstruction(T_Instruction instruction)
             if(is_number(currentVar))
                 continue;
             
-            // If static variable ignore
-            if(m_tags[currentVar] != 3 && m_tags[currentVar] != 4)
-                m_text.emplace_back(mips_instructions.at("store") + space + "$v1" + sep + currentVar);
-            
-            availability(currentVar, currentVar);
+            storeTemporal(currentVar, "$v1");
         }
 
         regDescriptor.clear();
@@ -638,22 +615,15 @@ void Translator::translateInstruction(T_Instruction instruction)
         vector<string> reg_descriptor = getRegisterDescriptor(op_registers[0], m_registers);
         if ( find(reg_descriptor.begin(), reg_descriptor.end(), instruction.result.name) == reg_descriptor.end() )
         {
-            string best_location = findOptimalLocation(instruction.result.name);
-            m_text.emplace_back(mips_instructions.at("load") + space + op_registers[0] + sep + best_location);
+            loadTemporal(instruction.result.name, op_registers[0]);
         }
 
         for(size_t i = 1; i < op_registers.size(); i++)
         {
-            string load_id = "load";
             vector<string> reg_descriptor = getRegisterDescriptor(op_registers[i], m_registers);
             if ( find(reg_descriptor.begin(), reg_descriptor.end(), instruction.operands[i-1].name) == reg_descriptor.end() )
             {
-                string best_location = findOptimalLocation(instruction.operands[i-1].name);
-
-                if(is_number(best_location))
-                    load_id = "loadi";
-
-                m_text.emplace_back(mips_instructions.at(load_id) + space + op_registers[i] + sep + best_location);
+                loadTemporal(instruction.operands[i-1].name, op_registers[i]);
             }
         }
 
@@ -691,11 +661,7 @@ void Translator::translateInstruction(T_Instruction instruction)
             if(is_number(currentVar))
                 continue;
             
-            // If static variable ignore
-            if(m_tags[currentVar] != 3 && m_tags[currentVar] != 4)
-                m_text.emplace_back(mips_instructions.at("store") + space + "$a0" + sep + currentVar);
-            
-            availability(currentVar, currentVar);
+            storeTemporal(currentVar, "$a0");
         }
 
         regDescriptor.clear();
@@ -725,23 +691,13 @@ void Translator::translateInstruction(T_Instruction instruction)
             vector<string> reg = getReg(instruction);
             unordered_map<string, vector<string>>* curr_desc = &m_registers;
 
-            string load_id = m_tags[instruction.operands[0].name] == 1 ? "loadb" : "load";
-
             if(instruction.operands[0].name.front() == 'f' || instruction.operands[0].name.front() == 'F')
-            {
                 curr_desc = &m_float_registers;
-                load_id = "fload";
-            }
 
             vector<string> reg_descriptor = getRegisterDescriptor(reg[0], *curr_desc);
             if ( find(reg_descriptor.begin(), reg_descriptor.end(), instruction.operands[0].name) == reg_descriptor.end() )
             {
-                string best_location = findOptimalLocation(instruction.operands[0].name);
-
-                if(is_number(best_location))
-                    load_id = "loadi";
-
-                m_text.emplace_back(mips_instructions.at(load_id) + space + reg[0] + sep + best_location);
+                loadTemporal(instruction.operands[0].name, reg[0]);
             }
 
             m_text.emplace_back(mips_instructions.at(instruction.id) + space + reg[0] + sep + instruction.result.name);
@@ -762,27 +718,21 @@ void Translator::translateInstruction(T_Instruction instruction)
 
         // References
         unordered_map<string, vector<string>>* curr_desc = &m_registers;
-        string load_id = "loada";
 
         // If the operand is a float change the references
         if(instruction.result.name.front() == 'f' || instruction.result.name.front() == 'F')
-        {
             curr_desc = &m_float_registers;
-            load_id = "fload";
-        }
 
         // If the element is not on the register load it
         vector<string> reg_descriptor = getRegisterDescriptor(reg[0], *curr_desc);
         if ( find(reg_descriptor.begin(), reg_descriptor.end(), instruction.result.name) == reg_descriptor.end() )
         {
-            string best_location = findOptimalLocation(instruction.result.name);
-
-            m_text.emplace_back(mips_instructions.at(load_id) + space + reg[0] + sep + best_location);
+            loadTemporal(instruction.result.name, reg[0]);
         }
 
         // Save where the parameter is going to be
         int jump_size = stoi(instruction.operands[0].name) + 12;
-        m_text.emplace_back(mips_instructions.at(load_id) + space + "$v0" + sep + to_string(jump_size) +"($sp)");
+        m_text.emplace_back(mips_instructions.at("loada") + space + "$v0" + sep + to_string(jump_size) +"($sp)");
 
         m_text.emplace_back(mips_instructions.at("store") + space + "$v0" + sep + "0(" + reg[0] + ")");
 
@@ -796,12 +746,23 @@ void Translator::translateInstruction(T_Instruction instruction)
         // Create the variable where the return value is going to be store
         insertVariable(instruction.result.name);
 
+        for(auto current_variable : m_variables)
+        {
+            string var_id = current_variable.first;
+            vector<string> var_descriptor = current_variable.second;
+            
+            if ( find(var_descriptor.begin(), var_descriptor.end(), var_id) == var_descriptor.end() )
+            {
+                storeTemporal(var_id, var_descriptor[0], true);
+            }
+        }
+
         // Jump to the function
         m_text.emplace_back(mips_instructions.at(instruction.id) + space + instruction.operands[0].name);
 
         // Save return value
         m_text.emplace_back(mips_instructions.at("load") + space + "$v0" + sep + "4($sp)");
-        m_text.emplace_back(mips_instructions.at("store") + space + "$v0" + sep + instruction.result.name);
+        storeTemporal(instruction.result.name, "$v0");
 
         return;
     }
@@ -813,27 +774,20 @@ void Translator::translateInstruction(T_Instruction instruction)
 
         // References
         unordered_map<string, vector<string>>* curr_desc = &m_registers;
-        string load_id = m_tags[instruction.result.name] == 1 ? "loadb" : "load";
-        string store_id = m_tags[instruction.result.name] == 1 ? "storeb" : "store";
+        string store_id = m_graph->temps_size[instruction.result.name] == 1 ? "storeb" : "store";
 
         // If the operand is a float change the references
         if(instruction.result.name.front() == 'f' || instruction.result.name.front() == 'F')
         {
             curr_desc = &m_float_registers;
-            load_id = "fload";
             store_id = "fstore";
         }
 
         // If the element is not on the register load it
         vector<string> reg_descriptor = getRegisterDescriptor(reg[0], *curr_desc);
         if ( find(reg_descriptor.begin(), reg_descriptor.end(), instruction.result.name) == reg_descriptor.end() )
-        {
-            string best_location = findOptimalLocation(instruction.result.name);
-
-            if(is_number(instruction.result.name))
-                load_id = "loadi";
-
-            m_text.emplace_back(mips_instructions.at(load_id) + space + reg[0] + sep + best_location);
+        {            
+            loadTemporal(instruction.result.name, reg[0]);
         }
 
         m_text.emplace_back("# ===== Epilogue =====");
@@ -958,10 +912,6 @@ void Translator::translateOperationInstruction(T_Instruction instruction, bool i
         else if(instruction.result.is_acc)
         {
             string store_id = instruction.id.back() == 'b' ? "storeb" : "store";
-            string load_id =  "load";
-
-            if(m_tags[instruction.result.name] == 3 || m_tags[instruction.result.name] == 4)
-                load_id = "loada";
 
             // Check if result register is a float
             if(instruction.result.name.front() == 'f' || instruction.result.name.front() == 'F')
@@ -974,8 +924,7 @@ void Translator::translateOperationInstruction(T_Instruction instruction, bool i
             vector<string> reg_descriptor = getRegisterDescriptor(op_registers[0], *regs_to_find);
             if ( find(reg_descriptor.begin(), reg_descriptor.end(), instruction.result.name) == reg_descriptor.end() )
             {
-                string best_location = findOptimalLocation(instruction.result.name);
-                m_text.emplace_back(mips_instructions.at(load_id) + space + op_registers[0] + sep + best_location);
+                loadTemporal(instruction.result.name, op_registers[0], false);
             }
 
             // Maintain descriptors
@@ -1047,8 +996,7 @@ void Translator::translateMetaIntruction(T_Instruction instruction)
     if(instruction.id == "@staticv")
     {
         insertVariable(instruction.result.name);
-        // TODO
-        m_data.emplace_back(instruction.result.name + decl + mips_instructions.at(instruction.id) + space + instruction.operands[0].name);
+        m_data.emplace_back(instruction.result.name + decl + mips_instructions.at("word") + space + instruction.operands[0].name);
         return;
     }
 }
@@ -1066,12 +1014,8 @@ void Translator::translateIOIntruction(T_Instruction instruction)
             {
                 if(is_number(currentVar))
                     continue;
-                
-                // If static variable ignore
-                if(m_tags[currentVar] != 3 && m_tags[currentVar] != 4)
-                    m_text.emplace_back(mips_instructions.at("store") + space + arg_register + sep + currentVar);
 
-                availability(currentVar, currentVar);
+                storeTemporal(currentVar, arg_register);
             }
             reg_descriptor.clear();
             removeElementFromDescriptors(m_variables, arg_register, "");
@@ -1080,13 +1024,9 @@ void Translator::translateIOIntruction(T_Instruction instruction)
 
             // Move the element to $a0
             if(!curr_reg.empty())
-            {
                 m_text.emplace_back(mips_instructions.at("assign") + space + arg_register + sep + curr_reg);
-            }
             else
-            {
-                m_text.emplace_back(mips_instructions.at("load") + space + arg_register + sep + instruction.result.name);
-            }
+                loadTemporal(instruction.result.name, arg_register);
             
             // Load the correct syscall
             m_text.emplace_back(mips_instructions.at(instruction.id));
@@ -1101,17 +1041,13 @@ void Translator::translateIOIntruction(T_Instruction instruction)
                 if(is_number(currentVar))
                     continue;
                 
-                // If static variable ignore
-                if(m_tags[currentVar] != 3 && m_tags[currentVar] != 4)
-                    m_text.emplace_back(mips_instructions.at("store") + space + arg_register + sep + currentVar);
-
-                availability(currentVar, currentVar);
+                storeTemporal(currentVar, arg_register);
             }
             regDescriptor.clear();
             removeElementFromDescriptors(m_variables, arg_register, "");
 
-            // Move the element to $a0
-            m_text.emplace_back(mips_instructions.at("fload") + space + arg_register + sep + instruction.result.name);
+            // Move the element to $f12
+            loadTemporal(instruction.result.name, arg_register);
             // Load the correct syscall
             m_text.emplace_back(mips_instructions.at(instruction.id));
         }
@@ -1127,7 +1063,7 @@ void Translator::translateIOIntruction(T_Instruction instruction)
             m_text.emplace_back(mips_instructions.at(instruction.id));
 
             // Store read value
-            m_text.emplace_back(mips_instructions.at("store") + space + "$v0" + sep + instruction.result.name);
+            storeTemporal(instruction.result.name, "$v0");
         }
         else if(instruction.id.back() == 'f')
         {
@@ -1141,11 +1077,7 @@ void Translator::translateIOIntruction(T_Instruction instruction)
                 if(is_number(currentVar))
                     continue;
                 
-                // If static variable ignore
-                if(m_tags[currentVar] != 3 && m_tags[currentVar] != 4)
-                    m_text.emplace_back(mips_instructions.at("store") + space + "$f12" + sep + currentVar);
-                
-                availability(currentVar, currentVar);
+                storeTemporal(currentVar, "f12");
             }
             regDescriptor.clear();
             removeElementFromDescriptors(m_variables, "$f12", "");
@@ -1154,7 +1086,7 @@ void Translator::translateIOIntruction(T_Instruction instruction)
             m_text.emplace_back(mips_instructions.at(instruction.id));
 
             // Store read value
-            m_text.emplace_back(mips_instructions.at("store") + space + "$f12" + sep + instruction.result.name);
+            storeTemporal(instruction.result.name, "$f12");
         }
         else
         {
@@ -1168,11 +1100,7 @@ void Translator::translateIOIntruction(T_Instruction instruction)
                 if(is_number(currentVar))
                     continue;
                 
-                // If static variable ignore
-                if(m_tags[currentVar] != 3 && m_tags[currentVar] != 4)
-                    m_text.emplace_back(mips_instructions.at("store") + space + addr_register + sep + currentVar);
-
-                availability(currentVar, currentVar);
+                storeTemporal(currentVar, addr_register);
             }
             regDescriptor.clear();
             removeElementFromDescriptors(m_variables, addr_register, "");
@@ -1184,17 +1112,21 @@ void Translator::translateIOIntruction(T_Instruction instruction)
                 if(is_number(currentVar))
                     continue;
                 
-                // If static variable ignore
-                if(m_tags[currentVar] != 3 && m_tags[currentVar] != 4)
-                    m_text.emplace_back(mips_instructions.at("store") + space + size_register + sep + currentVar);
-
-                availability(currentVar, currentVar);
+                storeTemporal(currentVar, size_register);
             }
             regDescriptor.clear();
             removeElementFromDescriptors(m_variables, size_register, "");
 
             // Move buffer to $a0
-            m_text.emplace_back(mips_instructions.at("assign") + space + addr_register + sep + instruction.result.name);
+            vector<string> regs = getReg(instruction);
+
+            vector<string> reg_descriptor = getRegisterDescriptor(regs[0], m_registers);
+            if ( find(reg_descriptor.begin(), reg_descriptor.end(), instruction.result.name) == reg_descriptor.end() )
+            {
+                loadTemporal(instruction.result.name, regs[0]);
+            }
+
+            m_text.emplace_back(mips_instructions.at("assign") + space + addr_register + sep + regs[0]);
             // Add size of what is going to be read
             m_text.emplace_back(mips_instructions.at("loadi") + space + size_register + sep + "99999");
 

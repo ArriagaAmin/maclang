@@ -152,7 +152,7 @@ private:
     vector<string> getVariableDescriptor(const string& id);
 
     // Utilities
-    void loadTemporal(const string& id, const string& register_id);
+    void loadTemporal(const string& id, const string& register_id, bool maintain_descriptor = true);
     void storeTemporal(const string& id, const string& register_id, bool replace = false);
     bool is_number(const string& str);
     bool is_static(const string& id);
