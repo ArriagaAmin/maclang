@@ -435,6 +435,14 @@ void Translator::translate()
         translateInstruction(*currentInstr);
     }
 
+    // Add global temporals
+    for(string temporal : m_graph->globals)
+    {
+        insertVariable(temporal);
+        string temp_type = m_graph->temps_size[temporal] == 1 ? "byte" : "word";
+        m_data.emplace_back(temporal + decl + mips_instructions.at(temp_type) + space + "1");
+    }
+
     vector<FlowNode*> nodes = m_graph->getOrderedBlocks();
 
     // Then tranlate the code
