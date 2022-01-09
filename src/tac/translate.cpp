@@ -93,6 +93,13 @@ void Translator::loadTemporal(const string& id, const string& register_id, bool 
         load_id = "loadi";
     else if(is_static(id))
         load_id = "loada";
+    else if(id.front() == 'f' || id.front() == 'F')
+    {
+        descriptors = &m_float_registers;
+        load_id = "fload";
+        m_text.emplace_back(mips_instructions.at("load") + space + "$v0" + sep + "BASE");
+        location = to_string(offset) + "($v0)";
+    }
     else if(!is_global(id))
     {
         m_text.emplace_back(mips_instructions.at("load") + space + register_id + sep + "BASE");
@@ -1077,11 +1084,15 @@ void Translator::translateIOIntruction(T_Instruction instruction)
             // Create temporal where is going to be stored
             insertVariable(instruction.result.name);
 
+            // Get register
+            vector<string> regs = getReg(instruction);
+
             // Load correct syscall
             m_text.emplace_back(mips_instructions.at(instruction.id));
 
             // Store read value
-            storeTemporal(instruction.result.name, "$v0");
+            m_text.emplace_back(mips_instructions.at("assign") + space + regs[0] + sep + "$v0");
+            storeTemporal(instruction.result.name, regs[0], true);
         }
         else if(instruction.id.back() == 'f')
         {
