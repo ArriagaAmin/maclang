@@ -530,12 +530,12 @@ void Translator::translate()
                     m_text.emplace_back("# ===== Updating temporals =====");
                 }
                 
-                //cout << var_id << endl;
                 if(!is_static(var_id))
                     storeTemporal(var_id, var_descriptor[0], true);
-                else
-                    availability(var_id, var_id, true);
             }
+            
+            m_variables[var_id].clear();
+            m_variables[var_id].push_back(var_id);
         }
 
         if(aliveVars)
@@ -1024,6 +1024,9 @@ void Translator::translateOperationInstruction(T_Instruction instruction, bool i
     availability(instruction.result.name, op_registers[0], true);
     removeElementFromDescriptors(m_variables, op_registers[0], instruction.result.name);
     removeElementFromDescriptors(*regs_to_find, instruction.result.name, op_registers[0]);
+
+    // cout << "== " << instruction.id << " " << instruction.result.name << endl;
+    // printVariablesDescriptors();
 }
 
 void Translator::translateMetaIntruction(T_Instruction instruction)
@@ -1203,7 +1206,7 @@ void Translator::printVariablesDescriptors()
 {
     for(auto var_data : m_variables)
     {
-        cout << var_data.first << " => [" << endl;
+        cout << var_data.first << " => [";
         for(auto element : var_data.second)
         {
             cout << element << " ";
