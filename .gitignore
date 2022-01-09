@@ -5,6 +5,7 @@
 *.tab.c
 mac2tac
 tac2mips
+tac-runner
 
 # flex
 *.yy.c
