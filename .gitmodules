@@ -6,3 +6,7 @@
 	path = tools/translator
 	url = https://github.com/KevinMena/tac2mips
 	branch = main
+[submodule "tools/optimizer"]
+	path = tools/optimizer
+	url = https://github.com/CDPCode/optimips-prime
+	branch = main
