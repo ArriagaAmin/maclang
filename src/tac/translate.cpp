@@ -41,6 +41,8 @@ Translator::Translator()
     // Oh no...
     m_text.emplace_back("li  $sp, 0x7fc00000");
     m_text.emplace_back("li  $fp, 0x7fc00000");
+    m_text.emplace_back(mips_instructions.at("store") + space + "$sp" + sep + "STACK");
+
 }
 
 void Translator::insertInstruction(T_Instruction* instruction)
@@ -792,6 +794,9 @@ void Translator::translateInstruction(T_Instruction instruction)
             }
         }
 
+        // Take the value of the stack
+        m_text.emplace_back(mips_instructions.at("load") + space + "$sp" + sep + "STACK");
+
         // Jump to the function
         m_text.emplace_back(mips_instructions.at(instruction.id) + space + instruction.operands[0].name);
 
@@ -1024,9 +1029,6 @@ void Translator::translateOperationInstruction(T_Instruction instruction, bool i
     availability(instruction.result.name, op_registers[0], true);
     removeElementFromDescriptors(m_variables, op_registers[0], instruction.result.name);
     removeElementFromDescriptors(*regs_to_find, instruction.result.name, op_registers[0]);
-
-    // cout << "== " << instruction.id << " " << instruction.result.name << endl;
-    // printVariablesDescriptors();
 }
 
 void Translator::translateMetaIntruction(T_Instruction instruction)
