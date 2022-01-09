@@ -315,7 +315,6 @@
                 }
 
                 $$ = new NodeReturn($2);
-                tac->gen("assignw lastbase BASE");
                 tac->gen("return " + addr);
               }
             }
@@ -333,7 +332,6 @@
 
               else {
                 $$ = new NodeReturn();
-                tac->gen("assignw lastbase BASE");
                 tac->gen("return 0");
               }
             }
@@ -1796,7 +1794,7 @@
                                 refs.push_back({
                                   assign_type,
                                   $3->positionalArgs[i]->addr,
-                                  "lastbase[" + to_string(c_offset) + "]",
+                                  "STACK[" + to_string(12 + c_offset) + "]",
                                   type_str == "Float"
                                 });
                               }
@@ -1874,7 +1872,7 @@
                                 refs.push_back({
                                   assign_type,
                                   addr, 
-                                  "lastbase[" + to_string(c_offset) + "]",
+                                  "STACK[" + to_string(12 + c_offset) + "]",
                                   type_str == "Float"
                                 });
                               }
@@ -2935,7 +2933,6 @@
                 }
 
                 tac->gen("@label " + $2->addr + "_end");
-                tac->gen("assignw lastbase BASE");
                 tac->gen("return 0");
                 tac->gen("@endfunction " + func_size);
               }
@@ -3716,9 +3713,6 @@ void scope0(void) {
   ve = new VarEntry("NULL", 0, "Var", new PointerType(predefinedTypes["Unit"]), 0, "NULL");
   table->insert(ve);
   tac->gen("assignw " + ve->addr + " 0");
-
-  // Inicializando la variable lastbase
-  tac->gen("assignw lastbase 0");
 
   // New line
   ExpressionNode *nl = new NodeSTRING("\n");

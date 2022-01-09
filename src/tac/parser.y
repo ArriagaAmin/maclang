@@ -86,7 +86,7 @@
                 // Mejoramientos de codigo
                 fg->constantPropagation();
                 fg->deleteDeadVariables();
-                fg->lazyCodeMotion();
+                //fg->lazyCodeMotion();
                 //fg->invariantDetection();
 
                 fg->computeAllUseT();

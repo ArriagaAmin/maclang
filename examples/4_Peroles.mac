@@ -19,7 +19,7 @@ let Int N, i;
 let Char option;
 
 while True do 
-	print("Desea organizar los peroles? [Y\n] ");
+	print("Desea organizar los peroles? [Y/n] ");
 	option = readc();
 	if option == 'n' || option == 'N' then 
 		print("Hasta luego!");
