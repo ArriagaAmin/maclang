@@ -122,11 +122,11 @@ def holandSort(Perol[] @peroles, Int N) {
 	let Perol aux;
 
 	while m <= r do 
-		if peroles[m].tipo == 1 then 
+		if peroles[m].tipo < 2 then 
 			swapPeroles(peroles, m, l);
 			l = l + 1;
 			m = m + 1;
-		elsif peroles[m].tipo == 4 then 
+		elsif peroles[m].tipo > 2 then 
 			swapPeroles(peroles, m, r);
 			r = r - 1;
 		else 

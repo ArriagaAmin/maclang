@@ -953,7 +953,7 @@ void Translator::translateOperationInstruction(T_Instruction instruction, bool i
             availability(instruction.result.name, op_registers[0], true);
         }
         else if(instruction.result.is_acc)
-        {
+        {   
             string store_id = instruction.id.back() == 'b' ? "storeb" : "store";
             
             // Check if result register is a float
@@ -978,7 +978,7 @@ void Translator::translateOperationInstruction(T_Instruction instruction, bool i
 
             if(!is_number(instruction.result.acc))
             {
-                string acc_reg = findElementInDescriptors(m_registers, instruction.operands[0].acc);
+                string acc_reg = findElementInDescriptors(m_registers, instruction.result.acc);
                 if(acc_reg.empty())
                 {
                     loadTemporal(instruction.result.acc, "$v0", false);
@@ -1029,6 +1029,9 @@ void Translator::translateOperationInstruction(T_Instruction instruction, bool i
     availability(instruction.result.name, op_registers[0], true);
     removeElementFromDescriptors(m_variables, op_registers[0], instruction.result.name);
     removeElementFromDescriptors(*regs_to_find, instruction.result.name, op_registers[0]);
+
+    // cout << "***** " << instruction.id << " " << instruction.result.name << " " << instruction.operands[0].name << " *****" << endl;
+    // printVariablesDescriptors();
 }
 
 void Translator::translateMetaIntruction(T_Instruction instruction)
@@ -1206,7 +1209,7 @@ void Translator::translateIOIntruction(T_Instruction instruction)
 
 void Translator::printVariablesDescriptors()
 {
-    for(auto var_data : m_variables)
+    for(auto var_data : m_registers)
     {
         cout << var_data.first << " => [";
         for(auto element : var_data.second)
