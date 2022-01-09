@@ -515,7 +515,8 @@ void Translator::translate()
         }
 
         // At the end of every basic block, update the temporals
-        m_text.emplace_back("# ===== Updating temporals =====");
+        bool aliveVars = false;
+
         for(auto current_variable : m_variables)
         {
             string var_id = current_variable.first;
@@ -523,13 +524,21 @@ void Translator::translate()
             
             if ( find(var_descriptor.begin(), var_descriptor.end(), var_id) == var_descriptor.end() )
             {
+                if(!aliveVars)
+                {
+                    aliveVars = true;
+                    m_text.emplace_back("# ===== Updating temporals =====");
+                }
+
                 if(!is_static(var_id))
                     storeTemporal(var_id, var_descriptor[0], true);
                 else
                     availability(var_id, var_id, true);
             }
         }
-        m_text.emplace_back("# ==============================");
+
+        if(aliveVars)
+            m_text.emplace_back("# ==============================");
 
         if(!lastInstr.empty())
         {
@@ -762,6 +771,9 @@ void Translator::translateInstruction(T_Instruction instruction)
         // Create the variable where the return value is going to be store
         insertVariable(instruction.result.name);
 
+        // Get register
+        vector<string> regs = getReg(instruction);
+
         // Save all the temporals that were used
         for(auto current_variable : m_variables)
         {
@@ -783,8 +795,8 @@ void Translator::translateInstruction(T_Instruction instruction)
         m_text.emplace_back(mips_instructions.at(instruction.id) + space + instruction.operands[0].name);
 
         // Save return value
-        m_text.emplace_back(mips_instructions.at("load") + space + "$v0" + sep + "4($sp)");
-        storeTemporal(instruction.result.name, "$v0");
+        m_text.emplace_back(mips_instructions.at("load") + space + regs[0] + sep + "4($sp)");
+        storeTemporal(instruction.result.name, regs[0]);
 
         return;
     }
