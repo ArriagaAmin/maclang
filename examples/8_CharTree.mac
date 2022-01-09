@@ -132,7 +132,10 @@ def CharNode_print(^CharNode N, Int level) {
 	if CharNode_cmp(N, NIL) then
 		print("-");
 	else
-		print("(Key: %c - Count: %i)", ints=[^N.count], chars=[^N.key]);
+		let Int n = ^N.count;
+		let Char c = ^N.key;
+		print("", end="");
+		print("(Key: %c - Count: %i)", ints=[n], chars=[c]);
 		CharNode_print(^N.child[0], level+1);
 		CharNode_print(^N.child[1], level+1);
 	done
@@ -329,6 +332,7 @@ def CharTree_erase(^CharTree T, Char c) => Bool {
 	done
 
 	^T.root = CharTree_remove(^T.root, c);
+	return True;
 }
 
 def CharTree_print(^CharTree T) {
