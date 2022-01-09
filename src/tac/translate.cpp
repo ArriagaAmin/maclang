@@ -95,8 +95,8 @@ void Translator::loadTemporal(const string& id, const string& register_id, bool 
         load_id = "loada";
     else if(!is_global(id))
     {
-        m_text.emplace_back(mips_instructions.at("load") + space + "$v0" + sep + "BASE");
-        location = to_string(offset) + "($v0)";
+        m_text.emplace_back(mips_instructions.at("load") + space + register_id + sep + "BASE");
+        location = to_string(offset) + register_id;
     }
     
     m_text.emplace_back(mips_instructions.at(load_id) + space + register_id + sep + location);
