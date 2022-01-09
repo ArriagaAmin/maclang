@@ -4,7 +4,6 @@ union perolValue {
 	Bool b;
 	Char c;
 	Int i;
-	Char[100] s;
 }
 
 register Perol {
@@ -13,6 +12,7 @@ register Perol {
 }
 
 dec holandSort(Perol[] @peroles, Int N);
+dec printPerol(Perol @p);
 
 let Perol[20] peroles;
 let Int N, i, tipo;
@@ -35,19 +35,19 @@ while True do
 		continue;
 	done
 
+	let Bool b;
 	i = 0;
 	while i < N do 
 		print("Indique el tipo del perol: ");
 		print("1. Booleano");
 		print("2. Caracter");
 		print("3. Entero");
-		print("4. String");
 		tipo = readi();
 		peroles[i].tipo = tipo;
 
 		if tipo == 1 then 
 			print("El valor del perol es True? [Y/n] ");
-			option == readc();
+			option = readc();
 			peroles[i].val.b = option != 'n' && option != 'N';
 
 		elsif tipo == 2 then 
@@ -58,15 +58,12 @@ while True do
 			print("Indique el entero: ");
 			peroles[i].val.i = readi();
 
-		elsif tipo == 4 then 
-			print("Indique el string: ");
-			read(peroles[i].val.s);
-
 		else 
 			print("Tipo invalido");
 			continue;
 		done 
 
+		printPerol(peroles[i]);
 		i = i + 1;
 	done
 
@@ -86,17 +83,38 @@ while True do
 		elsif peroles[i].tipo == 3 then 
 			print("INT: %i", ints=[peroles[i].val.i]);
 
-		else 
-			print("STRING: %f", strings=[peroles[i].val.s]);
 		done 
 	done
 done
 
+def printPerol(Perol @p) {
+	if p.tipo == 1 then 
+		print("Perol con booleano: ", end="");
+		if p.val.b then print("True"); 
+		else print("False");
+		done
+
+	elsif p.tipo == 2 then 
+		print("Perol con caracter: %c", chars=[p.val.c]);
+
+	elsif p.tipo == 3 then 
+		print("Perol con entero: %i", ints=[p.val.i]);
+	done 
+}
+
 def swapPeroles(Perol[] @peroles, Int i, Int j) {
-	print("Swap %i %i", ints=[i, j]);
+	print("============= Swap %i %i ===============", ints=[i, j]);
+	printPerol(peroles[i]);
+	printPerol(peroles[j]);
+
 	let Perol aux = peroles[i];
+	print("afafafdaf");
 	peroles[i] = peroles[j];
 	peroles[j] = aux;
+	
+	printPerol(peroles[i]);
+	printPerol(peroles[j]);
+	print("========================================");
 }
 
 def holandSort(Perol[] @peroles, Int N) {
@@ -115,13 +133,4 @@ def holandSort(Perol[] @peroles, Int N) {
 			m = m + 1;
 		done
 	done 
-
-	while l <= r do 
-		if peroles[l].tipo == 2 then 
-			l = l + 1;
-		else
-			swapPeroles(peroles, l, r);
-			r = r - 1;
-		done
-	done
 }

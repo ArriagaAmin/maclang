@@ -67,6 +67,7 @@ void FlowNode::print(void) {
     else {
         cout << "@label " << name << "\n";
     }
+
     for (T_Instruction instr : this->block) {
         cout << "    " << instr.id << " " << instr.result.name << " ";
         if(instr.result.is_acc)
@@ -80,6 +81,10 @@ void FlowNode::print(void) {
         }
         cout << "\n";
     }
+
+    if (this->is_function) {
+        cout << "@endfunction " << to_string(this->function_size) << "\n";
+    } 
 }
 
 void FlowNode::prettyPrint(void) {
