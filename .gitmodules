@@ -1,6 +1,8 @@
 [submodule "tools/interpreter"]
 	path = tools/interpreter
 	url = https://github.com/LDiazN/tac-interpreter
+	branch = main
 [submodule "tools/translator"]
 	path = tools/translator
 	url = https://github.com/KevinMena/tac2mips
+	branch = main
