@@ -12,10 +12,10 @@ register Perol {
 	perolValue val;
 }
 
-dec holandSort(Perol[] peroles, Int N);
+dec holandSort(Perol[] @peroles, Int N);
 
 let Perol[20] peroles;
-let Int N, i;
+let Int N, i, tipo;
 let Char option;
 
 while True do 
@@ -28,6 +28,7 @@ while True do
 
 	print("Indique el numero de peroles a organizar: ");
 	N = readi();
+	print("%i", ints=[N]);
 
 	if N > 20 then 
 		print("No se pueden organizar mas de 20 peroles.");
@@ -41,30 +42,31 @@ while True do
 		print("2. Caracter");
 		print("3. Entero");
 		print("4. String");
-		N = readi();
-		peroles[i].tipo = N;
+		tipo = readi();
+		peroles[i].tipo = tipo;
 
-		if N == 1 then 
+		if tipo == 1 then 
 			print("El valor del perol es True? [Y/n] ");
 			option == readc();
 			peroles[i].val.b = option != 'n' && option != 'N';
 
-		elsif N == 2 then 
+		elsif tipo == 2 then 
 			print("Indique el caracter: ");
 			peroles[i].val.c = readc();
 
-		elsif N == 3 then 
+		elsif tipo == 3 then 
 			print("Indique el entero: ");
 			peroles[i].val.i = readi();
 
-		elsif N == 4 then 
+		elsif tipo == 4 then 
 			print("Indique el string: ");
 			read(peroles[i].val.s);
 
 		else 
 			print("Tipo invalido");
-			i = i - 1;
+			continue;
 		done 
+
 		i = i + 1;
 	done
 
@@ -74,8 +76,9 @@ while True do
 	for (i; 0; N) do 
 		if peroles[i].tipo == 1 then 
 			print("BOOL: ", end="");
-			if peroles[i].val.b then print("True"); done
-			print("False");
+			if peroles[i].val.b then print("True"); 
+			else print("False");
+			done
 
 		elsif peroles[i].tipo == 2 then 
 			print("CHAR: %c", chars=[peroles[i].val.c]);
@@ -89,35 +92,35 @@ while True do
 	done
 done
 
+def swapPeroles(Perol[] @peroles, Int i, Int j) {
+	print("Swap %i %i", ints=[i, j]);
+	let Perol aux = peroles[i];
+	peroles[i] = peroles[j];
+	peroles[j] = aux;
+}
 
-def holandSort(Perol[] peroles, Int N) {
+def holandSort(Perol[] @peroles, Int N) {
 	let Int l = 0, m = 0, r = N-1;
 	let Perol aux;
 
 	while m <= r do 
 		if peroles[m].tipo == 1 then 
-			aux = peroles[m];
-			peroles[m] = peroles[l];
-			peroles[l] = aux;
+			swapPeroles(peroles, m, l);
 			l = l + 1;
 			m = m + 1;
 		elsif peroles[m].tipo == 4 then 
-			aux = peroles[m];
-			peroles[m] = peroles[r];
-			peroles[r] = aux;
+			swapPeroles(peroles, m, r);
 			r = r - 1;
 		else 
 			m = m + 1;
 		done
-	done  
+	done 
 
 	while l <= r do 
 		if peroles[l].tipo == 2 then 
 			l = l + 1;
 		else
-			aux = peroles[l];
-			peroles[l] = peroles[r];
-			peroles[r] = aux;
+			swapPeroles(peroles, l, r);
 			r = r - 1;
 		done
 	done
