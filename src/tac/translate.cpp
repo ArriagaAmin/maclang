@@ -529,7 +529,8 @@ void Translator::translate()
                     aliveVars = true;
                     m_text.emplace_back("# ===== Updating temporals =====");
                 }
-
+                
+                //cout << var_id << endl;
                 if(!is_static(var_id))
                     storeTemporal(var_id, var_descriptor[0], true);
                 else
@@ -924,8 +925,15 @@ void Translator::translateOperationInstruction(T_Instruction instruction, bool i
             {
                 if(!is_number(instruction.operands[0].acc))
                 {
-                    loadTemporal(instruction.operands[0].acc, op_registers[0], false);
-                    m_text.emplace_back(mips_instructions.at("add") + space + op_registers[0] + sep + op_registers[0] + sep + op_registers[1]);
+                    string acc_reg = findElementInDescriptors(m_registers, instruction.operands[0].acc);
+                    if(acc_reg.empty())
+                    {
+                        loadTemporal(instruction.operands[0].acc, op_registers[0], false);
+                        acc_reg = op_registers[0];
+                    }
+
+                    m_text.emplace_back(mips_instructions.at("add") + space + op_registers[0] + sep + acc_reg + sep + op_registers[1]);
+
                     m_text.emplace_back(mips_instructions.at(load_result) + space + op_registers[0] + sep + "0(" + op_registers[0] + ")");
                 }
                 else
@@ -965,9 +973,13 @@ void Translator::translateOperationInstruction(T_Instruction instruction, bool i
 
             if(!is_number(instruction.result.acc))
             {
-                loadTemporal(instruction.result.acc, "$v0");
-                //m_text.emplace_back(mips_instructions.at("load") + space + "$v0" + sep + instruction.result.acc);
-                m_text.emplace_back(mips_instructions.at("add") + space + "$v0" + sep + op_registers[0] + sep + "$v0");
+                string acc_reg = findElementInDescriptors(m_registers, instruction.operands[0].acc);
+                if(acc_reg.empty())
+                {
+                    loadTemporal(instruction.result.acc, "$v0", false);
+                    acc_reg = "$v0";
+                }
+                m_text.emplace_back(mips_instructions.at("add") + space + "$v0" + sep + op_registers[0] + sep + acc_reg);
                 op = "0($v0)";
             }
 
