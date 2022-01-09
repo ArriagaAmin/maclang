@@ -965,7 +965,8 @@ void Translator::translateOperationInstruction(T_Instruction instruction, bool i
 
             if(!is_number(instruction.result.acc))
             {
-                m_text.emplace_back(mips_instructions.at("load") + space + "$v0" + sep + instruction.result.acc);
+                loadTemporal(instruction.result.acc, "$v0");
+                //m_text.emplace_back(mips_instructions.at("load") + space + "$v0" + sep + instruction.result.acc);
                 m_text.emplace_back(mips_instructions.at("add") + space + "$v0" + sep + op_registers[0] + sep + "$v0");
                 op = "0($v0)";
             }
