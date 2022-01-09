@@ -458,8 +458,9 @@ set<string> FlowGraph::computeUseT(uint64_t id) {
         }
 
         if (
-            byteInstr.count(instr.id) == 0 && instr.id != "goto" && 
-            instr.id != "goif" && instr.id != "goifnot"
+            instr.result.is_acc ||
+            (byteInstr.count(instr.id) == 0 && instr.id != "goto" && 
+            instr.id != "goif" && instr.id != "goifnot")
             ) {
             this->temps_size[instr.result.name] = 4;
         }

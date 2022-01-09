@@ -33,7 +33,7 @@ while True do
 				integers[i] = readi();
 			done 
 
-			quicksortInt(integers, 0, N);
+			quicksortInt(integers, 0, N-1);
 			print("%cEl arreglo ordenado de enteros es:%c[", chars=['\n', '\n'], end="");
 
 			for (i; 0; N-1) do 
@@ -42,11 +42,12 @@ while True do
 			print("%i]%c", ints=[integers[N-1]], chars=['\n']);
 
 		elsif option == 2 then  
+			let Char c;
 			for (i; 0; N) do 
 				chars[i] = readc();
 			done 
 
-			quicksortChar(chars, 0, N);
+			quicksortChar(chars, 0, N-1);
 			print("%cEl arreglo ordenado de caracteres es:%c[", chars=['\n', '\n'], end="");
 
 			for (i; 0; N-1) do 
@@ -64,13 +65,6 @@ while True do
 	done
 done
 
-def printArray(Int[] @A, Int i, Int j) {
-	for (k; i; j) do
-		print("%i->%i, ", ints=[k, A[k]], end="");
-	done
-	print("");
-}
-
 def swapInt(Int @a, Int @b) {
 	let Int t = a;
 	a = b;
@@ -79,8 +73,6 @@ def swapInt(Int @a, Int @b) {
 def quicksortInt(Int[] @A, Int m, Int n) {
 	let Int i, j, v, x;
 	if n <= m then return; done
-
-	printArray(A, m, n);
 
 	i = m-1; 
 	j = n; 
@@ -103,8 +95,6 @@ def quicksortInt(Int[] @A, Int m, Int n) {
 	swapInt(A[i], A[n]);
 
 	quicksortInt(A, m, j); quicksortInt(A, i+1, n);
-
-	printArray(A, m, n);
 }
 
 def swapChar(Char @a, Char @b) {
@@ -117,8 +107,8 @@ def quicksortChar(Char[] @A, Int m, Int n) {
 	let Char v, x;
 	if n <= m then return; done
 
-	i = m; 
-	j = n-1; 
+	i = m-1; 
+	j = n; 
 	v = A[n];
 	while True do 
 		i = i + 1;

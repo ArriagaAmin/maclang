@@ -347,7 +347,11 @@
               current_function->id = functions.size();
               functions.push_back(current_function);
 
-              current_function->size = $3;
+              int size = $3;
+              if (size % 4 != 0) {
+                size += 4 - size % 4; 
+              }
+              current_function->size = size;
               current_function->name = *$2;
               current_function->labels2instr[*$2] = current_function->instructions.size();
               current_function->leaders.insert(current_function->instructions.size());

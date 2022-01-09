@@ -923,7 +923,8 @@
             $$ = new NodeBinaryOperator($1, *$2, $3, type);  
 
             bool f1 = t1->toString() == "Float", f2 = t2->toString() == "Float";
-            tac->genTACinstr("assignw", "lt", "test", $1->addr, $3->addr, f1, f2);
+            string assign = $1->type->width == 1 ? "assignb" : "assignw";
+            tac->genTACinstr(assign, "lt", "test", $1->addr, $3->addr, f1, f2);
 
             // Aplicamos backpatching.
             $$->truelist = {tac->instructions.size()};
@@ -941,7 +942,8 @@
             $$ = new NodeBinaryOperator($1, *$2, $3, type); 
 
             bool f1 = t1->toString() == "Float", f2 = t2->toString() == "Float";
-            tac->genTACinstr("assignw", "leq", "test", $1->addr, $3->addr, f1, f2);
+            string assign = $1->type->width == 1 ? "assignb" : "assignw";
+            tac->genTACinstr(assign, "leq", "test", $1->addr, $3->addr, f1, f2);
 
             // Aplicamos backpatching.
             $$->truelist = {tac->instructions.size()};
@@ -959,7 +961,8 @@
             $$ = new NodeBinaryOperator($1, *$2, $3, type); 
 
             bool f1 = t1->toString() == "Float", f2 = t2->toString() == "Float";
-            tac->genTACinstr("assignw", "gt", "test", $1->addr, $3->addr, f1, f2);
+            string assign = $1->type->width == 1 ? "assignb" : "assignw";
+            tac->genTACinstr(assign, "gt", "test", $1->addr, $3->addr, f1, f2);
 
             // Aplicamos backpatching.
             $$->truelist = {tac->instructions.size()};
@@ -977,7 +980,8 @@
             $$ = new NodeBinaryOperator($1, *$2, $3, type); 
 
             bool f1 = t1->toString() == "Float", f2 = t2->toString() == "Float";
-            tac->genTACinstr("assignw", "geq", "test", $1->addr, $3->addr, f1, f2);
+            string assign = $1->type->width == 1 ? "assignb" : "assignw";
+            tac->genTACinstr(assign, "geq", "test", $1->addr, $3->addr, f1, f2);
 
             // Aplicamos backpatching.
             $$->truelist = {tac->instructions.size()};
@@ -1381,10 +1385,16 @@
               // En caso de que el tipo sea un arreglo o estructura (registro o union) 
               // reservamos la memoria necesaria. 
               if (type.back() == ']') {
-                allocArray($2, $$->addr);
+                string arr_addr = tac->newTemp();
+                allocArray($2, arr_addr);
+                tac->gen("malloc " + $$->addr + " 4");
+                tac->gen("assignw " + $$->addr + "[0] " + arr_addr);
               }
               else if (! predefinedTypes.count(type) && type[0] != '^') {
-                allocStruct($2, $$->addr);
+                string struct_addr = tac->newTemp();
+                allocStruct($2, struct_addr);
+                tac->gen("malloc " + $$->addr + " 4");
+                tac->gen("assignw " + $$->addr + "[0] " + struct_addr);
               }
               else {
                 tac->gen("malloc " + $$->addr + " " + to_string($2->width));
