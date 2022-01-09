@@ -955,7 +955,12 @@ void Translator::translateOperationInstruction(T_Instruction instruction, bool i
         else if(instruction.result.is_acc)
         {
             string store_id = instruction.id.back() == 'b' ? "storeb" : "store";
+            string load_id = "load";
 
+            // Check if static
+            if(is_static(instruction.result.name))
+                load_id = "loada";
+            
             // Check if result register is a float
             if(instruction.result.name.front() == 'f' || instruction.result.name.front() == 'F')
             {
@@ -967,7 +972,7 @@ void Translator::translateOperationInstruction(T_Instruction instruction, bool i
             vector<string> reg_descriptor = getRegisterDescriptor(op_registers[0], *regs_to_find);
             if ( find(reg_descriptor.begin(), reg_descriptor.end(), instruction.result.name) == reg_descriptor.end() )
             {
-                loadTemporal(instruction.result.name, op_registers[0], false);
+                m_text.emplace_back(mips_instructions.at(load_id) + space + op_registers[0] + sep + instruction.result.name);
             }
 
             // Maintain descriptors

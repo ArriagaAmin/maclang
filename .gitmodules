@@ -1,0 +1,3 @@
+[submodule "tools/interpreter"]
+	path = tools/interpreter
+	url = https://github.com/LDiazN/tac-interpreter
