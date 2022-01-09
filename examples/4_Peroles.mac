@@ -4,7 +4,7 @@ union perolValue {
 	Bool b;
 	Char c;
 	Int i;
-	Float f;
+	Char[100] s;
 }
 
 register Perol {
@@ -40,7 +40,7 @@ while True do
 		print("1. Booleano");
 		print("2. Caracter");
 		print("3. Entero");
-		print("4. De punto flotante");
+		print("4. String");
 		N = readi();
 		peroles[i].tipo = N;
 
@@ -58,8 +58,8 @@ while True do
 			peroles[i].val.i = readi();
 
 		elsif N == 4 then 
-			print("Indique el flotante: ");
-			peroles[i].val.f = readf();
+			print("Indique el string: ");
+			read(peroles[i].val.s);
 
 		else 
 			print("Tipo invalido");
@@ -84,7 +84,7 @@ while True do
 			print("INT: %i", ints=[peroles[i].val.i]);
 
 		else 
-			print("FLOAT: %f", floats=[peroles[i].val.f]);
+			print("STRING: %f", strings=[peroles[i].val.s]);
 		done 
 	done
 done

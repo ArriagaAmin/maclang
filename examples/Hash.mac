@@ -3,7 +3,7 @@ execonce "String.mac";
 register Hash_entry {
 	^Hash_entry next;
 	String ID;
-	Float value;
+	Int value;
 }
 
 let ^Hash_entry HashNULL = new Hash_entry;
@@ -57,7 +57,7 @@ def Hash_value(^Hash h, String s) => Int {
 	return val % ^h.size;
 }
 
-def Hash_lookup(^Hash h, String s, Float@ result) => Bool {
+def Hash_lookup(^Hash h, String s, Int@ result) => Bool {
 	let ^Hash_entry he = ^(^h.table)[Hash_value(h, s)];
 
 	while ^he.ID[0] != '\0' do 
@@ -71,12 +71,12 @@ def Hash_lookup(^Hash h, String s, Float@ result) => Bool {
 	return False;
 }
 
-def Hash_put(^Hash h, String s, Float n) {
+def Hash_put(^Hash h, String s, Int n) {
 	let ^Hash_entry he;
 	let Int hashval;
-	let Float f;
+	let Int i;
 
-	if Hash_lookup(h, s, f) then
+	if Hash_lookup(h, s, i) then
 		he = new Hash_entry;
 		hashval = Hash_value(h, s);
 		^he.next = ^(^h.table)[hashval];
@@ -94,7 +94,7 @@ def Hash_print(^Hash h) {
 	while i < ^h.size do 
 		he = ^(^h.table)[i];
 		while ^he.ID[0] != '\0' do 
-			print("%s  =>  %f%c", strings=[^he.ID], floats=[^he.value], chars=['\n']);
+			print("%s  =>  %f%c", strings=[^he.ID], ints=[^he.value], chars=['\n']);
 			he = ^he.next;
 		done 
 		i = i + 1;

@@ -11,3 +11,6 @@ tac2mips
 
 # editor
 .vscode/
+
+*.tac 
+*.asm

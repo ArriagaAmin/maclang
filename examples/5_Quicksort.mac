@@ -3,24 +3,19 @@ let String nl = ['\n'];
 # Quicksort sobre enteros 
 dec quicksortInt(Int[] A, Int m, Int n);
 
-# Quicksort sobre flotantes 
-dec quicksortFloat(Float[] A, Int m, Int n);
-
 # Quicksort sobre caracteres
 dec quicksortChar(String A, Int m, Int n);
 
 let Int option, N, i;
 let Int[100] integers;
-let Float[100] floats;
 let Char[100] chars;
 
 
 while True do 
 	print("Menu principal. Escoja una de las siguientes opciones: ");
 	print("1. Ordenar numeros enteros. ");
-	print("2. Ordenar numeros en punto flotante. ");
-	print("3. Ordenar caracteres. ");
-	print("4. Salir. ");
+	print("2. Ordenar caracteres. ");
+	print("3. Salir. ");
 	option = readi();
 	
 	if 0 < option && option < 4 then 
@@ -48,19 +43,6 @@ while True do
 
 		elsif option == 2 then  
 			for (i; 0; N) do 
-				floats[i] = readf();
-			done 
-
-			quicksortFloat(floats, 0, N);
-			print("%cEl arreglo ordenado de flotantes es:%c[", chars=['\n', '[']);
-
-			for (i; 0; N-1) do 
-				print("%f, ", floats=[floats[i]]);
-			done 
-			print("%f]%c", floats=[floats[N-1]], chars=['\n']);
-
-		elsif option == 2 then  
-			for (i; 0; N) do 
 				chars[i] = readc();
 			done 
 
@@ -73,7 +55,7 @@ while True do
 			print("%c]%c", chars=[chars[N-1], '\n']);
 		done
 	
-	elsif option == 4 then 
+	elsif option == 3 then 
 		print("Hasta luego!");
 		break;
 
@@ -112,39 +94,6 @@ def quicksortInt(Int[] A, Int m, Int n) {
 
 	quicksortInt(A, m, j); quicksortInt(A, i+1, n);
 }
-
-
-def swapFloat(Float @a, Float @b) {
-	let Float t = a;
-	a = b;
-	b = t;
-}
-def quicksortFloat(Float[] A, Int m, Int n) {
-	let Int i, j;
-	let Float v, x;
-	if n <= m then return; done
-
-	i = m; 
-	j = n-1; 
-	v = A[n];
-	while True do 
-		while A[i] < v do 
-			i = i + 1;
-		done 
-
-		while A[j] > v do 
-			j = j - 1;
-		done 
-
-		if i >= j then break; done 
-
-		swapFloat(A[i], A[j]);
-	done
-	swapFloat(A[i], A[n]);
-
-	quicksortFloat(A, m, j); quicksortFloat(A, i+1, n);
-}
-
 
 def swapChar(Char @a, Char @b) {
 	let Char t = a;

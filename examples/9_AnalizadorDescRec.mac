@@ -24,7 +24,7 @@ let ^Hash table = Hash_init();
 let String abc = "abcdefghijklmnopqrstuvwxyz";
 let Int N = strlen(abc);
 for (i; 0; N) do 
-	Hash_put(table, [abc[i]], 0.0);
+	Hash_put(table, [abc[i]], 0);
 done
 
 dec ADR_S(^ADR analyzer, String output);
@@ -64,7 +64,7 @@ ${
 	T  ->  N * T
 	    |  N / T
 	    |  N 
-	N  ->  FLOAT
+	N  ->  INT
 	    |  CHAR
 	    |  ( E )
 }$
@@ -138,7 +138,7 @@ def ADR_S(^ADR analyzer, String output) {
 
 def ADR_I(^ADR analyzer) => Bool {
 	let String la = ADR_LA(analyzer), la1 = ADR_LA(analyzer, 1);
-	let Float f;
+	let Int i;
 
 	if 'a' <= la[0] && la[0] <= 'z' && strlen(la) == 1 && strcmp(la1, "=") == 0 then 
 		# I -> CHAR = E 
@@ -150,12 +150,12 @@ def ADR_I(^ADR analyzer) => Bool {
 			return False;
 		done
 
-		stof(^(^analyzer.stack[^analyzer.stackIndex - 1]).out, f);
+		stoi(^(^analyzer.stack[^analyzer.stackIndex - 1]).out, i);
 		strcpy(
 			^(^analyzer.stack[^analyzer.stackIndex - 2]).out,
 			^(^analyzer.stack[^analyzer.stackIndex - 1]).out
 		);
-		Hash_put(table, la, f);
+		Hash_put(table, la, i);
 
 		ADR_pop(analyzer);
 
@@ -183,7 +183,7 @@ def ADR_I(^ADR analyzer) => Bool {
 
 def ADR_E(^ADR analyzer) => Bool {
 	let String la = ADR_LA(analyzer);
-	let Float f, f1, f2;
+	let Int i, i1, i2;
 
 	if ('0' <= la[0] && la[0] <= '9') || ('a' <= la[0] && la[0] <= 'z') || strcmp(la, "(") == 0 then 
 		# E -> T
@@ -211,17 +211,17 @@ def ADR_E(^ADR analyzer) => Bool {
 
 			if strcmp(la, "+") == 0 then 
 				# E -> T + E
-				stof(^(^analyzer.stack[^analyzer.stackIndex - 2]).out, f1);
-				stof(^(^analyzer.stack[^analyzer.stackIndex - 1]).out, f2);
-				f = f1 + f2;
+				stoi(^(^analyzer.stack[^analyzer.stackIndex - 2]).out, i1);
+				stoi(^(^analyzer.stack[^analyzer.stackIndex - 1]).out, i2);
+				i = i1 + i2;
 			else 
 				# E -> T - E;
-				stof(^(^analyzer.stack[^analyzer.stackIndex - 2]).out, f1);
-				stof(^(^analyzer.stack[^analyzer.stackIndex - 1]).out, f2);
-				f = f1 - f2;
+				stoi(^(^analyzer.stack[^analyzer.stackIndex - 2]).out, i1);
+				stoi(^(^analyzer.stack[^analyzer.stackIndex - 1]).out, i2);
+				i = i1 - i2;
 			done 
 
-			ftos(^(^analyzer.stack[^analyzer.stackIndex - 2]).out, f);
+			itos(^(^analyzer.stack[^analyzer.stackIndex - 2]).out, i);
 			ADR_pop(analyzer);
 		done
 
@@ -235,7 +235,7 @@ def ADR_E(^ADR analyzer) => Bool {
 
 def ADR_T(^ADR analyzer) => Bool {
 	let String la = ADR_LA(analyzer);
-	let Float f, f1, f2;
+	let Int i, i1, i2;
 
 	if ('0' <= la[0] && la[0] <= '9') || ('a' <= la[0] && la[0] <= 'z') || strcmp(la, "(") == 0 then 
 		# T -> N
@@ -263,22 +263,22 @@ def ADR_T(^ADR analyzer) => Bool {
 
 			if strcmp(la, "+") == 0 then 
 				# T -> N * T
-				stof(^(^analyzer.stack[^analyzer.stackIndex - 2]).out, f1);
-				stof(^(^analyzer.stack[^analyzer.stackIndex - 1]).out, f2);
-				f = f1 * f2;
+				stoi(^(^analyzer.stack[^analyzer.stackIndex - 2]).out, i1);
+				stoi(^(^analyzer.stack[^analyzer.stackIndex - 1]).out, i2);
+				i = i1 * i2;
 			else 
 				# T -> N / T;
-				stof(^(^analyzer.stack[^analyzer.stackIndex - 1]).out, f);
-				if f == 0 then 
+				stoi(^(^analyzer.stack[^analyzer.stackIndex - 1]).out, i);
+				if i == 0 then 
 					print("No se puede dividir entre 0.");
 					return False;
 				done
-				stof(^(^analyzer.stack[^analyzer.stackIndex - 2]).out, f1);
-				stof(^(^analyzer.stack[^analyzer.stackIndex - 1]).out, f2);
-				f = f1 / f2;
+				stoi(^(^analyzer.stack[^analyzer.stackIndex - 2]).out, i1);
+				stoi(^(^analyzer.stack[^analyzer.stackIndex - 1]).out, i2);
+				i = i1 / i2;
 			done 
 
-			ftos(^(^analyzer.stack[^analyzer.stackIndex - 2]).out, f);
+			itos(^(^analyzer.stack[^analyzer.stackIndex - 2]).out, i);
 			ADR_pop(analyzer);
 		done
 
@@ -313,18 +313,18 @@ def ADR_N(^ADR analyzer) => Bool {
 		);
 		ADR_pop(analyzer);
 
-	elsif isFloat(la) then 
-		# N -> FLOAT
+	elsif isInt(la) then 
+		# N -> INT
 		ADR_shift(analyzer, la);
 		strcpy(^(^analyzer.stack[^analyzer.stackIndex - 2]).out, la);
 		ADR_pop(analyzer);
 
 	elsif 'a' <= la[0] && la[0] <= 'z' && strlen(la) == 1 then 
 		# N -> CHAR 
-		let Float f;
+		let Int i;
 		ADR_shift(analyzer, la);
-		Hash_lookup(table, la, f);
-		ftos(^(^analyzer.stack[^analyzer.stackIndex - 2]).out, f);
+		Hash_lookup(table, la, i);
+		itos(^(^analyzer.stack[^analyzer.stackIndex - 2]).out, i);
 		ADR_pop(analyzer);
 
 	else 

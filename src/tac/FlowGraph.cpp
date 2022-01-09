@@ -335,6 +335,12 @@ void FlowGraph::print(void) {
 
 vector<FlowNode*> FlowGraph::getOrderedBlocks(void) {
     vector<FlowNode*> orderedBlocks;
+    for (pair<uint64_t, FlowNode*> n : this->V) {
+        orderedBlocks.push_back(n.second);
+    }
+    return orderedBlocks;
+
+
     // Cola de nodos a visitar
     queue<uint64_t> toVisit;
     // Nodos que ya se visitaron
@@ -359,6 +365,7 @@ vector<FlowNode*> FlowGraph::getOrderedBlocks(void) {
                     toVisit.pop();
                 }
 
+                urgent = false;
                 if (visited[v->id]) continue;
                 orderedBlocks.push_back(v);
                 visited[v->id] = true;
@@ -525,6 +532,10 @@ void FlowGraph::computeAllUseT(void) {
                 }
                 this->temps_offset[t] = this->V[f_id]->function_size + totalSize + diff;
                 totalSize += this->temps_size[t] + diff;
+            }
+
+            if (totalSize % 4 != 0) {
+                totalSize += 4 - (totalSize % 4);
             }
 
             for (uint64_t B : visited) {

@@ -11,8 +11,10 @@ while True do
 	print("El metodo para calcular el factorial debe ser iterativo? [Y/n] ");
 	option = readc();
 
-	if option == 'n' || option == 'N' then fact = factRec(n);
-	else fact = factIter(n);
+	if option == 'n' || option == 'N' then 
+		fact = factRec(n);
+	else 
+		fact = factIter(n);
 	done 
 
 	print("%i! = %i", ints=[n, fact]);

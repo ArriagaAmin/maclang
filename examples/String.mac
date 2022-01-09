@@ -82,6 +82,16 @@ def strtok(String S, String[] @T, Char c) => Int {
 	return t;
 }	
 
+def isInt(String S) => Bool {
+	if strlen(S) == 0 then return False; done 
+
+	for (i; 0; strlen(S)) do 
+		if S[i] < '0' || S[i] > '9' then return False; done 
+	done 
+
+	return True;
+}
+
 def isFloat(String S) => Bool {
 	let Bool dot = False, decimal = False;
 	let Int N = strlen(S), i = 0;

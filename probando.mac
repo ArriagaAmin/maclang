@@ -1,7 +1,12 @@
-${
+
 def fact(Int n) => Int {
+    print("fact(%i)", ints=[n]);
+    let Int m;
     if n == 0 then return 1; 
-    else return n * fact(n-1);
+    else 
+        m = fact(n-1);
+        print("Resultado: %i", ints=[m]);
+        return n * m;
     done
 }
 
@@ -14,13 +19,12 @@ if input < 0 then
     exit(0);
 done 
 
-print("Resultado calculado!");
-exit(fact(input));
-}$
+print("Calculando factorial de %i", ints=[input]);
+print("Resultado calculado: %i", ints=[fact(input)]);
 
 print(
-    "Caracteres: %c %c%cNumeros: %i %i%cTextos: %s %s%c", 
-    chars=['A', '\t', '\n', '\n', '\n'],
+    "Caracteres: %c %c %c%cNumeros: %i %i%cTextos: %s %s%c", 
+    chars=['A', '\t', 'F', '\n', '\n', '\n'],
     ints=[42, -69],
     strings=["Hello", " world!"],
     end="Final"
