@@ -24,6 +24,7 @@ def Hash_init(Int size=1024, Int hash_val=31) => ^Hash {
 	let Int i = 0;
 	while i < size do 
 		^(^h.table)[i] = HashNULL;
+		i = i + 1;
 	done 
 
 	return h;

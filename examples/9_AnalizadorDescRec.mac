@@ -1,6 +1,8 @@
 execonce "String.mac";
 execonce "Hash.mac";
 
+print("Iniciando analizador descendiente recursivo...");
+
 let Int BUF_SIZE   = 33792;
 let Int N_TOKENS   = 1024; 
 let Int TOKEN_SIZE = 32;
@@ -24,6 +26,7 @@ let ^Hash table = Hash_init();
 let String abc = "abcdefghijklmnopqrstuvwxyz";
 let Int N = strlen(abc);
 for (i; 0; N) do 
+	print("Pushing %c", chars=[abc[i]]);
 	Hash_put(table, [abc[i]], 0);
 done
 
