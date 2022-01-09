@@ -42,6 +42,8 @@ class SymbolsTable {
 
   public:
     vector<int> scopeStack;
+    set<int> globalScopes = {0, 1};
+    bool inGlobal = true;
     // Return type in a function definition.
     string ret_type;
     vector<int> offsets;

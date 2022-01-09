@@ -1345,9 +1345,9 @@
               VarEntry *ve = (VarEntry*) e;
               $$ = new NodeID(*$1, ve->type); 
 
-              // Si nos encontramos fuera de una funcion, usamos la etiqueta de la 
-              // variable.
-              if (table->ret_type == "") {
+              // Si nos encontramos fuera de una funcion o si la variable es global, 
+              // usamos la etiqueta de la variable
+              if (table->ret_type == "" || table->globalScopes.count(ve->scope) > 0) {
                 $$->addr = ve->addr;
               }
               // Si no, usamos desplazamiento en memoria.
@@ -2654,6 +2654,8 @@
   If          : IF 
                 {
                   table->newScope(); 
+                  if (table->inGlobal) 
+                    table->globalScopes.insert(table->currentScope());
                 }
               ;
   OptElsif    : /* lambda */                    { $$ = NULL; }
@@ -2692,6 +2694,8 @@
                 { 
                   table->exitScope();
                   table->newScope(); 
+                  if (table->inGlobal) 
+                    table->globalScopes.insert(table->currentScope());
                 }
               ;
   OptElse     : /* lambda */                    { $$ = NULL; }
@@ -2707,6 +2711,8 @@
                 { 
                   table->exitScope();
                   table->newScope(); 
+                  if (table->inGlobal) 
+                    table->globalScopes.insert(table->currentScope());
                 }
               ;
 
@@ -2770,6 +2776,8 @@
                 tac->breaklist.push({});
                 tac->continuelist.push({});
                 table->newScope(); 
+                if (table->inGlobal) 
+                    table->globalScopes.insert(table->currentScope());
               }
             ;
 
@@ -2897,12 +2905,16 @@
                 tac->breaklist.push({});
                 tac->continuelist.push({});
                 table->newScope();
+                if (table->inGlobal) 
+                    table->globalScopes.insert(table->currentScope());
               }
             ;
 
   For       : FOR  
               { 
                 table->newScope(); 
+                if (table->inGlobal) 
+                    table->globalScopes.insert(table->currentScope());
               }
             ;
 
@@ -2937,6 +2949,7 @@
 
                 table->ret_type = "";
                 table->offsets.pop_back();
+                table->inGlobal = true;
 
                 if ($4 != NULL) {
                   tac->backpatch($4->nextlist, $2->addr + "_end");
@@ -3121,6 +3134,7 @@
                   tac->gen("@function " + fe->addr + " _");
                 }
                 
+                table->inGlobal = false;
                 table->newScope();
                 table->offsets.push_back(0);
               }
@@ -3432,6 +3446,7 @@
               {
                 int s1 = table->currentScope();
                 table->exitScope();
+                table->inGlobal = true;
 
                 if ($3 != NULL && *$1 != "" && $5->toString() != "$Error") {
                   int s2 = table->currentScope();
@@ -3453,6 +3468,7 @@
 
   DecId     : DEC IdDef   
               {
+                table->inGlobal = false;
                 table->newScope();
                 $$ = $2;
               }

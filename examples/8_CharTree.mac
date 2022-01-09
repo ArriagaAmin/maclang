@@ -127,13 +127,12 @@ def CharNode_removeMin(^CharNode N) => ^CharNode {
 def CharNode_print(^CharNode N, Int level) {
 	let Char[32] buffer;
 
-	for (i; 0; level) do print("    "); done 
+	for (i; 0; level) do print("    ", end=""); done 
 
 	if CharNode_cmp(N, NIL) then
 		print("-");
-		print(nl);
 	else
-		print("(%c, %i)%c", chars=[^N.key, '\n'], ints=[^N.count]);
+		print("(Key: %c - Count: %i)", ints=[^N.count], chars=[^N.key]);
 		CharNode_print(^N.child[0], level+1);
 		CharNode_print(^N.child[1], level+1);
 	done
