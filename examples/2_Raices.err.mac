@@ -1,0 +1,19 @@
+execonce "Math.mac";
+execonce "String.mac";
+
+let Float n;
+let Char option;
+
+while True do 
+	print("Indique el numero en punto flotante no negativo: ");
+	n = readf();
+
+	print("sqrt(%f) = %f", floats=[n, sqrt(n)]);
+
+	print("Desea calcular otra raiz? [Y/n] ");
+	option = readc();
+	if option == 'n' || option == 'N' then 
+		print("Hasta luego!");
+		break;
+	done 
+done
