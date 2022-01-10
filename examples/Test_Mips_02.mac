@@ -1,7 +1,0 @@
-print(
-    "Caracteres: %c %c%cNumeros: %i %i%cTextos: %s %s%c", 
-    chars=['A', '\t', '\n', '\n', '\n'],
-    ints=[42, -69],
-    strings=["Hello", " world!"],
-    end="Final"
-);

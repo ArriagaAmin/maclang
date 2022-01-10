@@ -25,7 +25,7 @@ def factIter(Int n) => Int {
 }
 
 def abs(Float x) => Float {
-	if x < 0 then return -x;
+	if x < 0.0 then return -x;
 	else return x;
 	done 
 }
@@ -35,7 +35,7 @@ def sqrt(Float P, Float prec=0.000001) => Float {
 
 	while dif > prec do 
 		aux = x;
-		x = (x + P / x) / 2;
+		x = (x + P / x) / 2.0;
 		dif = abs(x - aux);
 	done 
 
@@ -46,9 +46,12 @@ def prom(Float[] M, Int N) => Float {
 	let Float r = 0.0;
 
 	let Int i = 0;
-	while i < N do r = r + M[i]; done 
+	while i < N do 
+		r = r + M[i]; 
+		i = i + 1;
+	done 
 
-	return r / N;
+	return r / itof(N);
 }
 
 def min(Float[] M, Int N) => Float {
@@ -62,6 +65,7 @@ def min(Float[] M, Int N) => Float {
 
 	while i < N do 
 		if M[i] < min then min = M[i]; done 
+		i = i + 1;
 	done 
 
 	return min;
@@ -78,6 +82,7 @@ def max(Float[] M, Int N) => Float {
 
 	while i < N do 
 		if M[i] > max then max = M[i]; done 
+		i = i + 1;
 	done 
 
 	return max;
@@ -91,9 +96,10 @@ def variance(Float[] M, Int N) => Float {
 
 	while i < N do 
 		r = r + (M[i] - u) * (M[i] - u);
+		i = i + 1;
 	done 
 
-	return r / N;
+	return r / itof(N);
 }
 
 def std_dev(Float[] M, Int N) => Float {

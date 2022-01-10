@@ -5,7 +5,7 @@ let Int N;
 let Char option;
 
 while True do 
-	print("Desea iniciar un calculo estadistico? [Y\n] ");
+	print("Desea iniciar un calculo estadistico? [Y/n] ");
 	option = readc();
 	if option == 'n' || option == 'N' then 
 		print("Hasta luego!");

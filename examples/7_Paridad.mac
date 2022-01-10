@@ -18,7 +18,7 @@ while True do
 	print("Indique el numero: ");
 	N = readi();
 
-	if par(N) then 
+	if par(abs(N)) then 
 		print("El numero es par! Quien lo diria?");
 	else 
 		print("Wow! El numero es impar, no me lo esperaba.");

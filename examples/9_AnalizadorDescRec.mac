@@ -3,8 +3,8 @@ execonce "Hash.mac";
 
 print("Iniciando analizador descendiente recursivo...");
 
-let Int BUF_SIZE   = 33792;
-let Int N_TOKENS   = 1024; 
+let Int BUF_SIZE   = 1024;
+let Int N_TOKENS   = 32; 
 let Int TOKEN_SIZE = 32;
 
 register E {
@@ -22,13 +22,7 @@ register ADR {
 }
 
 # SYMBOLS TABLE
-let ^Hash table = Hash_init();
-let String abc = "abcdefghijklmnopqrstuvwxyz";
-let Int N = strlen(abc);
-for (i; 0; N) do 
-	print("Pushing %c", chars=[abc[i]]);
-	Hash_put(table, [abc[i]], 0);
-done
+let Int[27] table;
 
 dec ADR_S(^ADR analyzer, String output);
 
@@ -38,14 +32,16 @@ let Int tokens;
 let ^ADR analyzer = new ADR;
 
 while True do 
-	print("calc> ");
+	print("calc> ", end="");
 	read(buffer);
 
 	if strcmp(buffer, "quit") == 0 then 
 		break;
 	done
+	print(buffer);
 
 	tokens = strtok(buffer, ^analyzer.entry, ' ');
+	print("Se leyeron %i tokens.", ints=[tokens]);
 	strcpy(^analyzer.entry[tokens], "$");
 
 	ADR_S(analyzer, output);
@@ -124,7 +120,7 @@ def ADR_S(^ADR analyzer, String output) {
 		done 
 
 		if ! ADR_shift(analyzer, "$") then 
-			print("No se pudo reconocer la expresion.");
+			print("1 No se pudo reconocer la expresion.");
 			ADR_freeEntry(analyzer);
 			output[0] = '\0';
 		done 
@@ -133,7 +129,7 @@ def ADR_S(^ADR analyzer, String output) {
 		ADR_pop(analyzer);
 	
 	else
-		print("No se pudo reconocer la expresion.");
+		print("2 No se pudo reconocer la expresion.");
 		ADR_freeEntry(analyzer);
 		output[0] = '\0';
 	done
@@ -158,7 +154,8 @@ def ADR_I(^ADR analyzer) => Bool {
 			^(^analyzer.stack[^analyzer.stackIndex - 2]).out,
 			^(^analyzer.stack[^analyzer.stackIndex - 1]).out
 		);
-		Hash_put(table, la, i);
+
+		table[ctoi(la[0]) - ctoi('a')] = i;
 
 		ADR_pop(analyzer);
 
@@ -177,7 +174,7 @@ def ADR_I(^ADR analyzer) => Bool {
 		ADR_pop(analyzer);
 
 	else 
-		print("No se pudo reconocer la expresion.");
+		print("3 No se pudo reconocer la expresion.");
 		return False;
 	done
 
@@ -229,7 +226,7 @@ def ADR_E(^ADR analyzer) => Bool {
 		done
 
 	else 
-		print("No se pudo reconocer la expresion.");
+		print("4 No se pudo reconocer la expresion.");
 		return False;
 	done
 
@@ -273,7 +270,7 @@ def ADR_T(^ADR analyzer) => Bool {
 				# T -> N / T;
 				stoi(^(^analyzer.stack[^analyzer.stackIndex - 1]).out, i);
 				if i == 0 then 
-					print("No se puede dividir entre 0.");
+					print("5 No se puede dividir entre 0.");
 					return False;
 				done
 				stoi(^(^analyzer.stack[^analyzer.stackIndex - 2]).out, i1);
@@ -286,7 +283,7 @@ def ADR_T(^ADR analyzer) => Bool {
 		done
 
 	else 
-		print("No se pudo reconocer la expresion.");
+		print("6 No se pudo reconocer la expresion.");
 		return False;
 	done
 
@@ -306,7 +303,7 @@ def ADR_N(^ADR analyzer) => Bool {
 		done
 
 		if ! ADR_shift(analyzer, ")") then
-			print("No se pudo reconocer la expresion.");
+			print("7 No se pudo reconocer la expresion.");
 			return False;
 		done 
 
@@ -326,12 +323,12 @@ def ADR_N(^ADR analyzer) => Bool {
 		# N -> CHAR 
 		let Int i;
 		ADR_shift(analyzer, la);
-		Hash_lookup(table, la, i);
+		i = table[ctoi(la[0]) - ctoi('a')];
 		itos(^(^analyzer.stack[^analyzer.stackIndex - 2]).out, i);
 		ADR_pop(analyzer);
 
 	else 
-		print("No se pudo reconocer la expresion.");
+		print("8 No se pudo reconocer la expresion.");
 		return False;
 	done 
 

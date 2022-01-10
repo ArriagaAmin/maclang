@@ -1,2 +1,0 @@
-let Int[3][3] y;
-let Int x = y[0][1];

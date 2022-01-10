@@ -59,6 +59,7 @@ def Hash_value(^Hash h, String s) => Int {
 }
 
 def Hash_lookup(^Hash h, String s, Int@ result) => Bool {
+	print("???");
 	let ^Hash_entry he = ^(^h.table)[Hash_value(h, s)];
 
 	while ^he.ID[0] != '\0' do 
@@ -73,11 +74,14 @@ def Hash_lookup(^Hash h, String s, Int@ result) => Bool {
 }
 
 def Hash_put(^Hash h, String s, Int n) {
+	print("Put");
 	let ^Hash_entry he;
 	let Int hashval;
-	let Int i;
+	let Int i = -1;
+	print("Entrando al lookup");
 
 	if Hash_lookup(h, s, i) then
+		print("Fuera del lookup");
 		he = new Hash_entry;
 		hashval = Hash_value(h, s);
 		^he.next = ^(^h.table)[hashval];
