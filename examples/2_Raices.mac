@@ -8,7 +8,14 @@ while True do
 	print("Indique el numero en punto flotante no negativo: ");
 	n = readf();
 
-	print("sqrt(%f) = %f", floats=[n, sqrt(n)]);
+	if n < 0.0 then 
+		print("No se permiten numeros negativos");
+		continue;
+	elsif n == 0.0 then 
+		print("sqrt(0) = 0");
+	else
+		print("sqrt(%f) = %f", floats=[n, sqrt(n)]);
+	done
 
 	print("Desea calcular otra raiz? [Y/n] ");
 	option = readc();

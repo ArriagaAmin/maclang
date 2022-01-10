@@ -103,18 +103,9 @@ def printPerol(Perol @p) {
 }
 
 def swapPeroles(Perol[] @peroles, Int i, Int j) {
-	print("============= Swap %i %i ===============", ints=[i, j]);
-	printPerol(peroles[i]);
-	printPerol(peroles[j]);
-
 	let Perol aux = peroles[i];
-	print("afafafdaf");
 	peroles[i] = peroles[j];
 	peroles[j] = aux;
-	
-	printPerol(peroles[i]);
-	printPerol(peroles[j]);
-	print("========================================");
 }
 
 def holandSort(Perol[] @peroles, Int N) {
