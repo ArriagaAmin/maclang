@@ -317,7 +317,6 @@ def CharTree_insert(^CharTree T, Char c) {
 				CharTree_rotateLeft(T, ^(^x.parent).parent);
 			done 
 		done
-		print("Luego del if");
 	done 
 	^(^T.root).colour = False;
 }

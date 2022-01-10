@@ -30,4 +30,7 @@ if ! [[ $? -eq "0" ]]; then
 fi;
 
 # Exec .asm in MIPS
-java -jar $DIR/mars.jar "$SOURCE.asm"
+cd $DIR/../tools/optimizer/
+stack run < "$SOURCE.asm"> "$SOURCE.optimized.asm"
+
+java -jar $DIR/mars.jar "$SOURCE.optimized.asm"

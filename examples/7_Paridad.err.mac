@@ -1,0 +1,40 @@
+execonce "String.mac";
+
+let Int N;
+let Char option;
+
+dec abs(Int n) => Int;
+dec par(Int n) => Bool;
+dec impar(Int n) => Bool;
+
+while True do 
+	print("Desea determinar la paridad de un numero? [Y/n] ");
+	option = readc();
+	if option == 'n' || option == 'N' then 
+		print("Gracias por usar nuestros utiles servicios de calidad!");
+		break;
+	done 
+
+	print("Indique el numero: ");
+	N = readi();
+
+	if par(N) then 
+		print("El numero es par! Quien lo diria?");
+	else 
+		print("Wow! El numero es impar, no me lo esperaba.");
+	done 
+done
+
+def par(Int n) => Bool {
+	if n == 0 then return True;
+	elsif n == 1 then return False; 
+	else return impar(n-1);
+	done
+}
+
+def impar(Int n) => Bool {
+	if n == 0 then return False;
+	elsif n == 1 then return True; 
+	else return par(n-1);
+	done
+}

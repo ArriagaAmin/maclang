@@ -14,7 +14,7 @@ register Perol {
 dec holandSort(Perol[] @peroles, Int N);
 dec printPerol(Perol @p);
 
-let Perol[20] peroles;
+let Perol[5] peroles;
 let Int N, i, tipo;
 let Char option;
 
